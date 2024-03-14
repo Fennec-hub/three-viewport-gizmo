@@ -1,0 +1,19 @@
+{
+  "name": "three-viewport-gizmo",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "@types/three": "^0.162.0",
+    "typescript": "^5.2.2",
+    "vite": "^5.1.6"
+  },
+  "dependencies": {
+    "three": "^0.162.0"
+  }
+}
