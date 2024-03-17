@@ -5,6 +5,35 @@
     <link rel="icon" type="image/svg+xml" href="/three.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Three Viewport Gizmo</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        overflow: hidden;
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 14px;
+        color: #aaa;
+        background: #333;
+      }
+
+      canvas {
+        display: block;
+      }
+
+      #cc {
+        position: absolute;
+        bottom: 1em;
+        right: 1em;
+        z-index: 1000;
+      }
+
+      #cc a {
+        color: #fff;
+      }
+    </style>
   </head>
   <body>
     <div id="app"></div>

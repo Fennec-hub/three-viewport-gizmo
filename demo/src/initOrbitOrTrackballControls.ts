@@ -11,7 +11,7 @@ export const initOrbitOrTrackballControls = (
   const initCallBack = (camera: Camera, viewportGizmo: ViewportGizmo) => {
     controls = new ControlsClass(camera, document.body);
     viewportGizmo.target = controls.target;
-    console.log(controls);
+
     // listeners
     viewportGizmo.addEventListener("start", () => (controls.enabled = false));
     viewportGizmo.addEventListener("end", () => (controls.enabled = true));
@@ -31,7 +31,7 @@ export const initOrbitOrTrackballControls = (
   };
 
   const animateControlsCallBack = () => {
-    controls.update();
+    if (controls.enabled) controls.update();
   };
 
   initScene(

@@ -34,12 +34,18 @@ CameraControls.install({
 
 export const initYomotsuCameraControls = () => {
   let controls: CameraControls;
+  let gizmo: ViewportGizmo;
 
   const initCallBack = (camera: Camera, viewportGizmo: ViewportGizmo) => {
     controls = new CameraControls(camera as PerspectiveCamera, document.body);
+    gizmo = viewportGizmo;
 
     viewportGizmo.addEventListener("start", () => (controls.enabled = false));
     viewportGizmo.addEventListener("end", () => (controls.enabled = true));
+    viewportGizmo.addEventListener("change", () => {
+      //controls.reset();
+    });
+
     controls.addEventListener("update", () => {
       controls.getTarget(viewportGizmo.target);
       viewportGizmo.update();
@@ -50,8 +56,9 @@ export const initYomotsuCameraControls = () => {
     controls.setTarget(...model.position.toArray());
   };
 
-  const animateCallBack = (clock: Clock) => {
-    controls.update(clock.getDelta());
+  const clock = new Clock();
+  const animateCallBack = (clock1: Clock) => {
+    if (controls.enabled && !gizmo.animating) controls.update(clock.getDelta());
   };
 
   initScene(initCallBack, animateCallBack, undefined, modelLoadedCallBack);

@@ -1,6 +1,6 @@
-import "./style.css";
 import {
   Camera,
+  CineonToneMapping,
   Clock,
   ConeGeometry,
   DoubleSide,
@@ -53,9 +53,10 @@ export function initScene(
   // Lights and Environment
   const lights = getSceneLights(scene);
   loadEnvMap({
-    path: "studio_small_04_2k.hdr",
+    path: "studio_small_04_1k.hdr",
     renderer,
     scene,
+    toneMapping: CineonToneMapping,
   });
 
   // Viewport Gizmo
