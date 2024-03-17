@@ -17,7 +17,11 @@
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    "paths": {
+      "@/*": ["./demo/src/*"],
+      "@lib/*": ["./lib/*"]
+    }
   },
-  "include": ["demo/src"]
+  "include": ["demo/src", "lib/**/*.ts"]
 }

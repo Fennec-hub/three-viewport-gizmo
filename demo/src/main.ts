@@ -1,24 +1,25 @@
-import './style.css'
-import typescriptLogo from './typescript.svg'
-import viteLogo from '/vite.svg'
-import { setupCounter } from './counter.ts'
+import { OrbitControls, TrackballControls } from "three/examples/jsm/Addons.js";
+import { initOrbitOrTrackballControls } from "./initOrbitOrTrackballControls";
+import { initScene } from "./initScene";
+import { initYomotsuCameraControls } from "./initYomotsuCameraControls";
 
-document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
-  <div>
-    <a href="https://vitejs.dev" target="_blank">
-      <img src="${viteLogo}" class="logo" alt="Vite logo" />
-    </a>
-    <a href="https://www.typescriptlang.org/" target="_blank">
-      <img src="${typescriptLogo}" class="logo vanilla" alt="TypeScript logo" />
-    </a>
-    <h1>Vite + TypeScript</h1>
-    <div class="card">
-      <button id="counter" type="button"></button>
-    </div>
-    <p class="read-the-docs">
-      Click on the Vite and TypeScript logos to learn more
-    </p>
-  </div>
-`
+const hashtag: "" | "orbit" | "trackball" | "controls" =
+  window.location.hash.substring(2) as any;
 
-setupCounter(document.querySelector<HTMLButtonElement>('#counter')!)
+switch (hashtag) {
+  case "orbit":
+    initOrbitOrTrackballControls(OrbitControls);
+    break;
+
+  case "trackball":
+    initOrbitOrTrackballControls(TrackballControls);
+    break;
+
+  case "controls":
+    initYomotsuCameraControls();
+    break;
+
+  default:
+    initScene();
+    break;
+}

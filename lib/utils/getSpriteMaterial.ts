@@ -2,6 +2,7 @@ import { CanvasTexture, Color, RepeatWrapping, SpriteMaterial } from "three";
 
 export function getSpriteMaterial(
   color: Color,
+  textColor: Color,
   text: "x" | "y" | "z" | null = null
 ) {
   const canvas = document.createElement("canvas");
@@ -24,7 +25,7 @@ export function getSpriteMaterial(
   if (text !== null) {
     context.font = "bold 48px Arial";
     context.textAlign = "center";
-    context.fillStyle = "#000";
+    context.fillStyle = textColor.getStyle();
     context.fillText(text.toUpperCase(), 32, 48);
     context.fillText(text.toUpperCase(), 96, 48);
   }

@@ -1,19 +1,52 @@
 {
   "name": "three-viewport-gizmo",
-  "private": true,
-  "version": "0.0.0",
+  "author": "Fennec",
+  "license": "MIT",
+  "files": [
+    "dist"
+  ],
+  "main": "dist/three-viewport-gizmo.umd.cjs",
+  "module": "./dist/three-viewport-gizmo.js",
+  "exports": {
+    ".": {
+      "import": "./dist/three-viewport-gizmo.js",
+      "require": "./dist/three-viewport-gizmo.umd.cjs"
+    }
+  },
+  "version": "0.1.0",
   "type": "module",
+  "types": "dist/lib/ViewportGizmo.d.ts",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview"
+    "dev": "vite serve --config=vite.demo.config.js",
+    "build": "tsc && vite build ",
+    "build:demo": "tsc && vite build --config=vite.demo.config.js",
+    "preview": "vite preview --config=vite.demo.config.js"
   },
   "devDependencies": {
+    "@types/node": "^20.11.28",
     "@types/three": "^0.162.0",
     "typescript": "^5.2.2",
-    "vite": "^5.1.6"
+    "vite": "^5.1.6",
+    "vite-plugin-dts": "^3.7.3"
   },
   "dependencies": {
+    "camera-controls": "^2.8.3",
     "three": "^0.162.0"
-  }
+  },
+  "keywords": [
+    "three.js",
+    "viewport",
+    "gizmo",
+    "helper",
+    "3d",
+    "web"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Fennec-hub/three-viewport-gizmo.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Fennec-hub/three-viewport-gizmo/issues"
+  },
+  "homepage": "https://github.com/Fennec-hub/three-viewport-gizmo#readme"
 }

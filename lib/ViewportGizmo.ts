@@ -16,9 +16,7 @@ import {
   Vector4,
   WebGLRenderer,
 } from "three";
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
-import { TrackballControls } from "three/examples/jsm/controls/TrackballControls";
-import { AxesColors, DomPlacement, GizmoOrientation } from "./types";
+
 import { getDomContainer } from "./utils/getDomContainer";
 import { getAxesLines } from "./utils/getAxesLines";
 import { getDomElement } from "./utils/getDomElement";
@@ -32,11 +30,19 @@ import { resetSprites } from "./utils/resetSprites";
 import { getIntersectionObject } from "./utils/getIntersectionObject";
 import { clamp } from "./utils/clamp";
 
+import {
+  AxesColors,
+  DomPlacement,
+  GizmoOrientation,
+  ViewportGizmoEventMap,
+} from "./types";
+
 export const targetPosition = new Vector3();
 export const targetQuaternion = new Quaternion();
 export const q1 = new Quaternion();
 export const q2 = new Quaternion();
 export const raycaster = new Raycaster();
+
 const clock = new Clock();
 const euler = new Euler();
 const turnRate = 2 * Math.PI; // turn rate in angles per second
@@ -44,8 +50,9 @@ const turnRate = 2 * Math.PI; // turn rate in angles per second
 const mouseStart = new Vector2();
 const mouseAngle = new Vector2();
 const radius = { value: 0 };
+let offsetHeight = 0;
 
-export class ViewportGizmo extends Object3D {
+export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
   camera: OrthographicCamera | PerspectiveCamera;
   orthoCamera = new OrthographicCamera(-1.8, 1.8, 1.8, -1.8, 0, 4);
   isViewHelper = true;
@@ -59,9 +66,7 @@ export class ViewportGizmo extends Object3D {
   domRect: DOMRect;
   dragging: boolean = false;
   renderer: WebGLRenderer;
-  controls?: OrbitControls | TrackballControls;
   viewport: Vector4 = new Vector4();
-  offsetHeight: number = 0;
   colors: AxesColors;
   size: number;
 
@@ -71,13 +76,18 @@ export class ViewportGizmo extends Object3D {
     container,
     placement = "top-right",
     size = 128,
-    colors,
+    colors = [
+      new Color(0xff3653),
+      new Color(0x8adb00),
+      new Color(0x2c8fff),
+      new Color(0x000000),
+    ],
   }: {
     renderer: WebGLRenderer;
     camera: PerspectiveCamera | OrthographicCamera;
     container: HTMLElement | string;
-    placement: DomPlacement;
-    size: number;
+    placement?: DomPlacement;
+    size?: number;
     colors?: AxesColors;
   }) {
     super();
@@ -85,18 +95,14 @@ export class ViewportGizmo extends Object3D {
     this.renderer = renderer;
     this.camera = camera;
     this.canvas = renderer.domElement;
-    this.colors = colors || [
-      new Color(0xff3653),
-      new Color(0x8adb00),
-      new Color(0x2c8fff),
-    ];
+    this.colors = colors;
 
     this.orthoCamera.position.set(0, 0, 2);
 
     this.size = size;
     this.backgroundSphere = getBackgroundSphere();
     this.axesLines = getAxesLines(this.colors);
-    this.spritePoints = getAxesSpritePoints();
+    this.spritePoints = getAxesSpritePoints(this.colors);
 
     this.add(this.backgroundSphere, this.axesLines, ...this.spritePoints);
 
@@ -147,6 +153,8 @@ export class ViewportGizmo extends Object3D {
       this.camera.rotation.setFromQuaternion(q1);
 
       this.updateOrientation(false);
+
+      this.dispatchEvent({ type: "change" });
     };
     const endDrag = () => {
       document.removeEventListener("pointermove", drag, false);
@@ -154,10 +162,11 @@ export class ViewportGizmo extends Object3D {
 
       if (!this.dragging) {
         this.handleClick(e);
-        return;
+        return this.dispatchEvent({ type: "end" });
       }
 
       this.dragging = false;
+      this.dispatchEvent({ type: "end" });
     };
 
     if (this.animating === true) return;
@@ -171,6 +180,8 @@ export class ViewportGizmo extends Object3D {
 
     document.addEventListener("pointermove", drag, false);
     document.addEventListener("pointerup", endDrag, false);
+
+    this.dispatchEvent({ type: "start" });
   }
 
   onPointerMove(e: PointerEvent) {
@@ -197,6 +208,7 @@ export class ViewportGizmo extends Object3D {
     if (!object) return;
 
     this.setOrientation(object.userData.type);
+    this.dispatchEvent({ type: "change" });
   }
 
   handleHover(e: PointerEvent) {
@@ -223,7 +235,7 @@ export class ViewportGizmo extends Object3D {
     if (this.animating) this.animate(delta);
 
     const x = this.domRect.left;
-    const y = this.offsetHeight - this.domRect.bottom;
+    const y = offsetHeight - this.domRect.bottom;
 
     const autoClear = this.renderer.autoClear;
     this.renderer.autoClear = false;
@@ -244,7 +256,7 @@ export class ViewportGizmo extends Object3D {
 
   update() {
     this.domRect = this.domElement.getBoundingClientRect();
-    this.offsetHeight = this.canvas.offsetHeight;
+    offsetHeight = this.canvas.offsetHeight;
     setRadius(this.camera, radius, this.target);
     this.renderer.getViewport(this.viewport);
 

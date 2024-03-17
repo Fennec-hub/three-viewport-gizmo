@@ -8,6 +8,8 @@ export const getDomContainer = (placement: DomPlacement, size: number) => {
   style.width = `${size}px`;
   style.borderRadius = "100%";
   style.position = "absolute";
+  style.background = "#fff3";
+  style.opacity = "0";
   style.zIndex = "10000";
 
   const [y, x] = placement.split("-");
