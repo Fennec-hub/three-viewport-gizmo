@@ -1,8 +1,14 @@
-import { DomPlacement } from "../types";
+import { DomPlacement, GizmoOptions } from "../types";
 
-export const getDomContainer = (placement: DomPlacement, size: number) => {
+export const getDomContainer = (
+  placement: DomPlacement,
+  size: number,
+  offset: Required<GizmoOptions>["offset"]
+) => {
   const div = document.createElement("div");
   const style = div.style;
+
+  const { top, left, right, bottom } = offset;
 
   style.height = `${size}px`;
   style.width = `${size}px`;
@@ -15,7 +21,8 @@ export const getDomContainer = (placement: DomPlacement, size: number) => {
   const [y, x] = placement.split("-");
 
   style.transform = "";
-  style.left = x === "left" ? "0" : x === "center" ? "50%" : "";
+  style.margin = `${top}px ${right}px ${bottom}px ${left}px`;
+  style.left = x === "left" ? "0" : x === "center" ? `50%` : "";
   style.right = x === "right" ? "0" : "";
   style.transform += x === "center" ? "translateX(-50%)" : "";
   style.top = y === "top" ? "0" : y === "bottom" ? "" : "50%";

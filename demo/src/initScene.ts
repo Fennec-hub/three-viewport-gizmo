@@ -19,19 +19,24 @@ import { loadModel } from "./utils/loadModel";
 import { getSceneLights } from "./utils/getSceneLights";
 import { loadEnvMap } from "./utils/loadEnvMap";
 import { get3DText } from "./utils/get3DText";
+import { GizmoOptions } from "@lib/types";
+
+let viewportGizmo: ViewportGizmo;
+
+let camera: PerspectiveCamera;
+let renderer: WebGLRenderer;
 
 export function initScene(
   initControlsCallback?: (camera: Camera, viewportGizmo: ViewportGizmo) => void,
-  animateControlsCallBack?: (clock: Clock) => void,
+  animateControlsCallBack?: () => void,
   resizeControlsCallback?: () => void,
   modelLoadedControlsCallback?: (model: Object3D) => void
 ) {
-  console.trace("test");
   const container = document.querySelector<HTMLElement>("#app")!;
 
   const clock = new Clock();
 
-  const camera = new PerspectiveCamera(
+  camera = new PerspectiveCamera(
     70,
     window.innerWidth / window.innerHeight,
     0.1,
@@ -40,7 +45,7 @@ export function initScene(
   camera.position.set(0, 5, 8);
   const scene = new Scene();
 
-  const renderer = new WebGLRenderer({ antialias: true });
+  renderer = new WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(window.devicePixelRatio);
   renderer.setClearColor(0x333333, 1);
   renderer.setSize(window.innerWidth, window.innerHeight);
@@ -60,11 +65,7 @@ export function initScene(
   });
 
   // Viewport Gizmo
-  const viewportGizmo = new ViewportGizmo({
-    renderer,
-    camera,
-    container,
-  });
+  viewportGizmo = new ViewportGizmo(camera, renderer);
 
   initControlsCallback?.(camera, viewportGizmo);
 
@@ -109,11 +110,13 @@ export function initScene(
 
     camera.lookAt(mesh.position);
 
+    viewportGizmo.target = mesh.position;
+
     modelLoadedControlsCallback?.(mesh);
     viewportGizmo.update();
   });
 
-  get3DText("Three.js", darkGlassMaterial).then((text) => {
+  get3DText("Three.js", "Roboto_Regular", darkGlassMaterial).then((text) => {
     if (!text) return;
 
     text.scale.setScalar(0.01);
@@ -152,7 +155,7 @@ export function initScene(
     octahedron.position.y = 6 + Math.cos(time + 1) * 0.2;
     cone.position.y = 2 + Math.cos(time) * 0.3;
 
-    animateControlsCallBack?.(clock);
+    animateControlsCallBack?.();
   }
 
   window.onresize = () => {

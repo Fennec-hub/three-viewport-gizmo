@@ -1,25 +1,35 @@
 import { Sprite } from "three";
 import { getSpriteMaterial } from "./getSpriteMaterial";
-import { AxesColors } from "@lib/types";
+import { GizmoOptions } from "@lib/types";
+import { COLOR_MANAGER, GIZMO_AXES } from "./constants";
 
-export function getAxesSpritePoints(colors: AxesColors) {
-  const axes = ["x", "y", "z"] as const;
-  return Array(6)
-    .fill(0)
-    .map((_, i) => {
-      const isPositive = i < 3;
-      const sign = isPositive ? "+" : "-";
-      const axis = axes[i % 3];
-      const color = colors[i % 3];
+export function getAxesSpritePoints(options: GizmoOptions) {
+  return GIZMO_AXES.map((key, i) => {
+    const { text, colors, border } = options[key]!;
+    const isPositive = i < 3;
+    const axis = (isPositive ? key : key[1]) as "x" | "y" | "z";
 
-      const sprite = new Sprite(
-        getSpriteMaterial(color, colors[3], isPositive ? axis : null)
-      );
-      sprite.userData.type = `${sign}${axis}`;
-      sprite.scale.setScalar(isPositive ? 0.6 : 0.4);
-      sprite.position[axis] = isPositive ? 1.2 : -1.2;
-      sprite.renderOrder = 1;
+    const { text: textColor, main, hover, hoverText } = colors!;
+    const color = Array.isArray(main) ? main[1] : main!;
+    const forceScale = border && text;
 
-      return sprite;
-    });
+    const sprite = new Sprite(
+      getSpriteMaterial(
+        COLOR_MANAGER.set(color).getStyle(),
+        text,
+        (textColor && COLOR_MANAGER.set(textColor).getStyle()) || null,
+        (hover && COLOR_MANAGER.set(hover).getStyle()) || null,
+        (hoverText && COLOR_MANAGER.set(hoverText).getStyle()) || null,
+        border
+      )
+    );
+
+    sprite.userData.type = key;
+    sprite.userData.forceScale = forceScale;
+    sprite.scale.setScalar(forceScale || isPositive ? 0.6 : 0.4);
+    sprite.position[axis] = isPositive ? 1.2 : -1.2;
+    sprite.renderOrder = 1;
+
+    return sprite;
+  });
 }

@@ -1,22 +1,27 @@
 import { OrbitControls, TrackballControls } from "three/examples/jsm/Addons.js";
-import { initOrbitOrTrackballControls } from "./initOrbitOrTrackballControls";
+import { orbitOrTrackballControls } from "./orbitOrTrackballControls";
 import { initScene } from "./initScene";
-import { initYomotsuCameraControls } from "./initYomotsuCameraControls";
+import { yomotsuCameraControls } from "./yomotsuCameraControls";
+import { configuration } from "./configuration";
 
-const hashtag: "" | "orbit" | "trackball" | "controls" =
+const hashtag: "" | "config" | "orbit" | "trackball" | "controls" =
   window.location.hash.substring(2) as any;
 
 switch (hashtag) {
+  case "config":
+    configuration();
+    break;
+
   case "orbit":
-    initOrbitOrTrackballControls(OrbitControls);
+    orbitOrTrackballControls(OrbitControls);
     break;
 
   case "trackball":
-    initOrbitOrTrackballControls(TrackballControls);
+    orbitOrTrackballControls(TrackballControls);
     break;
 
   case "controls":
-    initYomotsuCameraControls();
+    yomotsuCameraControls();
     break;
 
   default:

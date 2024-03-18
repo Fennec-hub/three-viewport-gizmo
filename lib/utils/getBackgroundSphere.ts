@@ -1,11 +1,17 @@
-import { BackSide, Mesh, MeshBasicMaterial, SphereGeometry } from "three";
+import {
+  BackSide,
+  ColorRepresentation,
+  Mesh,
+  MeshBasicMaterial,
+  SphereGeometry,
+} from "three";
 
-export function getBackgroundSphere() {
-  const geometry = new SphereGeometry(1.6);
+export function getBackgroundSphere(color: ColorRepresentation) {
+  const geometry = new SphereGeometry(1.6, 64, 64);
   const sphere = new Mesh(
     geometry,
     new MeshBasicMaterial({
-      color: 16777215,
+      color,
       side: BackSide,
       transparent: true,
       opacity: 0,

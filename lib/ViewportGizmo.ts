@@ -1,10 +1,10 @@
 import {
   Clock,
-  Color,
   Euler,
   LineSegments,
   Material,
   Mesh,
+  MeshBasicMaterial,
   Object3D,
   OrthographicCamera,
   PerspectiveCamera,
@@ -30,12 +30,8 @@ import { resetSprites } from "./utils/resetSprites";
 import { getIntersectionObject } from "./utils/getIntersectionObject";
 import { clamp } from "./utils/clamp";
 
-import {
-  AxesColors,
-  DomPlacement,
-  GizmoOrientation,
-  ViewportGizmoEventMap,
-} from "./types";
+import { GizmoOptions, ViewportGizmoEventMap } from "./types";
+import { GIZMO_AXES, GIZMO_DEFAULT_OPTIONS } from "./utils/constants";
 
 export const targetPosition = new Vector3();
 export const targetQuaternion = new Quaternion();
@@ -53,8 +49,8 @@ const radius = { value: 0 };
 let offsetHeight = 0;
 
 export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
-  private _backgroundSphere: Mesh;
-  private _axesLines: LineSegments;
+  private _backgroundSphere?: Mesh;
+  private _bgSphereOpacity: number = 0.2;
   private _spritePoints: Sprite[];
   private _canvas: HTMLElement;
   private _domRect: DOMRect;
@@ -71,26 +67,11 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
   size: number;
   speed: number = 1;
 
-  constructor({
-    renderer,
-    camera,
-    container,
-    placement = "top-right",
-    size = 128,
-    colors = [
-      new Color(0xff3653),
-      new Color(0x8adb00),
-      new Color(0x2c8fff),
-      new Color(0x000000),
-    ],
-  }: {
-    renderer: WebGLRenderer;
-    camera: PerspectiveCamera | OrthographicCamera;
-    container: HTMLElement | string;
-    placement?: DomPlacement;
-    size?: number;
-    colors?: AxesColors;
-  }) {
+  constructor(
+    camera: PerspectiveCamera | OrthographicCamera,
+    renderer: WebGLRenderer,
+    options?: GizmoOptions
+  ) {
     super();
 
     this._renderer = renderer;
@@ -99,14 +80,25 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
 
     this._orthoCamera.position.set(0, 0, 2);
 
+    options = Object.assign(GIZMO_DEFAULT_OPTIONS, options || {});
+
+    const { container, placement, size, offset, backgroundSphere } =
+      options as Required<GizmoOptions>;
+
     this.size = size;
-    this._backgroundSphere = getBackgroundSphere();
-    this._axesLines = getAxesLines(colors);
-    this._spritePoints = getAxesSpritePoints(colors);
 
-    this.add(this._backgroundSphere, this._axesLines, ...this._spritePoints);
+    const axesLines = getAxesLines(options);
+    this._spritePoints = getAxesSpritePoints(options);
 
-    this._domElement = getDomContainer(placement, size);
+    this.add(axesLines, ...this._spritePoints);
+
+    if (backgroundSphere.enabled) {
+      this._backgroundSphere = getBackgroundSphere(backgroundSphere.color!);
+      this._bgSphereOpacity = backgroundSphere.opacity ?? 0.2;
+      this.add(this._backgroundSphere);
+    }
+
+    this._domElement = getDomContainer(placement, size, offset);
     getDomElement(container).appendChild(this._domElement);
 
     this._domRect = this._domElement.getBoundingClientRect();
@@ -140,20 +132,18 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
   }
 
   dispose() {
-    this._axesLines.geometry.dispose();
-    (this._axesLines.material as Material).dispose();
+    this.children.forEach((child) => {
+      (child as Mesh<any, Material>).material.dispose();
 
-    this._backgroundSphere.geometry.dispose();
-    (this._backgroundSphere.material as Material).dispose();
-
-    this._spritePoints.forEach((sprite) => {
-      sprite.material.map!.dispose();
-      sprite.material.dispose();
+      if ((child as Mesh).isMesh || (child as LineSegments).isLineSegments)
+        (child as Mesh<any, Material>).geometry.dispose();
+      else (child as Mesh<any, MeshBasicMaterial>).material.map?.dispose();
     });
 
     this._domElement.remove();
   }
 
+  // INTERNALS ↓↓↓
   private _updateOrientation(fromCamera: boolean = true) {
     if (fromCamera) {
       this.quaternion.copy(this.camera.quaternion).invert();
@@ -167,12 +157,12 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
     if (!this.animated) {
       this.camera.quaternion.copy(targetQuaternion);
       this.animating = false;
+      this.dispatchEvent({ type: "change" });
+      this.dispatchEvent({ type: "end" });
       return;
     }
 
     const step = delta * turnRate * this.speed;
-
-    // animate position by doing a slerp and then scaling the position on the unit sphere
 
     q1.rotateTowards(q2, step);
     this.camera.position
@@ -181,20 +171,21 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
       .multiplyScalar(radius.value)
       .add(this.target);
 
-    // animate orientation
-
     this.camera.quaternion.rotateTowards(targetQuaternion, step);
 
     this._updateOrientation();
+    this.dispatchEvent({ type: "change" });
 
     if (q1.angleTo(q2) === 0) {
       this.animating = false;
+      this.dispatchEvent({ type: "end" });
     }
   }
 
-  private _setOrientation(orientation: GizmoOrientation) {
+  private _setOrientation(orientation: (typeof GIZMO_AXES)[number]) {
     prepareAnimationData(this.camera, this.target, orientation, radius);
     this.animating = true;
+    this.dispatchEvent({ type: "start" });
   }
 
   private _startListening() {
@@ -244,10 +235,7 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
       document.removeEventListener("pointermove", drag, false);
       document.removeEventListener("pointerup", endDrag, false);
 
-      if (!this.dragging) {
-        this._handleClick(e);
-        return this.dispatchEvent({ type: "end" });
-      }
+      if (!this.dragging) return this._handleClick(e);
 
       this.dragging = false;
       this.dispatchEvent({ type: "end" });
@@ -270,13 +258,20 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
 
   private _onPointerMove(e: PointerEvent) {
     if (!this.enabled || this.dragging) return;
-    (this._backgroundSphere.material as Material).opacity = 0.2;
+
+    if (this._backgroundSphere)
+      (this._backgroundSphere.material as Material).opacity =
+        this._bgSphereOpacity;
+
     this._handleHover(e);
   }
 
   private _onPointerLeave() {
     if (!this.enabled || this.dragging) return;
-    (this._backgroundSphere.material as Material).opacity = 0;
+
+    if (this._backgroundSphere)
+      (this._backgroundSphere.material as Material).opacity = 0;
+
     resetSprites(this._spritePoints);
     this._domElement.style.cursor = "";
   }

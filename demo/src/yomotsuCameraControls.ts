@@ -32,7 +32,7 @@ CameraControls.install({
   },
 });
 
-export const initYomotsuCameraControls = () => {
+export const yomotsuCameraControls = () => {
   let controls: CameraControls;
   let gizmo: ViewportGizmo;
 
@@ -43,7 +43,7 @@ export const initYomotsuCameraControls = () => {
     viewportGizmo.addEventListener("start", () => (controls.enabled = false));
     viewportGizmo.addEventListener("end", () => (controls.enabled = true));
     viewportGizmo.addEventListener("change", () => {
-      //controls.reset();
+      controls.setPosition(...camera.position.toArray());
     });
 
     controls.addEventListener("update", () => {
@@ -57,7 +57,7 @@ export const initYomotsuCameraControls = () => {
   };
 
   const clock = new Clock();
-  const animateCallBack = (clock1: Clock) => {
+  const animateCallBack = () => {
     if (controls.enabled && !gizmo.animating) controls.update(clock.getDelta());
   };
 

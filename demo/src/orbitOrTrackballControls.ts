@@ -3,7 +3,7 @@ import { initScene } from "./initScene";
 import { Camera, Object3D } from "three";
 import type { ViewportGizmo } from "@lib/ViewportGizmo";
 
-export const initOrbitOrTrackballControls = (
+export const orbitOrTrackballControls = (
   ControlsClass: typeof OrbitControls | typeof TrackballControls
 ) => {
   let controls: OrbitControls | TrackballControls;
