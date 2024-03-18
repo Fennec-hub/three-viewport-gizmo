@@ -19,7 +19,6 @@ import { loadModel } from "./utils/loadModel";
 import { getSceneLights } from "./utils/getSceneLights";
 import { loadEnvMap } from "./utils/loadEnvMap";
 import { get3DText } from "./utils/get3DText";
-import { GizmoOptions } from "@lib/types";
 
 let viewportGizmo: ViewportGizmo;
 

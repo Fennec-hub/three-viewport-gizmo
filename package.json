@@ -1,11 +1,12 @@
 {
   "name": "three-viewport-gizmo",
+  "description": "Three Viewport Gizmo is a highly customizable standalone interactive three.js view helper controls, allowing effortless integration with popular camera libraries.",
   "author": "Fennec",
   "license": "MIT",
   "files": [
     "dist"
   ],
-  "main": "dist/three-viewport-gizmo.umd.cjs",
+  "main": "./dist/three-viewport-gizmo.umd.cjs",
   "module": "./dist/three-viewport-gizmo.js",
   "exports": {
     ".": {
@@ -15,7 +16,7 @@
   },
   "version": "0.1.0",
   "type": "module",
-  "types": "dist/lib/ViewportGizmo.d.ts",
+  "types": "./dist/lib/ViewportGizmo.d.ts",
   "scripts": {
     "dev": "vite serve --config=vite.demo.config.js",
     "build": "tsc && vite build ",
