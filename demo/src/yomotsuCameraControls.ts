@@ -1,4 +1,4 @@
-import { ViewportGizmo } from "@lib/ViewportGizmo";
+import { ViewportGizmo } from "three-viewport-gizmo";
 import CameraControls from "camera-controls";
 
 import {
@@ -11,7 +11,6 @@ import {
   Box3,
   Sphere,
   Raycaster,
-  Camera,
   PerspectiveCamera,
   Object3D,
   Clock,
@@ -36,7 +35,10 @@ export const yomotsuCameraControls = () => {
   let controls: CameraControls;
   let gizmo: ViewportGizmo;
 
-  const initCallBack = (camera: Camera, viewportGizmo: ViewportGizmo) => {
+  const initCallBack = (
+    camera: PerspectiveCamera,
+    viewportGizmo: ViewportGizmo
+  ) => {
     controls = new CameraControls(camera as PerspectiveCamera, document.body);
     gizmo = viewportGizmo;
 

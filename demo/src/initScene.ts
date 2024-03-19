@@ -14,7 +14,6 @@ import {
   SphereGeometry,
   WebGLRenderer,
 } from "three";
-// @ts-ignore
 import { ViewportGizmo } from "three-viewport-gizmo";
 import { loadModel } from "./utils/loadModel";
 import { getSceneLights } from "./utils/getSceneLights";
@@ -27,7 +26,10 @@ let camera: PerspectiveCamera;
 let renderer: WebGLRenderer;
 
 export function initScene(
-  initControlsCallback?: (camera: Camera, viewportGizmo: ViewportGizmo) => void,
+  initControlsCallback?: (
+    camera: PerspectiveCamera,
+    viewportGizmo: ViewportGizmo
+  ) => void,
   animateControlsCallBack?: () => void,
   resizeControlsCallback?: () => void,
   modelLoadedControlsCallback?: (model: Object3D) => void
