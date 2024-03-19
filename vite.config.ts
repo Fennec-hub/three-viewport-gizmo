@@ -1,6 +1,6 @@
 import { resolve } from "path";
 import { defineConfig } from "vite";
-import dts from 'vite-plugin-dts';
+import dts from "vite-plugin-dts";
 
 export default defineConfig({
   build: {
@@ -16,7 +16,11 @@ export default defineConfig({
     },
     sourcemap: true,
   },
-  plugins: [dts()],
+  plugins: [
+    dts({
+      insertTypesEntry: true,
+    }),
+  ],
   server: {
     open: true,
   },

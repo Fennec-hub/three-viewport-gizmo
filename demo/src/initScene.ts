@@ -14,7 +14,8 @@ import {
   SphereGeometry,
   WebGLRenderer,
 } from "three";
-import { ViewportGizmo } from "@lib/ViewportGizmo";
+// @ts-ignore
+import { ViewportGizmo } from "three-viewport-gizmo";
 import { loadModel } from "./utils/loadModel";
 import { getSceneLights } from "./utils/getSceneLights";
 import { loadEnvMap } from "./utils/loadEnvMap";

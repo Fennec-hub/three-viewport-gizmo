@@ -16,7 +16,7 @@
   },
   "version": "0.1.0",
   "type": "module",
-  "types": "./dist/lib/ViewportGizmo.d.ts",
+  "types": "./dist/three-viewport-gizmo.d.ts",
   "scripts": {
     "dev": "vite serve --config=vite.demo.config.js",
     "build": "tsc && vite build ",
@@ -32,7 +32,8 @@
   },
   "dependencies": {
     "camera-controls": "^2.8.3",
-    "three": "^0.162.0"
+    "three": "^0.162.0",
+    "three-viewport-gizmo": "^0.1.0"
   },
   "keywords": [
     "three.js",
