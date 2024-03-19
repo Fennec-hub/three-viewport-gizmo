@@ -5,7 +5,7 @@ export default defineConfig({
   base: "/three-viewport-gizmo/",
   root: "./demo",
   build: {
-    outDir: "./dist/demo",
+    outDir: "../dist/demo",
   },
   server: {
     open: true,
