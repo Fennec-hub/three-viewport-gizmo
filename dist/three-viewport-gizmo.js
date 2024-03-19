@@ -134,7 +134,7 @@ function z(t, i, e, n) {
 }
 function pt(t) {
   return T.map((i, e) => {
-    const { text: n, colors: a, border: c } = t[i], o = e < 3, s = o ? i : i[1], { text: h, main: r, hover: p, hoverText: v } = a, B = Array.isArray(r) ? r[1] : r, L = c && n, f = new tt(
+    const { text: n, colors: a, border: c } = t[i], o = e < 3, s = o ? i : i[1], { text: h, main: r, hover: p, hoverText: v } = a, B = Array.isArray(r) ? r[1] : r, L = c && n, g = new tt(
       ht(
         y.set(B).getStyle(),
         n,
@@ -144,12 +144,12 @@ function pt(t) {
         c
       )
     );
-    return f.userData.type = i, f.userData.forceScale = L, f.scale.setScalar(L || o ? 0.6 : 0.4), f.position[s] = o ? 1.2 : -1.2, f.renderOrder = 1, f;
+    return g.userData.type = i, g.userData.forceScale = L, g.scale.setScalar(L || o ? 0.6 : 0.4), g.position[s] = o ? 1.2 : -1.2, g.renderOrder = 1, g;
   });
 }
 const _ = new F();
 function dt(t, i, e) {
-  d.multiplyScalar(i.value).add(e), _.position.copy(e), _.lookAt(t.position), g.copy(_.quaternion), _.lookAt(d), C.copy(_.quaternion);
+  d.multiplyScalar(i.value).add(e), _.position.copy(e), _.lookAt(t.position), f.copy(_.quaternion), _.lookAt(d), C.copy(_.quaternion);
 }
 function P(t, i, e) {
   i.value = t.position.distanceTo(e);
@@ -219,7 +219,7 @@ function ut(t, i) {
     /* NegativeZ */
   ].material.opacity = 1);
 }
-function gt(t, i, e = 10) {
+function ft(t, i, e = 10) {
   return Math.abs(t.clientX - i.x) < e && Math.abs(t.clientY - i.y) < e;
 }
 function S(t) {
@@ -230,18 +230,18 @@ function S(t) {
     ), t[i].material.map.offset.x = 1;
 }
 const E = new O();
-function ft(t, i, e) {
+function gt(t, i, e) {
   E.x = (t.clientX - i.left) / i.width * 2 - 1, E.y = -((t.clientY - i.top) / i.height) * 2 + 1, q.setFromCamera(E, e);
 }
 function D(t, i, e, n) {
-  ft(t, i, e);
+  gt(t, i, e);
   const a = q.intersectObjects(n);
   return a.length ? a[0].object : null;
 }
 function yt(t, i, e) {
   return Math.min(Math.max(t, i), e);
 }
-const d = new A(), m = new k(), g = new k(), C = new k(), q = new et(), _t = new it(), wt = new u(), bt = 2 * Math.PI, x = new O(), M = new O(), b = { value: 0 };
+const d = new A(), m = new k(), f = new k(), C = new k(), q = new et(), _t = new it(), wt = new u(), bt = 2 * Math.PI, x = new O(), M = new O(), b = { value: 0 };
 let R = 0;
 class Et extends F {
   constructor(e, n, a) {
@@ -273,7 +273,7 @@ class Et extends F {
     const e = _t.getDelta();
     this.animating && this._animate(e);
     const n = this._domRect.left, a = R - this._domRect.bottom, c = this._renderer.autoClear;
-    this._renderer.autoClear = !1, this._renderer.setViewport(n, a, this.size, this.size), this._renderer.render(this, this._orthoCamera), this._renderer.setViewport(this._viewport), this._renderer.autoClear = c;
+    this._renderer.autoClear = !1, this._renderer.setViewport(n, a, this.size, this.size), this._renderer.clear(!1, !0, !1), this._renderer.render(this, this._orthoCamera), this._renderer.setViewport(this._viewport), this._renderer.autoClear = c;
   }
   update() {
     this._domRect = this._domElement.getBoundingClientRect(), R = this._container.offsetHeight, P(this.camera, b, this.target), this._renderer.getViewport(this._viewport), this._updateOrientation();
@@ -294,7 +294,7 @@ class Et extends F {
       return;
     }
     const n = e * bt * this.speed;
-    g.rotateTowards(C, n), this.camera.position.set(0, 0, 1).applyQuaternion(g).multiplyScalar(b.value).add(this.target), this.camera.quaternion.rotateTowards(m, n), this._updateOrientation(), this.dispatchEvent({ type: "change" }), g.angleTo(C) === 0 && (this.animating = !1, this.dispatchEvent({ type: "end" }));
+    f.rotateTowards(C, n), this.camera.position.set(0, 0, 1).applyQuaternion(f).multiplyScalar(b.value).add(this.target), this.camera.quaternion.rotateTowards(m, n), this._updateOrientation(), this.dispatchEvent({ type: "change" }), f.angleTo(C) === 0 && (this.animating = !1, this.dispatchEvent({ type: "end" }));
   }
   _setOrientation(e) {
     mt(this.camera, this.target, e, b), this.animating = !0, this.dispatchEvent({ type: "start" });
@@ -306,11 +306,11 @@ class Et extends F {
     if (!this.enabled)
       return;
     const n = (o) => {
-      !this.dragging && gt(o, x) || (this.dragging || (S(this._spritePoints), this.dragging = !0), M.set(o.clientX, o.clientY).sub(x).multiplyScalar(1 / this._domRect.width * Math.PI), this.rotation.x = yt(
+      !this.dragging && ft(o, x) || (this.dragging || (S(this._spritePoints), this.dragging = !0), M.set(o.clientX, o.clientY).sub(x).multiplyScalar(1 / this._domRect.width * Math.PI), this.rotation.x = yt(
         c.x + M.y,
         Math.PI / -2 + 1e-3,
         Math.PI / 2 - 1e-3
-      ), this.rotation.y = c.y + M.x, this.updateMatrixWorld(), g.copy(this.quaternion).invert(), this.camera.position.set(0, 0, 1).applyQuaternion(g).multiplyScalar(b.value).add(this.target), this.camera.rotation.setFromQuaternion(g), this._updateOrientation(!1), this.dispatchEvent({ type: "change" }));
+      ), this.rotation.y = c.y + M.x, this.updateMatrixWorld(), f.copy(this.quaternion).invert(), this.camera.position.set(0, 0, 1).applyQuaternion(f).multiplyScalar(b.value).add(this.target), this.camera.rotation.setFromQuaternion(f), this._updateOrientation(!1), this.dispatchEvent({ type: "change" }));
     }, a = () => {
       if (document.removeEventListener("pointermove", n, !1), document.removeEventListener("pointerup", a, !1), !this.dragging)
         return this._handleClick(e);
@@ -349,7 +349,7 @@ class Et extends F {
 }
 export {
   Et as ViewportGizmo,
-  g as q1,
+  f as q1,
   C as q2,
   q as raycaster,
   d as targetPosition,

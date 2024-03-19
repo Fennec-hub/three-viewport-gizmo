@@ -3,7 +3,6 @@ import {
   Clock,
   ConeGeometry,
   DoubleSide,
-  GridHelper,
   Mesh,
   MeshPhysicalMaterial,
   Object3D,
