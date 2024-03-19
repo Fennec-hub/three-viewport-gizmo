@@ -1,5 +1,4 @@
 import {
-  Camera,
   CineonToneMapping,
   Clock,
   ConeGeometry,
