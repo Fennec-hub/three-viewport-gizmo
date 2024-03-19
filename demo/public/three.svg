@@ -1,50 +1,10 @@
-<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<svg
-   fill="none"
-   stroke-linecap="square"
-   stroke-miterlimit="10"
-   version="1.1"
-   viewBox="0 0 226.77 226.77"
-   id="svg16"
-   sodipodi:docname="three.svg"
-   inkscape:version="1.1.2 (0a00cf5339, 2022-02-04)"
-   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
-   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
-   xmlns="http://www.w3.org/2000/svg"
-   xmlns:svg="http://www.w3.org/2000/svg">
-  <defs
-     id="defs20" />
-  <sodipodi:namedview
-     id="namedview18"
-     pagecolor="#ffffff"
-     bordercolor="#666666"
-     borderopacity="1.0"
-     inkscape:pageshadow="2"
-     inkscape:pageopacity="0.0"
-     inkscape:pagecheckerboard="0"
-     showgrid="false"
-     inkscape:zoom="3.4484279"
-     inkscape:cx="113.385"
-     inkscape:cy="113.24001"
-     inkscape:window-width="1920"
-     inkscape:window-height="1016"
-     inkscape:window-x="0"
-     inkscape:window-y="0"
-     inkscape:window-maximized="1"
-     inkscape:current-layer="g14" />
-  <g
-     transform="translate(8.964 4.2527)"
-     fill-rule="evenodd"
-     stroke="#fff"
-     stroke-linecap="butt"
-     stroke-linejoin="round"
-     stroke-width="4"
-     id="g14"
-     style="stroke:#250e0e">
-    <path
-       id="path1513"
-       style="color:#000000;fill:#321b1b;stroke:none;stroke-miterlimit:10;-inkscape-stroke:none;fill-opacity:1"
-       d="M 29.324219 28 A 2.0002 2.0002 0 0 0 26.830078 30.402344 L 70.042969 205.3418 A 2.0002 2.0002 0 0 0 73.371094 206.30273 L 203.38867 81.238281 A 2.0002 2.0002 0 0 0 202.55469 77.873047 L 159.33984 65.431641 A 2.0002 2.0002 0 0 0 158.99023 65.259766 A 2.0002 2.0002 0 0 0 158.60156 65.21875 L 73.382812 40.685547 A 2.0002 2.0002 0 0 0 72.976562 40.484375 A 2.0002 2.0002 0 0 0 72.523438 40.4375 L 29.324219 28 z M 31.542969 32.800781 L 68.474609 43.433594 L 40.765625 70.140625 L 31.542969 32.800781 z M 75.216797 45.375 L 111.48242 55.816406 L 84.257812 82.025391 L 75.216797 45.375 z M 71.3125 46.253906 L 80.376953 82.994141 L 44.023438 72.558594 L 71.3125 46.253906 z M 118.12109 57.728516 L 154.49609 68.201172 L 127.19727 94.515625 L 118.12109 57.728516 z M 114.24414 58.708984 L 123.25977 95.25 L 87.076172 84.863281 L 114.24414 58.708984 z M 161.22461 70.138672 L 198.11719 80.759766 L 170.41797 107.40234 L 161.22461 70.138672 z M 157.32422 71.029297 L 166.38867 107.77148 L 130.0332 97.335938 L 157.32422 71.029297 z M 42.267578 76.216797 L 79.259766 86.835938 L 51.492188 113.56641 L 42.267578 76.216797 z M 85.919922 88.693359 L 122.27539 99.128906 L 94.984375 125.43359 L 85.919922 88.693359 z M 82.048828 89.703125 L 91.28125 127.11914 L 54.263672 116.45117 L 82.048828 89.703125 z M 128.83594 101.15234 L 165.86523 111.78125 L 138.05859 138.52734 L 128.83594 101.15234 z M 124.95117 102.10547 L 134.17383 139.47852 L 97.226562 128.83203 L 124.95117 102.10547 z M 53.154297 120.29492 L 89.490234 130.76562 L 62.230469 157.03906 L 53.154297 120.29492 z M 96.820312 132.87695 L 133.07227 143.32422 L 105.85547 169.50391 L 96.820312 132.87695 z M 92.769531 133.16016 L 101.83398 169.90234 L 65.480469 159.46484 L 92.769531 133.16016 z M 63.734375 163.125 L 101.28125 173.9043 L 73.09375 201.01758 L 63.734375 163.125 z "
-       transform="translate(-8.964,-4.2527)" />
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke-linecap="square"  stroke-miterlimit="10" version="1.1" viewBox="0 0 226.77 226.77">
+ <g transform="translate(8.964 4.2527)" fill-rule="evenodd" stroke="#fff" stroke-linecap="butt" stroke-linejoin="round" stroke-width="4">
+  <path d="m63.02 200.61-43.213-174.94 173.23 49.874z"/>
+  <path d="m106.39 50.612 21.591 87.496-86.567-24.945z"/>
+  <path d="m84.91 125.03-10.724-43.465 43.008 12.346z"/>
+  <path d="m63.458 38.153 10.724 43.465-43.008-12.346z"/>
+  <path d="m149.47 62.93 10.724 43.465-43.008-12.346z"/>
+  <path d="m84.915 125.06 10.724 43.465-43.008-12.346z"/>
+ </g>
 </svg>
