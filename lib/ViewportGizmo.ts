@@ -117,6 +117,7 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
     const autoClear = this._renderer.autoClear;
     this._renderer.autoClear = false;
     this._renderer.setViewport(x, y, this.size, this.size);
+    this._renderer.clear(false, true, false);
     this._renderer.render(this, this._orthoCamera);
     this._renderer.setViewport(this._viewport);
     this._renderer.autoClear = autoClear;
