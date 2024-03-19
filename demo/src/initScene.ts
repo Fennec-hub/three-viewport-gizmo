@@ -13,7 +13,7 @@ import {
   SphereGeometry,
   WebGLRenderer,
 } from "three";
-import { ViewportGizmo } from "three-viewport-gizmo";
+import { ViewportGizmo } from "@lib/ViewportGizmo";
 import { loadModel } from "./utils/loadModel";
 import { getSceneLights } from "./utils/getSceneLights";
 import { loadEnvMap } from "./utils/loadEnvMap";

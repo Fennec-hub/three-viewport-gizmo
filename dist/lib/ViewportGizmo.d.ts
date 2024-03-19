@@ -9,7 +9,7 @@ export declare class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
     private _backgroundSphere?;
     private _bgSphereOpacity;
     private _spritePoints;
-    private _canvas;
+    private _container;
     private _domRect;
     private _viewport;
     private _renderer;

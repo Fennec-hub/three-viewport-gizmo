@@ -52,7 +52,7 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
   private _backgroundSphere?: Mesh;
   private _bgSphereOpacity: number = 0.2;
   private _spritePoints: Sprite[];
-  private _canvas: HTMLElement;
+  private _container: HTMLElement;
   private _domRect: DOMRect;
   private _viewport: Vector4 = new Vector4();
   private _renderer: WebGLRenderer;
@@ -75,7 +75,7 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
     super();
 
     this._renderer = renderer;
-    this._canvas = renderer.domElement;
+    this._container = renderer.domElement;
     this.camera = camera;
 
     this._orthoCamera.position.set(0, 0, 2);
@@ -124,7 +124,7 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
 
   update() {
     this._domRect = this._domElement.getBoundingClientRect();
-    offsetHeight = this._canvas.offsetHeight;
+    offsetHeight = this._container.offsetHeight;
     setRadius(this.camera, radius, this.target);
     this._renderer.getViewport(this._viewport);
 

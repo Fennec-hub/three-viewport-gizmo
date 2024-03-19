@@ -1,4 +1,4 @@
-import { ViewportGizmo } from "three-viewport-gizmo";
+import { ViewportGizmo } from "@lib/ViewportGizmo";
 import CameraControls from "camera-controls";
 
 import {

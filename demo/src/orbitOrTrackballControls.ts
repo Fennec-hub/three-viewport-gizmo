@@ -1,7 +1,7 @@
 import { OrbitControls, TrackballControls } from "three/examples/jsm/Addons.js";
 import { initScene } from "./initScene";
 import { Object3D, PerspectiveCamera } from "three";
-import type { ViewportGizmo } from "three-viewport-gizmo";
+import { ViewportGizmo } from "@lib/ViewportGizmo";
 
 export const orbitOrTrackballControls = (
   ControlsClass: typeof OrbitControls | typeof TrackballControls
