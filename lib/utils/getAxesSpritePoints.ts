@@ -4,6 +4,8 @@ import { GizmoOptions } from "@lib/types";
 import { COLOR_MANAGER, GIZMO_AXES } from "./constants";
 
 export function getAxesSpritePoints(options: GizmoOptions) {
+  const { font, resolution: spriteResolution } = options;
+
   return GIZMO_AXES.map((key, i) => {
     const { text, colors, border } = options[key]!;
     const isPositive = i < 3;
@@ -15,6 +17,8 @@ export function getAxesSpritePoints(options: GizmoOptions) {
 
     const sprite = new Sprite(
       getSpriteMaterial(
+        font!,
+        spriteResolution!,
         COLOR_MANAGER.set(color).getStyle(),
         text,
         (textColor && COLOR_MANAGER.set(textColor).getStyle()) || null,

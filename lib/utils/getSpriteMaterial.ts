@@ -1,3 +1,4 @@
+import { GizmoOptions } from "@lib/types";
 import {
   CanvasTexture,
   RepeatWrapping,
@@ -6,6 +7,8 @@ import {
 } from "three";
 
 export function getSpriteMaterial(
+  font: Required<GizmoOptions>["font"],
+  resolution: number,
   color: string,
   text: string | undefined,
   textColor: string | null,
@@ -14,23 +17,34 @@ export function getSpriteMaterial(
   border?: boolean
 ) {
   const canvas = document.createElement("canvas");
-  canvas.width = 128;
-  canvas.height = 64;
+  resolution = resolution ?? 64;
+
+  const offset = 0.02;
+
+  canvas.width = resolution * 2 + resolution * (offset * 4);
+  canvas.height = resolution + resolution * (offset * 2);
+
+  const radius = resolution / 2;
+  const centerY = resolution / 2 + resolution * offset;
+  const circle2X = centerY * 3;
 
   const context = canvas.getContext("2d") as CanvasRenderingContext2D;
 
-  drawCircle(context, 32, color, border);
-  drawCircle(context, 96, hover || "#FFF", border);
+  drawCircle(context, radius, centerY, centerY, color, border);
+  drawCircle(context, radius, circle2X, centerY, hover || "#FFF", border);
 
   if (text != null) {
-    const long = text.length > 1;
-    const y = long ? 46 : 50;
-    context.font = `bold ${long ? 40 : 48}px helvetica`;
+    const family = font.family || "sans-serif";
+    const weight = font.weight || 500;
+
+    const fixY = fitTextInBox(context, text, family, weight, resolution);
+
     context.textAlign = "center";
+    context.textBaseline = "middle";
     context.fillStyle = textColor || "#000";
-    context.fillText(text.toUpperCase(), 32, y);
+    context.fillText(text, centerY, centerY + fixY);
     context.fillStyle = hoverText || textColor || "#000";
-    context.fillText(text.toUpperCase(), 96, y);
+    context.fillText(text, circle2X, centerY + fixY);
   }
 
   const texture = new CanvasTexture(canvas);
@@ -47,15 +61,18 @@ export function getSpriteMaterial(
 
 function drawCircle(
   context: CanvasRenderingContext2D,
+  radius: number,
   x: number,
+  y: number,
   color: string,
-  border?: boolean
+  border: boolean = false
 ) {
-  const radius = border ? 28 : 32;
+  const borderSize = y * 0.1;
+  radius = border ? radius - borderSize : radius;
 
   if (border) context.globalAlpha = 0.2;
   context.beginPath();
-  context.arc(x, 32, radius, 0, 2 * Math.PI);
+  context.arc(x, y, radius, 0, 2 * Math.PI);
   context.closePath();
   context.fillStyle = color;
   context.fill();
@@ -63,7 +80,36 @@ function drawCircle(
   if (border) {
     context.globalAlpha = 1;
     context.strokeStyle = color;
-    context.lineWidth = 4;
+    context.lineWidth = borderSize;
     context.stroke();
   }
+}
+
+function fitTextInBox(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  font: string,
+  weight: string | number,
+  size: number
+) {
+  const square = Math.sqrt(Math.pow(size * 0.7, 2) / 2);
+  let fontSize = square;
+  let textWidth = 0;
+  let textHeight = 0;
+
+  do {
+    ctx.font = `${weight} ${fontSize}px ${font}`;
+    const measure = ctx.measureText(text);
+    textWidth = measure.width;
+    textHeight = measure.fontBoundingBoxDescent;
+    fontSize--;
+  } while (textWidth > square && fontSize > 0);
+
+  const scaleFactor = Math.min(square / textWidth, square / textHeight);
+
+  const finalFontSize = Math.floor(fontSize * scaleFactor);
+
+  ctx.font = `${weight} ${finalFontSize}px ${font}`;
+
+  return square / textHeight;
 }
