@@ -13,6 +13,16 @@ export const GIZMO_DEFAULT_OPTIONS: GizmoOptions = {
     right: 0,
     bottom: 0,
   },
+  font: {
+    family: "helvetica",
+    weight: 900,
+  },
+  resolution: 64,
+  backgroundSphere: {
+    enabled: true,
+    color: 0xffffff,
+    opacity: 0.2,
+  },
   x: {
     text: "X",
     colors: {
@@ -48,11 +58,6 @@ export const GIZMO_DEFAULT_OPTIONS: GizmoOptions = {
     colors: {
       main: "#2c8fff",
     },
-  },
-  backgroundSphere: {
-    enabled: true,
-    color: 0xffffff,
-    opacity: 0.2,
   },
 };
 export const COLOR_MANAGER = new Color();

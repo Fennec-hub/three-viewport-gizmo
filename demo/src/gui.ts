@@ -18,6 +18,16 @@ export const initGUI = () => {
       right: 0,
       bottom: 0,
     },
+    font: {
+      family: "helvetica",
+      weight: 900,
+    },
+    resolution: 64,
+    backgroundSphere: {
+      enabled: true,
+      color: 0xffffff,
+      opacity: 0.2,
+    },
     x: {
       text: "X",
       drawLine: true,
@@ -84,11 +94,6 @@ export const initGUI = () => {
         hoverText: "#000000",
       },
     },
-    backgroundSphere: {
-      enabled: true,
-      color: 0xffffff,
-      opacity: 0.2,
-    },
   };
 
   const additionalOptions = {
@@ -113,12 +118,22 @@ export const initGUI = () => {
   ]);
   gui.add(options, "size", 64, 2048, 1);
   gui.add(options, "lineWidth", 1, 10);
+  gui.add(options, "resolution", 64, 256);
 
   const offset = gui.addFolder("offset").close();
   offset.add(options.offset, "top", 0, 50, 1);
   offset.add(options.offset, "left", 0, 50, 1);
   offset.add(options.offset, "right", 0, 50, 1);
   offset.add(options.offset, "bottom", 0, 50, 1);
+
+  const font = gui.addFolder("font").close();
+  const fontOptions = options.font as Required<Required<GizmoOptions>["font"]>;
+  font.add(fontOptions, "family");
+  font.add(
+    fontOptions,
+    "weight",
+    [100, 200, 300, 400, 500, 600, 700, 800, 900]
+  );
 
   const backgroundSphere = gui.addFolder("backgroundSphere").close();
   const bgSphere = options.backgroundSphere as Required<

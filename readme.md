@@ -158,6 +158,11 @@ const options = {
     color: ColorRepresentation;
     opacity: number;
   };
+  font: {
+    family?: string;
+    weight?: string | number;
+  };
+  resolution: number;
   x: GizmoAxisOptions;
   y: GizmoAxisOptions;
   z: GizmoAxisOptions;
