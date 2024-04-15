@@ -32,7 +32,7 @@ Use it with your `camera` and `renderer` instances, the `container` is the `HTML
 import { ViewportGizmo } from "three-viewport-gizmo";
 
 const container = document.body;
-const viewportGizmo = new ViewportGizmo(renderer, camera, container);
+const viewportGizmo = new ViewportGizmo(camera, renderer, options);
 
 // Animation loop
 function animate() {
@@ -51,7 +51,7 @@ To properly work with `OrbitControls` or `TrackballControls`, you need to set th
 import { ViewportGizmo } from "three-viewport-gizmo";
 
 const container = document.body;
-const viewportGizmo = new ViewportGizmo(renderer, camera, container);
+const viewportGizmo = new ViewportGizmo(camera, renderer, options);
 const controls = new OrbitControls(camera, container);
 
 viewportGizmo.target = controls.target;
@@ -89,7 +89,7 @@ CameraControls.install({ THREE });
 
 // init
 const container = document.body;
-const viewportGizmo = new ViewportGizmo(renderer, camera, container);
+const viewportGizmo = new ViewportGizmo(camera, renderer, options);
 const controls = new CameraControls(camera, container);
 
 // listeners
