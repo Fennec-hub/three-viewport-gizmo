@@ -4,13 +4,24 @@ import { initScene } from "./initScene";
 import { yomotsuCameraControls } from "./yomotsuCameraControls";
 import { configuration } from "./configuration";
 import { initSceneWithComposer } from "./composer";
+import { staticRenderScene } from "./static";
 
-const hashtag: "" | "composer" | "config" | "orbit" | "trackball" | "controls" =
-  window.location.hash.substring(2) as any;
+const hashtag:
+  | ""
+  | "static"
+  | "composer"
+  | "config"
+  | "orbit"
+  | "trackball"
+  | "controls" = window.location.hash.substring(2) as any;
 
 switch (hashtag) {
   case "config":
     configuration();
+    break;
+
+  case "static":
+    staticRenderScene();
     break;
 
   case "composer":
