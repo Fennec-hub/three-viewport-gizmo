@@ -16,17 +16,22 @@ export type GizmoOptions = Partial<{
         right: 0;
         bottom: 0;
     };
+    backgroundSphere: Partial<{
+        enabled: boolean;
+        color: ColorRepresentation;
+        opacity: number;
+    }>;
+    font: {
+        family?: string;
+        weight?: string | number;
+    };
+    resolution: number;
     x: GizmoAxisOptions;
     y: GizmoAxisOptions;
     z: GizmoAxisOptions;
     nx: GizmoAxisOptions;
     ny: GizmoAxisOptions;
     nz: GizmoAxisOptions;
-    backgroundSphere: Partial<{
-        enabled: boolean;
-        color: ColorRepresentation;
-        opacity: number;
-    }>;
 }>;
 export type GizmoAxisOptions = {
     text?: string;
