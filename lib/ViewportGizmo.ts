@@ -1,7 +1,6 @@
 import {
   Clock,
   Euler,
-  LineSegments,
   Material,
   Mesh,
   MeshBasicMaterial,
@@ -108,8 +107,7 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
   }
 
   render() {
-    const delta = clock.getDelta();
-    if (this.animating) this._animate(delta);
+    if (this.animating) this._animate();
 
     const x = this._domRect.left;
     const y = offsetHeight - this._domRect.bottom;
@@ -134,11 +132,10 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
 
   dispose() {
     this.children.forEach((child) => {
-      (child as Mesh<any, Material>).material.dispose();
-
-      if ((child as Mesh).isMesh || (child as LineSegments).isLineSegments)
-        (child as Mesh<any, Material>).geometry.dispose();
-      else (child as Mesh<any, MeshBasicMaterial>).material.map?.dispose();
+      const mesh = child as Mesh<any, MeshBasicMaterial>;
+      mesh.material?.dispose();
+      mesh.material?.map?.dispose();
+      mesh.geometry?.dispose();
     });
 
     this._domElement.remove();
@@ -154,7 +151,7 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
     updateSpritesOpacity(this._spritePoints, this.camera);
   }
 
-  private _animate(delta: number) {
+  private _animate() {
     if (!this.animated) {
       this.camera.quaternion.copy(targetQuaternion);
       this.animating = false;
@@ -162,6 +159,8 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
       this.dispatchEvent({ type: "end" });
       return;
     }
+
+    const delta = clock.getDelta();
 
     const step = delta * turnRate * this.speed;
 
@@ -175,7 +174,7 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
     this.camera.quaternion.rotateTowards(targetQuaternion, step);
 
     this._updateOrientation();
-    this.dispatchEvent({ type: "change" });
+    requestAnimationFrame(() => this.dispatchEvent({ type: "change" }));
 
     if (q1.angleTo(q2) === 0) {
       this.animating = false;
@@ -186,6 +185,7 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
   private _setOrientation(orientation: (typeof GIZMO_AXES)[number]) {
     prepareAnimationData(this.camera, this.target, orientation, radius);
     this.animating = true;
+    clock.start();
     this.dispatchEvent({ type: "start" });
   }
 
