@@ -15,6 +15,7 @@ export declare class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
     private _renderer;
     private _orthoCamera;
     private _domElement;
+    private _parentRect;
     enabled: boolean;
     camera: OrthographicCamera | PerspectiveCamera;
     animated: boolean;

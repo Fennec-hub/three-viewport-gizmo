@@ -57,6 +57,7 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
   private _renderer: WebGLRenderer;
   private _orthoCamera = new OrthographicCamera(-1.8, 1.8, 1.8, -1.8, 0, 4);
   private _domElement: HTMLElement;
+  private _parentRect: DOMRect | undefined;
   enabled: boolean = true;
   camera: OrthographicCamera | PerspectiveCamera;
   animated: boolean = true;
@@ -101,19 +102,28 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
     getDomElement(container).appendChild(this._domElement);
 
     this._domRect = this._domElement.getBoundingClientRect();
+    this._parentRect = this._domElement.parentElement?.getBoundingClientRect();
     this._startListening();
 
     this.update();
   }
 
   render() {
+    this._domRect = this._domElement.getBoundingClientRect();
+    this._parentRect = this._domElement.parentElement?.getBoundingClientRect();
     if (this.animating) this._animate();
 
-    const x = this._domRect.left;
-    const y = offsetHeight - this._domRect.bottom;
+    let x = this._domRect.left;
+    let y = offsetHeight - this._domRect.bottom;
+    if (this._parentRect) {
+      x -= this._parentRect.left;
+      y += this._parentRect.top;
+    }
+
 
     const autoClear = this._renderer.autoClear;
     this._renderer.autoClear = false;
+    this._renderer.getViewport(this._viewport);
     this._renderer.setViewport(x, y, this.size, this.size);
     this._renderer.clear(false, true, false);
     this._renderer.render(this, this._orthoCamera);
