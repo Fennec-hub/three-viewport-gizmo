@@ -1,7 +1,7 @@
 var j = Object.defineProperty;
 var G = (t, e, i) => e in t ? j(t, e, { enumerable: !0, configurable: !0, writable: !0, value: i }) : t[e] = i;
 var p = (t, e, i) => (G(t, typeof e != "symbol" ? e + "" : e, i), i);
-import { Color as Q, BufferGeometry as W, BufferAttribute as D, LineSegments as H, LineBasicMaterial as Z, SphereGeometry as N, Mesh as U, MeshBasicMaterial as J, BackSide as K, CanvasTexture as tt, SRGBColorSpace as et, RepeatWrapping as it, SpriteMaterial as nt, Sprite as at, Object3D as V, Euler as _, Vector3 as z, Vector2 as I, Quaternion as L, Raycaster as rt, Clock as st, Vector4 as ot, OrthographicCamera as ct } from "three";
+import { Color as Q, BufferGeometry as W, BufferAttribute as B, LineSegments as H, LineBasicMaterial as Z, SphereGeometry as N, Mesh as U, MeshBasicMaterial as J, BackSide as K, CanvasTexture as tt, SRGBColorSpace as et, RepeatWrapping as it, SpriteMaterial as nt, Sprite as at, Object3D as V, Euler as y, Vector3 as z, Vector2 as I, Quaternion as L, Raycaster as rt, Clock as st, Vector4 as ot, OrthographicCamera as ct } from "three";
 const lt = (t, e, i) => {
   const n = document.createElement("div"), a = n.style, { top: r, left: s, right: o, bottom: l } = i;
   a.height = `${e}px`, a.width = `${e}px`, a.borderRadius = "100%", a.position = "absolute", a.background = "#fff3", a.opacity = "0", a.zIndex = "10000";
@@ -88,10 +88,10 @@ const lt = (t, e, i) => {
   const n = new W();
   return n.setAttribute(
     "position",
-    new D(new Float32Array(e), 3)
+    new B(new Float32Array(e), 3)
   ), n.setAttribute(
     "color",
-    new D(new Float32Array(i), 3)
+    new B(new Float32Array(i), 3)
   ), new H(
     n,
     new Z({
@@ -124,18 +124,18 @@ function ut(t, e, i, n, a, r, s, o) {
   const c = 0.02;
   l.width = e * 2 + e * (c * 4), l.height = e + e * (c * 2);
   const d = e / 2, h = e / 2 + e * c, b = h * 3, m = l.getContext("2d");
-  if (q(m, d, h, h, i, o), q(m, d, b, h, r || "#FFF", o), n != null) {
+  if (D(m, d, h, h, i, o), D(m, d, b, h, r || "#FFF", o), n != null) {
     const M = t.family || "sans-serif", u = t.weight || 500, F = ft(m, n, M, u, e);
     m.textAlign = "center", m.textBaseline = "middle", m.fillStyle = a || "#000", m.fillText(n, h, h + F), m.fillStyle = s || a || "#000", m.fillText(n, b, h + F);
   }
-  const y = new tt(l);
-  return y.colorSpace = et, y.wrapS = y.wrapT = it, y.repeat.x = 0.5, new nt({
-    map: y,
+  const _ = new tt(l);
+  return _.colorSpace = et, _.wrapS = _.wrapT = it, _.repeat.x = 0.5, new nt({
+    map: _,
     toneMapped: !1,
     transparent: !0
   });
 }
-function q(t, e, i, n, a, r = !1) {
+function D(t, e, i, n, a, r = !1) {
   const s = n * 0.1;
   e = r ? e - s : e, r && (t.globalAlpha = 0.2), t.beginPath(), t.arc(i, n, e, 0, 2 * Math.PI), t.closePath(), t.fillStyle = a, t.fill(), r && (t.globalAlpha = 1, t.strokeStyle = a, t.lineWidth = s, t.stroke());
 }
@@ -153,11 +153,11 @@ function ft(t, e, i, n, a) {
 function gt(t) {
   const { font: e, resolution: i } = t;
   return X.map((n, a) => {
-    const { text: r, colors: s, border: o } = t[n], l = a < 3, c = l ? n : n[1], { text: d, main: h, hover: b, hoverText: m } = s, y = Array.isArray(h) ? h[1] : h, M = o && r, u = new at(
+    const { text: r, colors: s, border: o } = t[n], l = a < 3, c = l ? n : n[1], { text: d, main: h, hover: b, hoverText: m } = s, _ = Array.isArray(h) ? h[1] : h, M = o && r, u = new at(
       ut(
         e,
         i,
-        S.set(y).getStyle(),
+        S.set(_).getStyle(),
         r,
         d && S.set(d).getStyle() || null,
         b && S.set(b).getStyle() || null,
@@ -169,36 +169,36 @@ function gt(t) {
   });
 }
 const v = new V();
-function yt(t, e, i) {
+function _t(t, e, i) {
   f.multiplyScalar(e.value).add(i), v.position.copy(i), v.lookAt(t.position), w.copy(v.quaternion), v.lookAt(f), k.copy(v.quaternion);
 }
-function R(t, e, i) {
+function O(t, e, i) {
   e.value = t.position.distanceTo(i);
 }
-function _t(t, e, i, n) {
+function yt(t, e, i, n) {
   switch (i) {
     case "x":
-      f.set(1, 0, 0), g.setFromEuler(new _(0, Math.PI * 0.5, 0));
+      f.set(1, 0, 0), g.setFromEuler(new y(0, Math.PI * 0.5, 0));
       break;
     case "y":
-      f.set(0, 1, 0), g.setFromEuler(new _(-Math.PI * 0.5, 0, 0));
+      f.set(0, 1, 0), g.setFromEuler(new y(-Math.PI * 0.5, 0, 0));
       break;
     case "z":
-      f.set(0, 0, 1), g.setFromEuler(new _());
+      f.set(0, 0, 1), g.setFromEuler(new y());
       break;
     case "nx":
-      f.set(-1, 0, 0), g.setFromEuler(new _(0, -Math.PI * 0.5, 0));
+      f.set(-1, 0, 0), g.setFromEuler(new y(0, -Math.PI * 0.5, 0));
       break;
     case "ny":
-      f.set(0, -1, 0), g.setFromEuler(new _(Math.PI * 0.5, 0, 0));
+      f.set(0, -1, 0), g.setFromEuler(new y(Math.PI * 0.5, 0, 0));
       break;
     case "nz":
-      f.set(0, 0, -1), g.setFromEuler(new _(0, Math.PI, 0));
+      f.set(0, 0, -1), g.setFromEuler(new y(0, Math.PI, 0));
       break;
     default:
       console.error("ViewHelper: Invalid axis.");
   }
-  R(t, n, e), yt(t, n, e);
+  O(t, n, e), _t(t, n, e);
 }
 const x = new z();
 function wt(t, e) {
@@ -254,7 +254,7 @@ const C = new I();
 function bt(t, e, i) {
   C.x = (t.clientX - e.left) / e.width * 2 - 1, C.y = -((t.clientY - e.top) / e.height) * 2 + 1, Y.setFromCamera(C, i);
 }
-function B(t, e, i, n) {
+function q(t, e, i, n) {
   bt(t, e, i);
   const a = Y.intersectObjects(n);
   return a.length ? a[0].object : null;
@@ -262,7 +262,7 @@ function B(t, e, i, n) {
 function vt(t, e, i) {
   return Math.min(Math.max(t, e), i);
 }
-const f = new z(), g = new L(), w = new L(), k = new L(), Y = new rt(), T = new st(), xt = new _(), Et = 2 * Math.PI, A = new I(), O = new I(), E = { value: 0 };
+const f = new z(), g = new L(), w = new L(), k = new L(), Y = new rt(), T = new st(), xt = new y(), Et = 2 * Math.PI, R = new I(), A = new I(), E = { value: 0 };
 let $ = 0;
 class Ct extends V {
   constructor(i, n, a) {
@@ -293,14 +293,15 @@ class Ct extends V {
     this._spritePoints = gt(a), this.add(d, ...this._spritePoints), c.enabled && (this._backgroundSphere = mt(c.color), this._bgSphereOpacity = c.opacity ?? 0.2, this.add(this._backgroundSphere)), this._domElement = lt(s, o, l), dt(r).appendChild(this._domElement), this._domRect = this._domElement.getBoundingClientRect(), this._parentRect = (h = this._domElement.parentElement) == null ? void 0 : h.getBoundingClientRect(), this._startListening(), this.update();
   }
   render() {
-    this.animating && this._animate();
+    var r;
+    this._domRect = this._domElement.getBoundingClientRect(), this._parentRect = (r = this._domElement.parentElement) == null ? void 0 : r.getBoundingClientRect(), this.animating && this._animate();
     let i = this._domRect.left, n = $ - this._domRect.bottom;
     this._parentRect && (i -= this._parentRect.left, n += this._parentRect.top);
     const a = this._renderer.autoClear;
-    this._renderer.autoClear = !1, this._renderer.setViewport(i, n, this.size, this.size), this._renderer.clear(!1, !0, !1), this._renderer.render(this, this._orthoCamera), this._renderer.setViewport(this._viewport), this._renderer.autoClear = a;
+    this._renderer.autoClear = !1, this._renderer.getViewport(this._viewport), this._renderer.setViewport(i, n, this.size, this.size), this._renderer.clear(!1, !0, !1), this._renderer.render(this, this._orthoCamera), this._renderer.setViewport(this._viewport), this._renderer.autoClear = a;
   }
   update() {
-    this._domRect = this._domElement.getBoundingClientRect(), $ = this._container.offsetHeight, R(this.camera, E, this.target), this._renderer.getViewport(this._viewport), this._updateOrientation();
+    this._domRect = this._domElement.getBoundingClientRect(), $ = this._container.offsetHeight, O(this.camera, E, this.target), this._renderer.getViewport(this._viewport), this._updateOrientation();
   }
   dispose() {
     this.children.forEach((i) => {
@@ -322,7 +323,7 @@ class Ct extends V {
     w.rotateTowards(k, n), this.camera.position.set(0, 0, 1).applyQuaternion(w).multiplyScalar(E.value).add(this.target), this.camera.quaternion.rotateTowards(g, n), this._updateOrientation(), requestAnimationFrame(() => this.dispatchEvent({ type: "change" })), w.angleTo(k) === 0 && (this.animating = !1, this.dispatchEvent({ type: "end" }));
   }
   _setOrientation(i) {
-    _t(this.camera, this.target, i, E), this.animating = !0, T.start(), this.dispatchEvent({ type: "start" });
+    yt(this.camera, this.target, i, E), this.animating = !0, T.start(), this.dispatchEvent({ type: "start" });
   }
   _startListening() {
     this._domElement.onpointerdown = (i) => this._onPointerDown(i), this._domElement.onpointermove = (i) => this._onPointerMove(i), this._domElement.onpointerleave = () => this._onPointerLeave();
@@ -331,11 +332,11 @@ class Ct extends V {
     if (!this.enabled)
       return;
     const n = (s) => {
-      !this.dragging && St(s, A) || (this.dragging || (P(this._spritePoints), this.dragging = !0), O.set(s.clientX, s.clientY).sub(A).multiplyScalar(1 / this._domRect.width * Math.PI), this.rotation.x = vt(
-        r.x + O.y,
+      !this.dragging && St(s, R) || (this.dragging || (P(this._spritePoints), this.dragging = !0), A.set(s.clientX, s.clientY).sub(R).multiplyScalar(1 / this._domRect.width * Math.PI), this.rotation.x = vt(
+        r.x + A.y,
         Math.PI / -2 + 1e-3,
         Math.PI / 2 - 1e-3
-      ), this.rotation.y = r.y + O.x, this.updateMatrixWorld(), w.copy(this.quaternion).invert(), this.camera.position.set(0, 0, 1).applyQuaternion(w).multiplyScalar(E.value).add(this.target), this.camera.rotation.setFromQuaternion(w), this._updateOrientation(!1), this.dispatchEvent({ type: "change" }));
+      ), this.rotation.y = r.y + A.x, this.updateMatrixWorld(), w.copy(this.quaternion).invert(), this.camera.position.set(0, 0, 1).applyQuaternion(w).multiplyScalar(E.value).add(this.target), this.camera.rotation.setFromQuaternion(w), this._updateOrientation(!1), this.dispatchEvent({ type: "change" }));
     }, a = () => {
       if (document.removeEventListener("pointermove", n, !1), document.removeEventListener("pointerup", a, !1), !this.dragging)
         return this._handleClick(i);
@@ -343,9 +344,9 @@ class Ct extends V {
     };
     if (this.animating === !0)
       return;
-    i.preventDefault(), A.set(i.clientX, i.clientY);
+    i.preventDefault(), R.set(i.clientX, i.clientY);
     const r = xt.copy(this.rotation);
-    R(this.camera, E, this.target), document.addEventListener("pointermove", n, !1), document.addEventListener("pointerup", a, !1), this.dispatchEvent({ type: "start" });
+    O(this.camera, E, this.target), document.addEventListener("pointermove", n, !1), document.addEventListener("pointerup", a, !1), this.dispatchEvent({ type: "start" });
   }
   _onPointerMove(i) {
     !this.enabled || this.dragging || (this._backgroundSphere && (this._backgroundSphere.material.opacity = this._bgSphereOpacity), this._handleHover(i));
@@ -354,7 +355,7 @@ class Ct extends V {
     !this.enabled || this.dragging || (this._backgroundSphere && (this._backgroundSphere.material.opacity = 0), P(this._spritePoints), this._domElement.style.cursor = "");
   }
   _handleClick(i) {
-    const n = B(
+    const n = q(
       i,
       this._domRect,
       this._orthoCamera,
@@ -363,7 +364,7 @@ class Ct extends V {
     n && (this._setOrientation(n.userData.type), this.dispatchEvent({ type: "change" }));
   }
   _handleHover(i) {
-    const n = B(
+    const n = q(
       i,
       this._domRect,
       this._orthoCamera,

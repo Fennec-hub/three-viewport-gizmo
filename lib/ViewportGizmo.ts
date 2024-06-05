@@ -109,6 +109,8 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
   }
 
   render() {
+    this._domRect = this._domElement.getBoundingClientRect();
+    this._parentRect = this._domElement.parentElement?.getBoundingClientRect();
     if (this.animating) this._animate();
 
     let x = this._domRect.left;
@@ -121,6 +123,7 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
 
     const autoClear = this._renderer.autoClear;
     this._renderer.autoClear = false;
+    this._renderer.getViewport(this._viewport);
     this._renderer.setViewport(x, y, this.size, this.size);
     this._renderer.clear(false, true, false);
     this._renderer.render(this, this._orthoCamera);
