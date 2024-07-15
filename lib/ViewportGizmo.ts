@@ -123,6 +123,14 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
 
   update() {
     this._domRect = this._domElement.getBoundingClientRect();
+    const parentPos = this._domElement.parentElement.getBoundingClientRect();
+    const childPos  = this._domElement.getBoundingClientRect();
+    this._domRect = {};
+    this._domRect.top    = childPos.top - parentPos.top,
+    this._domRect.right  = childPos.right - parentPos.right,
+    this._domRect.bottom = childPos.bottom - parentPos.bottom,
+    this._domRect.left   = childPos.left - parentPos.left;
+    
     offsetHeight = this._container.offsetHeight;
     setRadius(this.camera, radius, this.target);
     this._renderer.getViewport(this._viewport);
