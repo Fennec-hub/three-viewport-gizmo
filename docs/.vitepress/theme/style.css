@@ -1,0 +1,52 @@
+:root {
+  /* Indigo to more red tones */
+  --vp-c-indigo-1: #fb8982 !important;
+  --vp-c-indigo-2: #e25656 !important;
+  --vp-c-indigo-3: #cc4343 !important;
+  --vp-c-indigo-soft: rgba(230, 66, 66, 0.16) !important;
+
+  /* Purple to orange tones */
+  --vp-c-purple-1: #fb8982 !important;#ffb891 !important;
+  --vp-c-purple-2: #e25656 !important;#e77c5c !important;
+  --vp-c-purple-3: #cc4343 !important;#dd633e !important;
+  --vp-c-purple-soft: rgba(230, 66, 66, 0.16) !important;t: rgba(255, 136, 100, 0.16) !important;
+}
+
+.VPNavBarMenu a:nth-of-type(2) {
+  position: relative;
+}
+
+.VPNavBarMenu a:nth-of-type(2).active {
+  display: none;
+}
+
+.VPNavBarMenu a:nth-of-type(2) span {
+  position: relative;
+  font-weight: 900 !important;
+}
+
+.VPNavBarMenu a:nth-of-type(2):before {
+  content: "";
+  position: absolute;
+  top: 20%;
+  left: 0;
+  width: 100%;
+  height: 60%;
+
+  background: var(--vp-c-brand-3);
+  border-radius: 2em;
+}
+
+svg {
+  width: 1em;
+  height: 1em;
+}
+
+.VPHero .container {
+  align-items: center;
+}
+
+.VPHero .image {
+  aspect-ratio: 1;
+}
+

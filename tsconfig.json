@@ -20,9 +20,19 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "paths": {
-      "@/*": ["./demo/src/*"],
-      "@lib/*": ["./lib/*"]
+      "@/*": ["./live/src/*"],
+      "@lib/*": ["./lib/*"],
+      "@docs/*": ["./docs/*"]
     }
   },
-  "include": ["demo/src", "lib/**/*.ts"]
+  "include": [
+    "live/src",
+    "lib/**/*.ts",
+    "docs/**/*.ts",
+    "docs/**/*.vue",
+    "docs/**/*.md"
+  ],
+  "vueCompilerOptions": {
+    "vitePressExtensions": [".md"]
+  }
 }

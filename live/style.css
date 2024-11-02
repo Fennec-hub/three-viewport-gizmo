@@ -1,0 +1,114 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 14px;
+  color: #aaa;
+  background: #333;
+}
+
+canvas {
+  display: block;
+}
+
+#cc {
+  position: absolute;
+  bottom: 1em;
+  right: 1em;
+  z-index: 1000;
+}
+
+#cc a {
+  color: #fff;
+}
+
+/* ---------------- */
+#multi_viewport {
+  z-index: 1;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  display: grid;
+  margin: 0.5em;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  //gap: 0.5em;
+}
+
+.viewport {
+  position: relative;
+  border: 0.25em solid #ccc;
+}
+
+#grid {
+  display: grid;
+  grid-template-columns: 0.3fr 1fr 0.3fr;
+  gap: 4px;
+  height: 100vh;
+  width: 100vw;
+  box-sizing: border-box;
+  background: #e5e5e5;
+  padding: 4px;
+}
+
+.column {
+  background: #f0f0f0;
+  border: 1px solid #ccc;
+  position: relative;
+  overflow: hidden;
+}
+
+.cell {
+  background: white;
+  border: 1px solid #ddd;
+  box-sizing: border-box;
+  position: relative;
+  overflow: hidden;
+  height: auto;
+}
+
+.resize-handle-x {
+  position: absolute;
+  right: -4px;
+  top: 0;
+  width: 8px;
+  height: 100%;
+  background: transparent;
+  cursor: col-resize;
+  z-index: 10;
+}
+
+.resize-handle-y {
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  width: 100%;
+  height: 8px;
+  background: transparent;
+  cursor: row-resize;
+  z-index: 10;
+}
+
+.resize-handle-x:hover,
+.resize-handle-y:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.middle-column {
+  display: grid;
+  grid-template-rows: 0.2fr 0.7fr 0.2fr;
+  gap: 4px;
+  max-height: 100%;
+}
+
+.responsive-gizmo {
+  width: auto !important;
+  height: 50% !important;
+  aspect-ratio: 1;
+}

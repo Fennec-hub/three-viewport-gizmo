@@ -1,9 +1,10 @@
-import { Sprite } from "three";
+import { Color, Sprite } from "three";
 import { getSpriteMaterial } from "./getSpriteMaterial";
 import { GizmoOptions } from "@lib/types";
-import { COLOR_MANAGER, GIZMO_AXES } from "./constants";
+import { GIZMO_AXES } from "./constants";
 
 export function getAxesSpritePoints(options: GizmoOptions) {
+  const colorManager = new Color();
   const { font, resolution: spriteResolution } = options;
 
   return GIZMO_AXES.map((key, i) => {
@@ -19,20 +20,20 @@ export function getAxesSpritePoints(options: GizmoOptions) {
       getSpriteMaterial(
         font!,
         spriteResolution!,
-        COLOR_MANAGER.set(color).getStyle(),
+        colorManager.set(color).getStyle(),
         text,
-        (textColor && COLOR_MANAGER.set(textColor).getStyle()) || null,
-        (hover && COLOR_MANAGER.set(hover).getStyle()) || null,
-        (hoverText && COLOR_MANAGER.set(hoverText).getStyle()) || null,
+        textColor != null ? colorManager.set(textColor).getStyle() : null,
+        hover != null ? colorManager.set(hover).getStyle() : null,
+        hoverText != null ? colorManager.set(hoverText).getStyle() : null,
         border
       )
     );
 
-    sprite.userData.type = key;
+    sprite.userData.axis = key;
     sprite.userData.forceScale = forceScale;
     sprite.scale.setScalar(forceScale || isPositive ? 0.6 : 0.4);
     sprite.position[axis] = isPositive ? 1.2 : -1.2;
-    sprite.renderOrder = 1;
+    sprite.renderOrder = 100;
 
     return sprite;
   });

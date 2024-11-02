@@ -1,14 +1,14 @@
 import {
+  BufferGeometry,
   Clock,
   Euler,
-  Material,
+  Matrix4,
   Mesh,
   MeshBasicMaterial,
   Object3D,
   OrthographicCamera,
   PerspectiveCamera,
   Quaternion,
-  Raycaster,
   Sprite,
   Vector2,
   Vector3,
@@ -16,56 +16,165 @@ import {
   WebGLRenderer,
 } from "three";
 
-import { getDomContainer } from "./utils/getDomContainer";
+import { createDomElement } from "./utils/createDomElement";
 import { getAxesLines } from "./utils/getAxesLines";
 import { getDomElement } from "./utils/getDomElement";
 import { getBackgroundSphere } from "./utils/getBackgroundSphere";
 import { getAxesSpritePoints } from "./utils/getAxesSpritePoints";
-import { prepareAnimationData } from "./utils/prepareAnimationData";
-import { setRadius } from "./utils/setRadius";
 import { updateSpritesOpacity } from "./utils/updateSpritesOpacity";
 import { isClick } from "./utils/isClick";
 import { resetSprites } from "./utils/resetSprites";
 import { getIntersectionObject } from "./utils/getIntersectionObject";
 import { clamp } from "./utils/clamp";
 
-import { GizmoOptions, ViewportGizmoEventMap } from "./types";
-import { GIZMO_AXES, GIZMO_DEFAULT_OPTIONS } from "./utils/constants";
+import {
+  GizmoOptions,
+  ViewportGizmoEventMap,
+  GizmoDomPlacement,
+  GizmoAxisOptions,
+  OrientationAxes,
+} from "./types";
+import {
+  GIZMO_AXES,
+  GIZMO_AXES_ORIENTATIONS,
+  GIZMO_DEFAULT_OPTIONS,
+  GIZMO_TURN_RATE,
+} from "./utils/constants";
+import { setSphereColor } from "./utils/setSphereColor";
+import type { OrbitControls } from "three/examples/jsm/Addons.js";
 
-export const targetPosition = new Vector3();
-export const targetQuaternion = new Quaternion();
-export const q1 = new Quaternion();
-export const q2 = new Quaternion();
-export const raycaster = new Raycaster();
+export type {
+  GizmoOptions,
+  ViewportGizmoEventMap,
+  GizmoDomPlacement,
+  GizmoAxisOptions,
+  OrientationAxes,
+};
 
-const clock = new Clock();
-const euler = new Euler();
-const turnRate = 2 * Math.PI; // turn rate in angles per second
+const _targetPosition = /*@__PURE__*/ new Vector3();
+const _targetQuaternion = /*@__PURE__*/ new Quaternion();
+const _quaternionStart = /*@__PURE__*/ new Quaternion();
+const _quaternionEnd = /*@__PURE__*/ new Quaternion();
+const _matrix = /*@__PURE__*/ new Matrix4();
+const _clock = /*@__PURE__*/ new Clock();
+const _euler = /*@__PURE__*/ new Euler();
+const _mouseStart = /*@__PURE__*/ new Vector2();
+const _mouseAngle = /*@__PURE__*/ new Vector2();
 
-const mouseStart = new Vector2();
-const mouseAngle = new Vector2();
-const radius = { value: 0 };
-let offsetHeight = 0;
-
+/**
+ * ViewportGizmo is a 3D camera orientation controller that provides a visual interface
+ * for changing the camera's viewing angle. It creates a widget that shows the current
+ * camera orientation and allows direct manipulation of the view through clicking or dragging.
+ *
+ * @fires ViewportGizmo#start - Fired when a view change interaction begins
+ * @fires ViewportGizmo#change - Fired during view changes
+ * @fires ViewportGizmo#end - Fired when a view change interaction ends
+ *
+ * @extends Object3D
+ */
 export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
-  private _backgroundSphere?: Mesh;
-  private _bgSphereOpacity: number = 0.2;
-  private _spritePoints: Sprite[];
-  private _container: HTMLElement;
-  private _domRect: DOMRect;
-  private _viewport: Vector4 = new Vector4();
-  private _renderer: WebGLRenderer;
-  private _orthoCamera = new OrthographicCamera(-1.8, 1.8, 1.8, -1.8, 0, 4);
-  private _domElement: HTMLElement;
+  /** Whether the gizmo is currently active and responding to user input */
   enabled: boolean = true;
+
+  /** The camera being controlled by this gizmo */
   camera: OrthographicCamera | PerspectiveCamera;
-  animated: boolean = true;
-  animating = false;
+
+  /** The point around which the camera rotates */
   target = new Vector3();
-  dragging: boolean = false;
-  size: number;
+
+  /** Whether view changes should be animated */
+  animated: boolean = true;
+
+  /** The speed of view change animations. Higher values result in faster animations */
   speed: number = 1;
 
+  /**
+   * Indicates whether the gizmo is currently being animated or not,
+   * Useful when interacting with other camera controllers
+   *
+   * @readonly This value is set internally.
+   **/
+  animating = false;
+
+  private _sphere?: Mesh<BufferGeometry, MeshBasicMaterial>;
+  private _sphereConfig?: GizmoOptions["sphere"];
+  private _spritePoints: Sprite[];
+  private _viewport: Vector4 = new Vector4();
+  private _originalViewport: Vector4 = new Vector4();
+  private _originalScissor: Vector4 = new Vector4();
+  private _renderer: WebGLRenderer;
+  private _orthoCamera = new OrthographicCamera(-1.8, 1.8, 1.8, -1.8, 0, 4);
+  private _container: HTMLElement;
+  private _domElement: HTMLElement;
+  private _domRect!: DOMRect;
+  private _dragging: boolean = false;
+  private _distance: number = 0;
+  private _controls?: OrbitControls;
+  private _controlsListeners?: {
+    start: () => void;
+    end: () => void;
+    change: () => void;
+  };
+
+  /**
+   * Creates a new ViewportGizmo instance.
+   *
+   * @param camera - The camera to be controlled by this gizmo
+   * @param renderer - The WebGL renderer used to render the scene
+   * @param options - {@link GizmoOptions}, Configuration options for the gizmo
+   * @param options.container - Parent element for the gizmo. Can be an HTMLElement or a CSS selector string
+   * @param options.size - Size of the gizmo widget in pixels
+   * @param options.placement - Position of the gizmo in the viewport. One of:
+   *
+   *    - `"top-left"`
+   *    - `"top-center"`
+   *    - `"top-right"`
+   *    - `"center-left"`
+   *    - `"center-center"`
+   *    - `"center-right"`
+   *    - `"bottom-left"`
+   *    - `"bottom-center"`
+   *    - `"bottom-right"`
+   *
+   * @param options.animated - Whether view changes should be animated
+   * @param options.speed - Animation speed multiplier
+   * @param options.lineWidth - Width of the axis lines
+   * @param options.offset - Offset from the container edges in pixels
+   * @param options.offset.left - Offset from the left edge
+   * @param options.offset.top - Offset from the top edge
+   * @param options.offset.right - Offset from the right edge
+   * @param options.offset.bottom - Offset from the bottom edge
+   * @param options.sphere - Configuration for the background sphere
+   * @param options.sphere.enabled - Whether to show the background sphere
+   * @param options.sphere.color - Color of the background sphere
+   * @param options.sphere.opacity - Opacity of the background sphere
+   * @param options.sphere.hoverColor - Hover color of the background sphere
+   * @param options.sphere.hoverOpacity - Hover opacity of the background sphere
+   * @param options.id - HTML id attribute for the gizmo container
+   * @param options.className - HTML class attribute for the gizmo container
+   * @param options.font - Font configuration for axis labels
+   * @param options.font.family - Font family for axis labels
+   * @param options.font.weight - Font weight for axis labels
+   * @param options.resolution - Resolution of the gizmo rendering
+   * @param options.x - Configuration for positive X axis
+   * @param options.y - Configuration for positive Y axis
+   * @param options.z - Configuration for positive Z axis
+   * @param options.nx - Configuration for negative X axis
+   * @param options.ny - Configuration for negative Y axis
+   * @param options.nz - Configuration for negative Z axis
+   *
+   * @AXIS The following is the configuration for each AXIS `options.[x | y | z | nx | ny | nz]`:
+   *
+   * @param options.AXIS.text - Custom text label for the axis
+   * @param options.AXIS.circle - Whether to draw a circle indicator
+   * @param options.AXIS.line - Whether to draw the axis line
+   * @param options.AXIS.border - Whether to draw a border around the axis indicator
+   * @param options.AXIS.colors - Color configuration for the axis
+   * @param options.AXIS.colors.main - Main color(s) for the axis. Can be a single color or [normal, hover] colors
+   * @param options.AXIS.colors.hover - Hover color for the axis
+   * @param options.AXIS.colors.text - Color for the axis label
+   * @param options.AXIS.colors.hoverText - Color for the axis label on hover
+   */
   constructor(
     camera: PerspectiveCamera | OrthographicCamera,
     renderer: WebGLRenderer,
@@ -74,63 +183,175 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
     super();
 
     this._renderer = renderer;
-    this._container = renderer.domElement;
     this.camera = camera;
 
     this._orthoCamera.position.set(0, 0, 2);
 
-    options = Object.assign(GIZMO_DEFAULT_OPTIONS, options || {});
+    options = { ...GIZMO_DEFAULT_OPTIONS, ...(options || {}) };
 
-    const { container, placement, size, offset, backgroundSphere } =
-      options as Required<GizmoOptions>;
+    const {
+      container,
+      placement,
+      size,
+      animated,
+      speed,
+      offset,
+      sphere,
+      id,
+      className,
+    } = options as Required<GizmoOptions>;
 
-    this.size = size;
+    this.animated = animated;
+    this.speed = speed;
 
     const axesLines = getAxesLines(options);
+    if (axesLines) this.add(axesLines);
+
     this._spritePoints = getAxesSpritePoints(options);
+    this.add(...this._spritePoints);
 
-    this.add(axesLines, ...this._spritePoints);
-
-    if (backgroundSphere.enabled) {
-      this._backgroundSphere = getBackgroundSphere(backgroundSphere.color!);
-      this._bgSphereOpacity = backgroundSphere.opacity ?? 0.2;
-      this.add(this._backgroundSphere);
+    if (sphere.enabled) {
+      this._sphere = getBackgroundSphere(sphere);
+      this._sphereConfig = sphere;
+      this.add(this._sphere);
     }
 
-    this._domElement = getDomContainer(placement, size, offset);
-    getDomElement(container).appendChild(this._domElement);
+    this._container = container ? getDomElement(container) : document.body;
+    this._domElement = createDomElement(placement, size, offset, id, className);
+    this._container.appendChild(this._domElement);
 
-    this._domRect = this._domElement.getBoundingClientRect();
     this._startListening();
-
     this.update();
   }
 
+  /**
+   * Renders the gizmo to the screen.
+   * This method handles viewport and scissor management to ensure the gizmo
+   * renders correctly without affecting the main scene rendering.
+   *
+   * @returns The gizmo instance for method chaining
+   */
   render() {
     if (this.animating) this._animate();
 
-    const x = this._domRect.left;
-    const y = offsetHeight - this._domRect.bottom;
+    const { _renderer, _viewport } = this;
 
-    const autoClear = this._renderer.autoClear;
-    this._renderer.autoClear = false;
-    this._renderer.setViewport(x, y, this.size, this.size);
-    this._renderer.clear(false, true, false);
-    this._renderer.render(this, this._orthoCamera);
-    this._renderer.setViewport(this._viewport);
-    this._renderer.autoClear = autoClear;
+    // save the current viewport config
+    const scissorTest = _renderer.getScissorTest();
+    const autoClear = _renderer.autoClear;
+
+    // render
+    _renderer.autoClear = false;
+    _renderer.setViewport(_viewport);
+    if (scissorTest) _renderer.setScissor(_viewport);
+
+    _renderer.clear(false, true, false);
+    _renderer.render(this, this._orthoCamera);
+
+    // reset the current viewport config
+    _renderer.setViewport(this._originalViewport);
+    if (scissorTest) _renderer.setScissor(this._originalScissor);
+
+    _renderer.autoClear = autoClear;
+
+    return this;
   }
 
-  update() {
+  /**
+   * Updates the gizmo's DOM-related properties based on its current position
+   * and size in the document.
+   *
+   * @returns The gizmo instance for method chaining
+   */
+  domUpdate() {
     this._domRect = this._domElement.getBoundingClientRect();
-    offsetHeight = this._container.offsetHeight;
-    setRadius(this.camera, radius, this.target);
-    this._renderer.getViewport(this._viewport);
 
-    this._updateOrientation();
+    const renderer = this._renderer;
+    const domRect = this._domRect;
+    const containerRect = renderer.domElement.getBoundingClientRect();
+
+    this._viewport.set(
+      domRect.left - containerRect.left,
+      renderer.domElement.clientHeight -
+        (domRect.top - containerRect.top + domRect.height),
+      domRect.width,
+      domRect.height
+    );
+
+    renderer.getViewport(this._originalViewport);
+    if (renderer.getScissorTest()) renderer.getScissor(this._originalScissor);
+
+    return this;
   }
 
+  /**
+   * Updates the gizmo's orientation to match the current camera orientation.
+   *
+   * @returns The gizmo instance for method chaining
+   */
+  cameraUpdate() {
+    this._updateOrientation();
+    return this;
+  }
+
+  /**
+   * Performs a complete update of the gizmo, including both DOM and camera-related updates.
+   *
+   * @param controls - Internal. Set to `false` if the update event comes from the attached controls.
+   *
+   * @returns The gizmo instance for method chaining
+   */
+  update(controls: boolean = true) {
+    if (controls && this._controls) this._controls.update();
+    return this.domUpdate().cameraUpdate();
+  }
+
+  /**
+   * Connects OrbitControls with the gizmo, handling interaction states and updates.
+   * Automatically detaches any previously attached controls.
+   *
+   * @param controls - The scene's {@link https://threejs.org/docs/#examples/en/controls/OrbitControls OrbitControls}
+   */
+  attachControls(controls: OrbitControls) {
+    this.detachControls();
+
+    this.target = controls.target;
+
+    this._controlsListeners = {
+      start: () => (controls.enabled = false),
+      end: () => (controls.enabled = true),
+      change: () => this.update(false),
+    };
+
+    this.addEventListener("start", this._controlsListeners.start);
+    this.addEventListener("end", this._controlsListeners.end);
+    controls.addEventListener("change", this._controlsListeners.change);
+
+    this._controls = controls;
+  }
+
+  /** Removes all control event listeners and references. Safe to call multiple times. */
+  detachControls() {
+    if (!this._controlsListeners || !this._controls) return;
+
+    this.target = new Vector3().copy(this._controls.target);
+
+    this.removeEventListener("start", this._controlsListeners.start);
+    this.removeEventListener("end", this._controlsListeners.end);
+
+    this._controls.removeEventListener(
+      "change",
+      this._controlsListeners.change
+    );
+
+    this._controlsListeners = undefined;
+    this._controls = undefined;
+  }
+
+  /** Cleans up all resources including geometries, materials, textures, and event listeners. */
   dispose() {
+    this.detachControls();
+
     this.children.forEach((child) => {
       const mesh = child as Mesh<any, MeshBasicMaterial>;
       mesh.material?.dispose();
@@ -141,7 +362,12 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
     this._domElement.remove();
   }
 
-  // INTERNALS ↓↓↓
+  /**
+   * Updates the gizmo's orientation either based on the camera or internal state.
+   *
+   * @private
+   * @param fromCamera - Whether to update based on camera orientation (true) or internal state (false)
+   */
   private _updateOrientation(fromCamera: boolean = true) {
     if (fromCamera) {
       this.quaternion.copy(this.camera.quaternion).invert();
@@ -151,82 +377,132 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
     updateSpritesOpacity(this._spritePoints, this.camera);
   }
 
+  /**
+   * Handles the animation of camera position and orientation changes.
+   *
+   * @private
+   */
   private _animate() {
+    const { position, quaternion } = this.camera;
+
+    position.set(0, 0, 1);
+
     if (!this.animated) {
-      this.camera.quaternion.copy(targetQuaternion);
+      position
+        .applyQuaternion(_quaternionEnd)
+        .multiplyScalar(this._distance)
+        .add(this.target);
+
+      quaternion.copy(_targetQuaternion);
+
+      this._updateOrientation();
+
       this.animating = false;
       this.dispatchEvent({ type: "change" });
       this.dispatchEvent({ type: "end" });
       return;
     }
 
-    const delta = clock.getDelta();
+    const delta = _clock.getDelta();
 
-    const step = delta * turnRate * this.speed;
+    const step = delta * GIZMO_TURN_RATE * this.speed;
 
-    q1.rotateTowards(q2, step);
-    this.camera.position
-      .set(0, 0, 1)
-      .applyQuaternion(q1)
-      .multiplyScalar(radius.value)
+    _quaternionStart.rotateTowards(_quaternionEnd, step);
+    position
+      .applyQuaternion(_quaternionStart)
+      .multiplyScalar(this._distance)
       .add(this.target);
 
-    this.camera.quaternion.rotateTowards(targetQuaternion, step);
+    quaternion.rotateTowards(_targetQuaternion, step);
 
     this._updateOrientation();
     requestAnimationFrame(() => this.dispatchEvent({ type: "change" }));
 
-    if (q1.angleTo(q2) === 0) {
+    if (_quaternionStart.angleTo(_quaternionEnd) === 0) {
       this.animating = false;
       this.dispatchEvent({ type: "end" });
     }
   }
 
-  private _setOrientation(orientation: (typeof GIZMO_AXES)[number]) {
-    prepareAnimationData(this.camera, this.target, orientation, radius);
+  /**
+   * Sets the camera orientation to look at the target from a specific axis.
+   *
+   * @private
+   * @param axis - The axis to orient the camera along
+   */
+  private _setOrientation(axis: (typeof GIZMO_AXES)[number]) {
+    const camera = this.camera;
+    const focusPoint = this.target;
+
+    const [position, orientation] = GIZMO_AXES_ORIENTATIONS[axis];
+    _targetPosition.fromArray(position);
+    _targetQuaternion.setFromEuler(_euler.fromArray(orientation));
+
+    _targetPosition.multiplyScalar(this._distance).add(focusPoint);
+
+    _matrix.setPosition(camera.position);
+    _matrix.lookAt(camera.position, focusPoint, this.up);
+    _quaternionStart.setFromRotationMatrix(_matrix);
+
+    _matrix.setPosition(_targetPosition);
+    _matrix.lookAt(_targetPosition, focusPoint, this.up);
+    _quaternionEnd.setFromRotationMatrix(_matrix);
+
     this.animating = true;
-    clock.start();
+    _clock.start();
     this.dispatchEvent({ type: "start" });
   }
 
+  /**
+   * Initializes event listeners for user interaction.
+   *
+   * @private
+   */
   private _startListening() {
     this._domElement.onpointerdown = (e) => this._onPointerDown(e);
     this._domElement.onpointermove = (e) => this._onPointerMove(e);
     this._domElement.onpointerleave = () => this._onPointerLeave();
   }
 
+  /**
+   * Handles the pointer down event for starting drag operations.
+   *
+   * @private
+   * @param e - The pointer event
+   */
   private _onPointerDown(e: PointerEvent) {
     if (!this.enabled) return;
 
     const drag = (e: PointerEvent) => {
-      if (!this.dragging && isClick(e, mouseStart)) return;
-      if (!this.dragging) {
+      if (!this._dragging) {
+        if (isClick(e, _mouseStart)) return;
+
         resetSprites(this._spritePoints);
-        this.dragging = true;
+        this._dragging = true;
       }
 
-      mouseAngle
+      _mouseAngle
         .set(e.clientX, e.clientY)
-        .sub(mouseStart)
+        .sub(_mouseStart)
         .multiplyScalar((1 / this._domRect.width) * Math.PI);
 
       this.rotation.x = clamp(
-        rotationStart.x + mouseAngle.y,
+        rotationStart.x + _mouseAngle.y,
         Math.PI / -2 + 0.001,
         Math.PI / 2 - 0.001
       );
-      this.rotation.y = rotationStart.y + mouseAngle.x;
+      this.rotation.y = rotationStart.y + _mouseAngle.x;
       this.updateMatrixWorld();
 
-      q1.copy(this.quaternion).invert();
+      _quaternionStart.copy(this.quaternion).invert();
 
       this.camera.position
         .set(0, 0, 1)
-        .applyQuaternion(q1)
-        .multiplyScalar(radius.value)
+        .applyQuaternion(_quaternionStart)
+        .multiplyScalar(this._distance)
         .add(this.target);
 
-      this.camera.rotation.setFromQuaternion(q1);
+      this.camera.rotation.setFromQuaternion(_quaternionStart);
 
       this._updateOrientation(false);
 
@@ -236,20 +512,21 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
       document.removeEventListener("pointermove", drag, false);
       document.removeEventListener("pointerup", endDrag, false);
 
-      if (!this.dragging) return this._handleClick(e);
+      if (!this._dragging) return this._handleClick(e);
 
-      this.dragging = false;
+      this._dragging = false;
       this.dispatchEvent({ type: "end" });
     };
 
-    if (this.animating === true) return;
+    if (this.animating) return;
+
     e.preventDefault();
 
-    mouseStart.set(e.clientX, e.clientY);
+    _mouseStart.set(e.clientX, e.clientY);
 
-    const rotationStart = euler.copy(this.rotation);
+    const rotationStart = _euler.copy(this.rotation);
 
-    setRadius(this.camera, radius, this.target);
+    this._distance = this.camera.position.distanceTo(this.target);
 
     document.addEventListener("pointermove", drag, false);
     document.addEventListener("pointerup", endDrag, false);
@@ -257,26 +534,40 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
     this.dispatchEvent({ type: "start" });
   }
 
+  /**
+   * Handles pointer move events for hover effects and drag operations.
+   *
+   * @private
+   * @param e - The pointer event
+   */
   private _onPointerMove(e: PointerEvent) {
-    if (!this.enabled || this.dragging) return;
+    if (!this.enabled || this._dragging) return;
 
-    if (this._backgroundSphere)
-      (this._backgroundSphere.material as Material).opacity =
-        this._bgSphereOpacity;
+    if (this._sphere) setSphereColor(this._sphere, this._sphereConfig);
 
     this._handleHover(e);
   }
 
+  /**
+   * Handles pointer leave events to reset hover states.
+   *
+   * @private
+   */
   private _onPointerLeave() {
-    if (!this.enabled || this.dragging) return;
+    if (!this.enabled || this._dragging) return;
 
-    if (this._backgroundSphere)
-      (this._backgroundSphere.material as Material).opacity = 0;
+    if (this._sphere) setSphereColor(this._sphere, this._sphereConfig, false);
 
     resetSprites(this._spritePoints);
     this._domElement.style.cursor = "";
   }
 
+  /**
+   * Handles click events for axis selection.
+   *
+   * @private
+   * @param e - The pointer event
+   */
   private _handleClick(e: PointerEvent) {
     const object = getIntersectionObject(
       e,
@@ -287,10 +578,16 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
 
     if (!object) return;
 
-    this._setOrientation(object.userData.type);
+    this._setOrientation(object.userData.axis);
     this.dispatchEvent({ type: "change" });
   }
 
+  /**
+   * Handles hover effects for interactive elements.
+   *
+   * @private
+   * @param e - The pointer event
+   */
   private _handleHover(e: PointerEvent) {
     const object = getIntersectionObject(
       e,

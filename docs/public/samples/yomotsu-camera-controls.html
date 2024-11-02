@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Yomotsu CameraControls - Three Viewport Gizmo Example</title>
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="../assets/three-viewport-gizmo.svg"
+    />
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: #333;
+      }
+    </style>
+  </head>
+  <body>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.169.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.169.0/examples/jsm/",
+          "three-viewport-gizmo": "https://unpkg.com/three-viewport-gizmo@1.0.0/dist/three-viewport-gizmo.js",
+          "camera-controls": "https://unpkg.com/camera-controls@2.9.0/dist/camera-controls.module.min.js"
+        }
+      }
+    </script>
+
+    <script type="module">
+      import * as THREE from "three";
+      import CameraControls from "camera-controls";
+      import { ViewportGizmo } from "three-viewport-gizmo";
+      import { loadThreeModel } from "./common/threeModel.js";
+
+      CameraControls.install({ THREE });
+
+      // Init Scene
+      const camera = new THREE.PerspectiveCamera(
+        70,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        100
+      );
+      camera.position.set(0, 5, 8);
+
+      const scene = new THREE.Scene();
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setAnimationLoop(animation);
+      document.body.appendChild(renderer.domElement);
+
+      const [threeModel, threeModelAnimation] = loadThreeModel(scene, renderer);
+      scene.add(threeModel);
+
+      // Init Gizmo with the CameraControls
+      const gizmo = new ViewportGizmo(camera, renderer);
+      const controls = new CameraControls(camera, document.body);
+
+      // Set the events listeners
+      gizmo.addEventListener("start", () => (controls.enabled = false));
+      gizmo.addEventListener("end", () => (controls.enabled = true));
+      gizmo.addEventListener("change", () => {
+        controls.setPosition(...camera.position.toArray());
+      });
+
+      controls.addEventListener("update", () => {
+        controls.getTarget(gizmo.target);
+        gizmo.update();
+      });
+
+      // Set the target
+      controls.setTarget(...target.set(0, 3, 0).toArray());
+      camera.lookAt(target);
+
+      const clock = new THREE.Clock();
+      function animation(time) {
+        threeModelAnimation();
+
+        // update controls
+        if (controls.enabled && !gizmo.animating)
+          controls.update(clock.getDelta());
+
+        renderer.render(scene, camera);
+
+        // Render the Gizmo
+        gizmo.render();
+      }
+
+      window.onresize = () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+
+        gizmo.update();
+      };
+    </script>
+  </body>
+</html>

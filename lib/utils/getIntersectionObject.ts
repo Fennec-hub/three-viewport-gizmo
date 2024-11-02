@@ -1,6 +1,7 @@
-import { OrthographicCamera, Sprite } from "three";
-import { updatePointer } from "./updatePointer";
-import { raycaster } from "../ViewportGizmo";
+import { OrthographicCamera, Sprite, Vector2, Raycaster } from "three";
+
+const _raycaster = /*@__PURE__*/ new Raycaster();
+const _mouse = /*@__PURE__*/ new Vector2();
 
 export function getIntersectionObject(
   event: PointerEvent,
@@ -8,9 +9,12 @@ export function getIntersectionObject(
   orthoCamera: OrthographicCamera,
   intersectionObjects: Sprite[]
 ) {
-  updatePointer(event, domRect, orthoCamera);
+  _mouse.x = ((event.clientX - domRect.left) / domRect.width) * 2 - 1;
+  _mouse.y = -((event.clientY - domRect.top) / domRect.height) * 2 + 1;
 
-  const intersects = raycaster.intersectObjects(intersectionObjects);
+  _raycaster.setFromCamera(_mouse, orthoCamera);
+
+  const intersects = _raycaster.intersectObjects(intersectionObjects);
 
   if (!intersects.length) return null;
 

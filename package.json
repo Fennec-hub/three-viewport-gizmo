@@ -14,24 +14,31 @@
       "require": "./dist/three-viewport-gizmo.umd.cjs"
     }
   },
-  "version": "0.1.5",
+  "version": "1.0.0",
   "type": "module",
   "types": "./dist/three-viewport-gizmo.d.ts",
   "scripts": {
-    "dev": "vite serve --config=vite.demo.config.js",
+    "dev": "vite serve --config=vite.live.config.js",
     "build": "tsc && vite build ",
-    "build:demo": "tsc && vite build --config=vite.demo.config.js",
-    "preview": "vite preview --config=vite.demo.config.js"
+    "build:live": "tsc && vite build --config=vite.live.config.js",
+    "preview": "vite preview --config=vite.live.config.js",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
   },
   "devDependencies": {
     "@types/node": "^20.11.28",
     "@types/three": "^0.162.0",
+    "@vitejs/plugin-vue": "^5.1.4",
     "typescript": "^5.2.2",
     "vite": "^5.1.6",
-    "vite-plugin-dts": "^3.7.3"
+    "vite-plugin-dts": "^3.7.3",
+    "vitepress": "^1.4.1",
+    "vue": "^3.5.12"
   },
   "dependencies": {
     "camera-controls": "^2.8.3",
+    "oh-vue-icons": "^1.0.0-rc3",
     "three": "^0.162.0",
     "three-viewport-gizmo": "^0.1.0"
   },

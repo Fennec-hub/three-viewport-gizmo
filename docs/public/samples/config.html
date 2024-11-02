@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Config - Three Viewport Gizmo Example</title>
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="../assets/three-viewport-gizmo.svg"
+    />
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: #333;
+      }
+    </style>
+  </head>
+  <body>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.169.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.169.0/examples/jsm/",
+          "three-viewport-gizmo": "https://unpkg.com/three-viewport-gizmo@1.0.0/dist/three-viewport-gizmo.js"
+        }
+      }
+    </script>
+
+    <script type="module">
+      import * as THREE from "three";
+      import { ViewportGizmo } from "three-viewport-gizmo";
+      import { GUI } from "three/addons/libs/lil-gui.module.min.js";
+
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x333333);
+      const gridHelper = new THREE.GridHelper(10, 10, 0x111111, 0x111111);
+      scene.add(gridHelper);
+
+      const [width, height] = [window.innerWidth, window.innerHeight];
+      const camera = new THREE.PerspectiveCamera(
+        70,
+        width / window.innerHeight,
+        0.1,
+        100
+      );
+      camera.position.set(5, 5, 5);
+      camera.lookAt(scene.position);
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.setSize(width, height);
+      renderer.setAnimationLoop(animation);
+      document.body.appendChild(renderer.domElement);
+
+      // Viewport Gizmo
+      const gizmo = new ViewportGizmo(camera, renderer, {
+        size: Math.min(width, height) * 0.8,
+        placement: "center-center",
+      });
+
+      initGUI();
+
+      function animation(time) {
+        renderer.render(scene, camera);
+
+        // Render the Gizmo
+        gizmo.render();
+      }
+
+      window.onresize = () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+
+        // Update the Gizmo on Resize
+        gizmo.update();
+      };
+
+      function initGUI() {
+        const gui = new GUI();
+
+        const options = {
+          placement: "center-center",
+          size: parseInt(
+            `${Math.min(window.innerWidth, window.innerHeight) * 0.8}`
+          ),
+          animated: true,
+          speed: 1,
+          lineWidth: 3,
+          offset: {
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+          },
+          font: {
+            family: "helvetica",
+            weight: 900,
+          },
+          resolution: 64,
+          sphere: {
+            enabled: true,
+            color: 0xffffff,
+            opacity: 0,
+            hoverColor: 0xffffff,
+            hoverOpacity: 0.2,
+          },
+          x: {
+            text: "X",
+            drawLine: true,
+            border: false,
+            colors: {
+              main: "#ff3653",
+              hover: "#ffffff",
+              text: "#000000",
+              hoverText: "#000000",
+            },
+          },
+          y: {
+            text: "Y",
+            drawLine: true,
+            border: false,
+            colors: {
+              main: "#8adb00",
+              hover: "#ffffff",
+              text: "#000000",
+              hoverText: "#000000",
+            },
+          },
+          z: {
+            text: "Z",
+            drawLine: true,
+            border: false,
+            colors: {
+              main: "#2c8fff",
+              hover: "#ffffff",
+              text: "#000000",
+              hoverText: "#000000",
+            },
+          },
+          nx: {
+            text: "",
+            drawLine: false,
+            border: false,
+            colors: {
+              main: "#ff3653",
+              hover: "#ffffff",
+              text: "#000000",
+              hoverText: "#000000",
+            },
+          },
+          ny: {
+            text: "",
+            drawLine: false,
+            border: false,
+            colors: {
+              main: "#8adb00",
+              hover: "#ffffff",
+              text: "#000000",
+              hoverText: "#000000",
+            },
+          },
+          nz: {
+            text: "",
+            drawLine: false,
+            border: false,
+            colors: {
+              main: "#2c8fff",
+              hover: "#ffffff",
+              text: "#000000",
+              hoverText: "#000000",
+            },
+          },
+        };
+
+        const sceneOptions = {
+          background: "#333333",
+          grid: true,
+        };
+
+        const scene = gui.addFolder("Scene");
+        scene.addColor(sceneOptions, "background");
+        scene.add(sceneOptions, "grid");
+
+        gui.add(options, "placement", [
+          "top-left",
+          "top-right",
+          "top-center",
+          "center-right",
+          "center-left",
+          "center-center",
+          "bottom-left",
+          "bottom-right",
+          "bottom-center",
+        ]);
+        gui.add(options, "size", 64, 2048, 1);
+        gui.add(options, "animated");
+        gui.add(options, "speed", 0.1, 6, 0.1);
+        gui.add(options, "lineWidth", 1, 10);
+        gui.add(options, "resolution", 64, 256);
+
+        const offset = gui.addFolder("offset").close();
+        const optionsOffset = options.offset;
+        offset.add(optionsOffset, "top", 0, 50, 1);
+        offset.add(optionsOffset, "left", 0, 50, 1);
+        offset.add(optionsOffset, "right", 0, 50, 1);
+        offset.add(optionsOffset, "bottom", 0, 50, 1);
+
+        const font = gui.addFolder("font").close();
+        const fontOptions = options.font;
+        font.add(fontOptions, "family");
+        font.add(
+          fontOptions,
+          "weight",
+          [100, 200, 300, 400, 500, 600, 700, 800, 900]
+        );
+
+        const sphere = gui.addFolder("sphere").close();
+        const sphereConfig = options.sphere;
+        sphere.add(sphereConfig, "enabled");
+        sphere.addColor(sphereConfig, "color");
+        sphere.add(sphereConfig, "opacity");
+        sphere.addColor(sphereConfig, "hoverColor");
+        sphere.add(sphereConfig, "hoverOpacity");
+
+        ["x", "y", "z", "nx", "ny", "nz"].forEach((key) => {
+          const axisFolder = gui.addFolder(key).close();
+          const axis = options[key];
+          axisFolder.add(axis, "text");
+          axisFolder.add(axis, "drawLine");
+          axisFolder.add(axis, "border");
+
+          const colorsFolder = axisFolder.addFolder("Colors");
+          const colors = axis.colors;
+          colorsFolder.addColor(colors, "main");
+          colorsFolder.addColor(colors, "text");
+          colorsFolder.addColor(colors, "hover");
+          colorsFolder.addColor(colors, "hoverText");
+        });
+
+        gui.add({ copyOptions }, "copyOptions").name("Copy Options");
+
+        gui.onChange(() => {
+          onGUIUpdate(options, sceneOptions);
+        });
+
+        function copyOptions() {
+          const jsonText = JSON.stringify(options, null, 2);
+
+          navigator.clipboard
+            .writeText(jsonText)
+            .then(function () {
+              console.log("Options copied to clipboard:");
+              console.log(jsonText);
+            })
+            .catch(function (error) {
+              console.error("Error copying Options to clipboard:", error);
+            });
+        }
+      }
+
+      function onGUIUpdate(options, params) {
+        const target = gizmo.target;
+        gizmo.dispose();
+        gizmo = new ViewportGizmo(camera, renderer, options);
+        gizmo.target = target;
+
+        gridHelper.visible = params.grid;
+        scene.background.set(params.background);
+      }
+    </script>
+  </body>
+</html>

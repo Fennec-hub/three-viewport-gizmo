@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Resizable Grid - Three Viewport Gizmo Example</title>
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="../assets/three-viewport-gizmo.svg"
+    />
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: #1b1b1f;
+        font-family: Arial;
+        font-size: 14px;
+        color: #aaa;
+      }
+
+      #grid {
+        display: grid;
+        grid-template-columns: 0.3fr 1fr 0.3fr;
+        gap: 4px;
+        height: 100vh;
+        width: 100vw;
+        box-sizing: border-box;
+        background: #1b1b1f;
+        padding: 4px;
+      }
+
+      .column {
+        position: relative;
+        overflow: hidden;
+      }
+
+      .cell {
+        background: white;
+        box-sizing: border-box;
+        position: relative;
+        overflow: hidden;
+        height: 100%;
+        border-radius: 0.6em;
+        background: #555;
+      }
+
+      .cell span {
+        display: inline-block;
+        margin: 1em;
+        font-size: 1.2em;
+        font-weight: 900;
+      }
+
+      .resize-handle-x {
+        position: absolute;
+        right: -4px;
+        top: 0;
+        width: 8px;
+        height: 100%;
+        background: transparent;
+        cursor: col-resize;
+        z-index: 10;
+      }
+
+      .resize-handle-y {
+        position: absolute;
+        bottom: -4px;
+        left: 0;
+        width: 100%;
+        height: 8px;
+        background: transparent;
+        cursor: row-resize;
+        z-index: 10;
+      }
+
+      .resize-handle-x:hover,
+      .resize-handle-y:hover {
+        background: rgba(0, 0, 0, 0.1);
+      }
+
+      .middle-column {
+        display: grid;
+        grid-template-rows: 0.2fr 0.7fr 0.2fr;
+        gap: 4px;
+        max-height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="grid">
+      <div class="column" id="col1">
+        <div class="cell"><span>Column 1</span></div>
+        <div class="resize-handle-x"></div>
+      </div>
+
+      <div class="column middle-column" id="col2">
+        <div class="cell">
+          <span>Row 1</span>
+          <div class="resize-handle-y"></div>
+        </div>
+        <div class="cell" id="canvas-container">
+          <div class="resize-handle-y"></div>
+        </div>
+        <div class="cell"><span>Row 3</span></div>
+        <div class="resize-handle-x"></div>
+      </div>
+
+      <div class="column" id="col3">
+        <div class="cell"><span>Column 3</span></div>
+      </div>
+    </div>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.169.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.169.0/examples/jsm/",
+          "three-viewport-gizmo": "https://unpkg.com/three-viewport-gizmo@1.0.0/dist/three-viewport-gizmo.js"
+        }
+      }
+    </script>
+
+    <script type="module">
+      import * as THREE from "three";
+      import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+      import { gizmo } from "three-viewport-gizmo";
+      import { loadThreeModel } from "./common/threeModel.js";
+
+      // Initialize Gird
+      const resizableGrid = initGrid();
+      const canvasContainer = document.querySelector("#canvas-container");
+
+      // Init Scene
+      const camera = new THREE.PerspectiveCamera(
+        70,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        100
+      );
+      camera.position.set(0, 5, 8);
+
+      const scene = new THREE.Scene();
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(
+        canvasContainer.clientWidth,
+        canvasContainer.clientHeight
+      );
+      renderer.setAnimationLoop(animation);
+      canvasContainer.appendChild(renderer.domElement);
+
+      const [threeModel, threeModelAnimation] = loadThreeModel(scene, renderer);
+      scene.add(threeModel);
+
+      // Init Gizmo with OrbitControls
+      const gizmo = new gizmo(camera, renderer, {
+        container: canvasContainer,
+      });
+      gizmo.attachControls(new OrbitControls(camera, renderer.domElement));
+
+      // Optional. Set the target
+      gizmo.target.set(0, 3, 0);
+      camera.lookAt(gizmo.target);
+
+      function animation(time) {
+        threeModelAnimation();
+        renderer.render(scene, camera);
+
+        // Render the Gizmo
+        gizmo.render();
+      }
+
+      window.onresize = resize;
+
+      function resize() {
+        const [width, height] = [
+          canvasContainer.clientWidth,
+          canvasContainer.clientHeight,
+        ];
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+        renderer.setSize(width, height);
+
+        gizmo.update();
+      }
+
+      //-----------------
+      function initGrid() {
+        document.querySelectorAll(".resize-handle-x").forEach((handle) => {
+          handle.addEventListener("mousedown", startColumnResize);
+        });
+
+        // Handle row resizing
+        document.querySelectorAll(".resize-handle-y").forEach((handle) => {
+          handle.addEventListener("mousedown", startRowResize);
+        });
+
+        function startColumnResize(e) {
+          e.preventDefault();
+          const column = e.target.parentElement;
+          const gridContainer = column.parentElement;
+          const initialX = e.clientX;
+          const columnIndex = Array.from(gridContainer.children).indexOf(
+            column
+          );
+          const initialColumnWidths = Array.from(gridContainer.children).map(
+            (col) => col.getBoundingClientRect().width
+          );
+
+          function onMouseMove(e) {
+            const deltaX = e.clientX - initialX;
+            let newWidths = [...initialColumnWidths];
+
+            if (columnIndex < gridContainer.children.length - 1) {
+              // Update widths based on mouse movement
+              newWidths[columnIndex] += deltaX;
+              newWidths[columnIndex + 1] -= deltaX;
+
+              // Ensure minimum width (10% of total)
+              const totalWidth = gridContainer.getBoundingClientRect().width;
+              const minWidth = totalWidth * 0.1;
+              newWidths = newWidths.map((width) => Math.max(width, minWidth));
+
+              // Convert to fractions and normalize to sum to 1
+              let fractions = newWidths.map((width) => width / totalWidth);
+              const sum = fractions.reduce((a, b) => a + b, 0);
+              fractions = fractions.map((fr) => fr / sum);
+
+              // Apply the normalized fractions
+              gridContainer.style.gridTemplateColumns = fractions
+                .map((fr) => `${fr.toFixed(3)}fr`)
+                .join(" ");
+            }
+
+            resize();
+            controls.enabled = false;
+          }
+
+          function onMouseUp() {
+            document.removeEventListener("mousemove", onMouseMove);
+            document.removeEventListener("mouseup", onMouseUp);
+            controls.enabled = true;
+          }
+
+          document.addEventListener("mousemove", onMouseMove);
+          document.addEventListener("mouseup", onMouseUp);
+        }
+
+        function startRowResize(e) {
+          e.preventDefault();
+          const cell = e.target.parentElement;
+          const column = cell.parentElement;
+          const initialY = e.clientY;
+          const rowIndex = Array.from(column.children).indexOf(cell);
+          const cells = Array.from(column.children).filter((el) =>
+            el.classList.contains("cell")
+          );
+          const initialRowHeights = cells.map(
+            (row) => row.getBoundingClientRect().height
+          );
+          const totalHeight = column.getBoundingClientRect().height;
+
+          function onMouseMove(e) {
+            const deltaY = e.clientY - initialY;
+            const newHeights = [...initialRowHeights];
+
+            if (rowIndex < cells.length - 1) {
+              newHeights[rowIndex] += deltaY;
+              newHeights[rowIndex + 1] -= deltaY;
+
+              let fractions = newHeights.map((height) => height / totalHeight);
+
+              const minFraction = 0.1;
+              fractions = fractions.map((fr) => Math.max(fr, minFraction));
+
+              const sum = fractions.reduce((a, b) => a + b, 0);
+              fractions = fractions.map((fr) => fr / sum);
+
+              column.style.gridTemplateRows = fractions
+                .map((fr) => `${fr.toFixed(3)}fr`)
+                .join(" ");
+
+              resize();
+              controls.enabled = false;
+            }
+          }
+
+          function onMouseUp() {
+            document.removeEventListener("mousemove", onMouseMove);
+            document.removeEventListener("mouseup", onMouseUp);
+            controls.enabled = true;
+          }
+
+          document.addEventListener("mousemove", onMouseMove);
+          document.addEventListener("mouseup", onMouseUp);
+        }
+      }
+    </script>
+  </body>
+</html>

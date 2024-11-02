@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Multiple Elements - Scissor - Three Viewport Gizmo Example</title>
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="../assets/three-viewport-gizmo.svg"
+    />
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: #1b1b1f;
+        font-family: Arial;
+        font-size: 14px;
+        color: #aaa;
+      }
+
+      #multi_viewport {
+        z-index: 1;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        grid-template-rows: repeat(3, 1fr);
+      }
+
+      .viewport {
+        position: relative;
+        border: 0.25em solid #1b1b1f;
+      }
+    </style>
+  </head>
+  <body>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.169.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.169.0/examples/jsm/",
+          "three-viewport-gizmo": "https://unpkg.com/three-viewport-gizmo@1.0.0/dist/three-viewport-gizmo.js"
+        }
+      }
+    </script>
+
+    <script type="module">
+      import * as THREE from "three";
+      import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+      import { ViewportGizmo } from "three-viewport-gizmo";
+
+      // Init Scene
+      const camera = new THREE.PerspectiveCamera(
+        70,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        100
+      );
+      camera.position.set(0, 5, 8);
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setAnimationLoop(animation);
+      document.body.appendChild(renderer.domElement);
+
+      const viewports = createMultiViewportElements(document.body, renderer);
+      resize();
+
+      function animation() {
+        renderer.setClearColor(0x333333);
+        renderer.setScissorTest(false);
+        renderer.clear();
+
+        renderer.setClearColor(0x333333);
+        renderer.setScissorTest(true);
+
+        viewports.forEach(({ element, scene, camera, mesh, gizmo }) => {
+          mesh.rotation.y = Date.now() * 0.001;
+
+          const rect = element.getBoundingClientRect();
+
+          const width = rect.right - rect.left;
+          const height = rect.bottom - rect.top;
+          const left = rect.left;
+          const bottom = renderer.domElement.clientHeight - rect.bottom;
+
+          renderer.setViewport(left, bottom, width, height);
+          renderer.setScissor(left, bottom, width, height);
+
+          renderer.render(scene, camera);
+          gizmo.render();
+        });
+      }
+
+      window.onresize = resize;
+
+      function resize() {
+        renderer.setSize(window.innerWidth, window.innerHeight);
+
+        viewports.forEach(({ element, camera, controls, gizmo }) => {
+          const { clientWidth, clientHeight } = element;
+          camera.aspect = clientWidth / clientHeight;
+          camera.updateProjectionMatrix();
+
+          // Update controls
+          gizmo.update();
+          controls.update();
+        });
+      }
+
+      //------------
+      function createMultiViewportElements(root, renderer) {
+        const geometries = [
+          new THREE.BoxGeometry(),
+          new THREE.SphereGeometry(0.5, 12, 8),
+          new THREE.DodecahedronGeometry(0.5),
+          new THREE.ConeGeometry(0.5),
+          new THREE.TorusGeometry(0.5, 0.25),
+          new THREE.CylinderGeometry(0.5, 0.5, 1, 12),
+          new THREE.TorusKnotGeometry(0.4, 0.125),
+          new THREE.OctahedronGeometry(0.5),
+          new THREE.CapsuleGeometry(0.25, 1),
+        ];
+
+        const placements = [
+          "top-left",
+          "top-center",
+          "top-right",
+          "center-left",
+          "center-center",
+          "center-right",
+          "bottom-left",
+          "bottom-center",
+          "bottom-right",
+        ];
+
+        const grid = document.createElement("div");
+        grid.id = "multi_viewport";
+
+        root.appendChild(grid);
+
+        return Array(9)
+          .fill(0)
+          .map((_, index) => {
+            const element = document.createElement("div");
+            element.className = "viewport";
+            grid.appendChild(element);
+
+            const scene = new THREE.Scene();
+
+            const camera = new THREE.PerspectiveCamera(50, 1, 1, 10);
+            camera.position.z = 2;
+            scene.userData.camera = camera;
+
+            const gizmo = new ViewportGizmo(camera, renderer, {
+              container: element,
+              placement: placements[index],
+            });
+            const controls = new OrbitControls(camera, element);
+            controls.minDistance = 2;
+            controls.maxDistance = 5;
+            controls.enablePan = false;
+            controls.enableZoom = false;
+
+            // listeners
+            gizmo.addEventListener("start", () => (controls.enabled = false));
+            gizmo.addEventListener("end", () => (controls.enabled = true));
+            controls.addEventListener("change", () => {
+              gizmo.update();
+            });
+
+            const mesh = new THREE.Mesh(
+              geometries[index],
+              new THREE.MeshStandardMaterial({
+                color: new THREE.Color().setHSL(
+                  Math.random(),
+                  1,
+                  0.75,
+                  THREE.SRGBColorSpace
+                ),
+                roughness: 0.5,
+                metalness: 0,
+                flatShading: true,
+              })
+            );
+
+            scene.add(mesh);
+            scene.add(new THREE.HemisphereLight(0xaaaaaa, 0x444444, 3));
+            const light = new THREE.DirectionalLight(0xffffff, 1.5);
+            light.position.set(1, 1, 1);
+            scene.add(light);
+
+            return {
+              element,
+              scene,
+              camera,
+              gizmo,
+              controls,
+              mesh,
+            };
+          });
+      }
+    </script>
+  </body>
+</html>

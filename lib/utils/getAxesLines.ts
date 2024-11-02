@@ -1,20 +1,19 @@
-import {
-  BufferAttribute,
-  BufferGeometry,
-  LineBasicMaterial,
-  LineSegments,
-} from "three";
+import { Color, Object3D, Vector2 } from "three";
+import { Line2 } from "three/examples/jsm/lines/Line2.js";
+import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
+import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { GizmoOptions } from "../types";
-import { COLOR_MANAGER, GIZMO_AXES } from "./constants";
+import { GIZMO_AXES } from "./constants";
 
 export const getAxesLines = (options: GizmoOptions) => {
+  const colorManager = new Color();
   const positions: number[] = [];
   const colors: number[] = [];
 
   GIZMO_AXES.forEach((key, i) => {
     const axis = options[key]!;
 
-    if (axis.drawLine === false) return;
+    if (axis.line === false) return;
 
     const negative = i < 3 ? 1 : -1;
     const distance = i < 3 ? 0.9 : 1.025;
@@ -29,28 +28,31 @@ export const getAxesLines = (options: GizmoOptions) => {
     );
 
     const main = axis.colors!.main!;
+
     const [color1, color2] = Array.isArray(main) ? main : [main, main];
     colors.push(
-      ...COLOR_MANAGER.set(color2).toArray(),
-      ...COLOR_MANAGER.set(color1).toArray()
+      ...colorManager.set(color2).toArray(),
+      ...colorManager.set(color1).toArray()
     );
   });
 
-  const geometry = new BufferGeometry();
-  geometry.setAttribute(
-    "position",
-    new BufferAttribute(new Float32Array(positions), 3)
-  );
-  geometry.setAttribute(
-    "color",
-    new BufferAttribute(new Float32Array(colors), 3)
-  );
+  if (!positions.length) return null;
 
-  return new LineSegments(
-    geometry,
-    new LineBasicMaterial({
-      linewidth: options.lineWidth ?? 3,
-      vertexColors: true,
-    })
-  );
+  const geometry = new LineGeometry();
+  geometry.setPositions(positions);
+  geometry.setColors(colors);
+
+  const material = new LineMaterial({
+    linewidth: options.lineWidth ?? 20,
+    vertexColors: true,
+    resolution: new Vector2(window.innerWidth, window.innerHeight),
+  });
+
+  // Create Line2 instead of LineSegments
+  const line = new Line2(geometry, material);
+  line.computeLineDistances();
+  line.scale.set(1, 1, 1);
+  line.renderOrder = 1;
+
+  return line;
 };

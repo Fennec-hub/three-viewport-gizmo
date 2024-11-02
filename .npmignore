@@ -3,3 +3,6 @@
 /demo
 /lib
 /dist/demo
+docs/.vitepress/dist
+docs/.vitepress/cache
+*.local

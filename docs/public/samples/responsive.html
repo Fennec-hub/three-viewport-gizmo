@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Responsive - Three Viewport Gizmo Example</title>
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="../assets/three-viewport-gizmo.svg"
+    />
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: #1b1b1f;
+      }
+
+      .responsive-gizmo {
+        width: auto !important;
+        height: 50% !important;
+        aspect-ratio: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.169.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.169.0/examples/jsm/",
+          "three-viewport-gizmo": "https://unpkg.com/three-viewport-gizmo@1.0.0/dist/three-viewport-gizmo.js"
+        }
+      }
+    </script>
+
+    <script type="module">
+      import * as THREE from "three";
+      import { ViewportGizmo } from "three-viewport-gizmo";
+
+      // Init Scene
+      const camera = new THREE.PerspectiveCamera(
+        70,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        100
+      );
+      camera.position.setScalar(5);
+
+      const scene = new THREE.Scene();
+      camera.lookAt(scene.position);
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.setClearColor(0x333333, 1);
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      document.body.appendChild(renderer.domElement);
+
+      // Configurations
+      const gizmoConfigs = [
+        {
+          placement: "top-left",
+          className: "responsive-gizmo",
+          lineWidth: 15,
+          sphere: {
+            enabled: true,
+            color: 0x222222,
+            opacity: 0.6,
+            hoverOpacity: 0.2,
+          },
+        },
+        {
+          placement: "top-right",
+          className: "responsive-gizmo",
+          lineWidth: 0,
+          speed: 1,
+          sphere: {
+            enabled: true,
+            color: 0x472875,
+            opacity: 0.6,
+            hoverOpacity: 0.2,
+          },
+          x: {
+            text: "X",
+            line: false,
+            colors: {
+              main: 0xd491be,
+              text: 0xffffff,
+              hoverText: 0xd491be,
+            },
+          },
+          y: {
+            text: "Y",
+            line: false,
+            colors: {
+              main: 0xd491be,
+              text: 0xffffff,
+              hoverText: 0xd491be,
+            },
+          },
+          z: {
+            text: "Z",
+            line: false,
+            colors: {
+              main: 0xd491be,
+              text: 0xffffff,
+              hoverText: 0xd491be,
+            },
+          },
+          nx: {
+            line: false,
+            border: true,
+            colors: {
+              main: 0xd491be,
+            },
+          },
+          ny: {
+            line: false,
+            border: true,
+            colors: {
+              main: 0xd491be,
+            },
+          },
+          nz: {
+            line: false,
+            border: true,
+            colors: {
+              main: 0xd491be,
+            },
+          },
+        },
+        {
+          placement: "bottom-left",
+          className: "responsive-gizmo",
+          lineWidth: 15,
+          sphere: {
+            enabled: true,
+            color: 0xdddddd,
+            opacity: 0.6,
+            hoverOpacity: 0.2,
+          },
+          x: {
+            text: "X",
+            colors: {
+              main: 0x000000,
+              text: 0xffffff,
+              hoverText: 0x000000,
+            },
+          },
+          y: {
+            text: "Y",
+            colors: {
+              main: 0x000000,
+              text: 0xffffff,
+              hoverText: 0x000000,
+            },
+          },
+          z: {
+            text: "Z",
+            colors: {
+              main: 0x000000,
+              text: 0xffffff,
+              hoverText: 0x000000,
+            },
+          },
+          nx: {
+            line: false,
+            border: true,
+            colors: {
+              main: 0x000000,
+            },
+          },
+          ny: {
+            line: false,
+            border: true,
+            colors: {
+              main: 0x000000,
+            },
+          },
+          nz: {
+            line: false,
+            border: true,
+            colors: {
+              main: 0x000000,
+            },
+          },
+        },
+        {
+          placement: "bottom-right",
+          className: "responsive-gizmo",
+          speed: 1,
+          sphere: {
+            enabled: true,
+            color: 0xcc3634,
+            opacity: 0.6,
+            hoverOpacity: 0.2,
+          },
+          x: {
+            text: "X",
+            line: false,
+            border: true,
+            circle: false,
+            colors: {
+              main: 0xf6d162,
+              text: 0xf6d162,
+            },
+          },
+          y: {
+            text: "Y",
+            line: false,
+            border: true,
+            circle: false,
+            colors: {
+              main: 0xf6d162,
+              text: 0xf6d162,
+            },
+          },
+          z: {
+            text: "Z",
+            line: false,
+            border: true,
+            circle: false,
+            colors: {
+              main: 0xf6d162,
+              text: 0xf6d162,
+            },
+          },
+          nx: {
+            line: false,
+            colors: {
+              main: 0xf6d162,
+            },
+          },
+          ny: {
+            line: false,
+            colors: {
+              main: 0xf6d162,
+            },
+          },
+          nz: {
+            line: false,
+            colors: {
+              main: 0xf6d162,
+            },
+          },
+        },
+      ];
+
+      // Initialization
+      const gizmos = gizmoConfigs.map(
+        (config) => new ViewportGizmo(camera, renderer, config)
+      );
+
+      function animation(time) {
+        renderer.render(scene, camera);
+        // Render
+        gizmos.forEach((gizmos) => gizmos.render());
+      }
+
+      renderer.setAnimationLoop(animation);
+
+      window.onresize = () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+
+        // Update the Gizmo on Resize
+        gizmos.forEach((gizmos) => gizmos.update());
+      };
+    </script>
+  </body>
+</html>

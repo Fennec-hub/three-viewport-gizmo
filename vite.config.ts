@@ -26,8 +26,9 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      "@": resolve(__dirname, "demo/src"),
+      "@": resolve(__dirname, "live/src"),
       "@lib": resolve(__dirname, "lib"),
+      "@docs": resolve(__dirname, "docs"),
     },
   },
 });

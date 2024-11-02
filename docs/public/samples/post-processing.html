@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Post Processing - Three Viewport Gizmo Example</title>
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="../assets/three-viewport-gizmo.svg"
+    />
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: #333;
+        font-family: Arial;
+        font-size: 14px;
+        color: #aaa;
+      }
+    </style>
+  </head>
+  <body>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.169.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.169.0/examples/jsm/",
+          "three-viewport-gizmo": "https://unpkg.com/three-viewport-gizmo@1.0.0/dist/three-viewport-gizmo.js"
+        }
+      }
+    </script>
+
+    <script type="module">
+      import * as THREE from "three";
+      import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+      import { ViewportGizmo } from "three-viewport-gizmo";
+      import { loadThreeModel } from "./common/threeModel.js";
+
+      import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+      import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+      import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+      import { RenderPixelatedPass } from "three/addons/postprocessing/RenderPixelatedPass.js";
+
+      // Init Scene
+      const camera = new THREE.PerspectiveCamera(
+        70,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        100
+      );
+      camera.position.set(0, 5, 8);
+
+      const scene = new THREE.Scene();
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setAnimationLoop(animation);
+      document.body.appendChild(renderer.domElement);
+
+      const composer = new EffectComposer(renderer);
+      composer.addPass(new RenderPass(scene, camera));
+
+      const renderPixelatedPass = new RenderPixelatedPass(8, scene, camera);
+      composer.addPass(renderPixelatedPass);
+
+      const outputPass = new OutputPass();
+      composer.addPass(outputPass);
+
+      const [threeModel, threeModelAnimation] = loadThreeModel(scene, renderer);
+      scene.add(threeModel);
+
+      // Init Gizmo with OrbitControls
+      const gizmo = new ViewportGizmo(camera, renderer);
+      gizmo.attachControls(new OrbitControls(camera, renderer.domElement));
+
+      // Optional. Set the target
+      gizmo.target.set(0, 3, 0);
+      camera.lookAt(gizmo.target);
+
+      function animation(time) {
+        threeModelAnimation();
+        composer.render();
+
+        // Render the Gizmo
+        gizmo.render();
+      }
+
+      window.onresize = () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+
+        gizmo.update();
+      };
+    </script>
+  </body>
+</html>

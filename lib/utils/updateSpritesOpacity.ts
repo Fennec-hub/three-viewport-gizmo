@@ -1,41 +1,27 @@
 import { Camera, Sprite, Vector3 } from "three";
 
-const enum Axes {
-  PositiveX,
-  PositiveY,
-  PositiveZ,
-  NegativeX,
-  NegativeY,
-  NegativeZ,
-}
+const axisMap: [
+  axis: "x" | "y" | "z",
+  positiveIndex: number,
+  negativeIndex: number
+][] = [
+  ["x", 0, 3],
+  ["y", 1, 4],
+  ["z", 2, 5],
+];
+const primaryOpacity = 1;
+const secondaryOpacity = 0.5;
 
-const point = new Vector3();
+const point = /*@__PURE__*/ new Vector3();
+export function updateSpritesOpacity(sprites: Sprite[], camera: Camera): void {
+  point.set(0, 0, 1).applyQuaternion(camera.quaternion);
 
-export function updateSpritesOpacity(sprites: Sprite[], camera: Camera) {
-  point.set(0, 0, 1);
-  point.applyQuaternion(camera.quaternion);
+  axisMap.forEach(([axis, positiveIndex, negativeIndex]) => {
+    const value = point[axis];
 
-  if (point.x >= 0) {
-    sprites[Axes.PositiveX].material.opacity = 1;
-    sprites[Axes.NegativeX].material.opacity = 0.5;
-  } else {
-    sprites[Axes.PositiveX].material.opacity = 0.5;
-    sprites[Axes.NegativeX].material.opacity = 1;
-  }
-
-  if (point.y >= 0) {
-    sprites[Axes.PositiveY].material.opacity = 1;
-    sprites[Axes.NegativeY].material.opacity = 0.5;
-  } else {
-    sprites[Axes.PositiveY].material.opacity = 0.5;
-    sprites[Axes.NegativeY].material.opacity = 1;
-  }
-
-  if (point.z >= 0) {
-    sprites[Axes.PositiveZ].material.opacity = 1;
-    sprites[Axes.NegativeZ].material.opacity = 0.5;
-  } else {
-    sprites[Axes.PositiveZ].material.opacity = 0.5;
-    sprites[Axes.NegativeZ].material.opacity = 1;
-  }
+    sprites[positiveIndex].material.opacity =
+      value >= 0 ? primaryOpacity : secondaryOpacity;
+    sprites[negativeIndex].material.opacity =
+      value >= 0 ? secondaryOpacity : primaryOpacity;
+  });
 }
