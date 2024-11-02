@@ -154,7 +154,7 @@
       scene.add(threeModel);
 
       // Init Gizmo with OrbitControls
-      const gizmo = new gizmo(camera, renderer, {
+      const gizmo = new ViewportGizmo(camera, renderer, {
         container: canvasContainer,
       });
       gizmo.attachControls(new OrbitControls(camera, renderer.domElement));
