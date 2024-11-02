@@ -12,7 +12,7 @@
   📚 <a href="https://fennec-hub.github.io/three-viewport-gizmo/">Documentation</a> -
   🚀 <a href="https://fennec-hub.github.io/three-viewport-gizmo/quickstart">Quickstart</a> -
   🛠️ <a href="https://fennec-hub.github.io/three-viewport-gizmo/api ">API</a> -
-  ⚡️ <a href="https://fennec-hub.github.io/three-viewport-gizmo/examples">Examples</a>
+  ⚡️ <a href="https://fennec-hub.github.io/three-viewport-gizmo/examples/orbit-controls">Examples</a>
 </h3>
 
 ---
