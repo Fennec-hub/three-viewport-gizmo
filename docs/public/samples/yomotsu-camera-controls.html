@@ -73,8 +73,8 @@
       });
 
       // Set the target
-      controls.setTarget(...target.set(0, 3, 0).toArray());
-      camera.lookAt(target);
+      controls.setTarget(...gizmo.target.set(0, 3, 0).toArray());
+      camera.lookAt(gizmo.target);
 
       const clock = new THREE.Clock();
       function animation(time) {
