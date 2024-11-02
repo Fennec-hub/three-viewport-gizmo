@@ -1,2 +1,5 @@
-import { ColorRepresentation, Mesh, MeshBasicMaterial, SphereGeometry } from "three";
-export declare function getBackgroundSphere(color: ColorRepresentation): Mesh<SphereGeometry, MeshBasicMaterial, import("three").Object3DEventMap>;
+import { BufferGeometry, ColorRepresentation, Mesh, MeshBasicMaterial } from "three";
+export declare function getBackgroundSphere({ color, opacity, }?: {
+    color?: ColorRepresentation;
+    opacity?: number;
+}): Mesh<BufferGeometry<import("three").NormalBufferAttributes>, MeshBasicMaterial, import("three").Object3DEventMap>;

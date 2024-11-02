@@ -1,3 +1,3 @@
-import { BufferGeometry, LineBasicMaterial, LineSegments } from "three";
+import { Line2 } from "three/examples/jsm/lines/Line2.js";
 import { GizmoOptions } from "../types";
-export declare const getAxesLines: (options: GizmoOptions) => LineSegments<BufferGeometry<import("three").NormalBufferAttributes>, LineBasicMaterial, import("three").Object3DEventMap>;
+export declare const getAxesLines: (options: GizmoOptions) => Line2 | null;

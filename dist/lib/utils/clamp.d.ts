@@ -1,1 +1,1 @@
-export declare function clamp(num: number, min: number, max: number): number;
+export declare const clamp: (num: number, min: number, max: number) => number;
