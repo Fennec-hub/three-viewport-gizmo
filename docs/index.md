@@ -14,7 +14,7 @@ hero:
       link: /quickstart
     - theme: alt
       text: Examples
-      link: /examples
+      link: /examples/orbit-controls
     - theme: alt
       text: View on GitHub
       link: https://github.com/fennec-hub/three-viewport-gizmo

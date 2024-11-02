@@ -19,6 +19,8 @@ import { FontLoader } from "three/addons/loaders/FontLoader.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { RGBELoader } from "three/addons/loaders/RGBELoader.js";
 
+const ROOT = "../../assets/three-viewport-gizmo";
+
 export const loadThreeModel = (scene, renderer) => {
   const threeModel = new Group();
   scene.add(threeModel);
@@ -51,7 +53,7 @@ export const loadThreeModel = (scene, renderer) => {
    * License: CC BY 4.0 DEED, http://creativecommons.org/licenses/by/4.0/
    */
   new GLTFLoader()
-    .loadAsync(`../../assets/models/three/scene.gltf`)
+    .loadAsync(`${ROOT}/models/three/scene.gltf`)
     .then((gltf) => {
       const threeLogo = gltf.scene;
 
@@ -72,7 +74,7 @@ export const loadThreeModel = (scene, renderer) => {
 
   // "Three.js" text
   new FontLoader()
-    .loadAsync(`../../assets/fonts/Roboto_Regular.json`)
+    .loadAsync(`${ROOT}/fonts/Roboto_Regular.json`)
     .then((font) => {
       const geometry = new TextGeometry("Three.js", {
         font: font,
@@ -120,7 +122,7 @@ export const loadThreeModel = (scene, renderer) => {
   pmremGenerator.compileEquirectangularShader();
 
   const loader = new RGBELoader();
-  loader.load(`../../assets/HDR/studio_small_04_1k.hdr`, (texture) => {
+  loader.load(`${ROOT}/HDR/studio_small_04_1k.hdr`, (texture) => {
     const envMap = pmremGenerator.fromEquirectangular(texture).texture;
 
     scene.environment = envMap;
