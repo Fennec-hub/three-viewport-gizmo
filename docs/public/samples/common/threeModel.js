@@ -19,7 +19,7 @@ import { FontLoader } from "three/addons/loaders/FontLoader.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { RGBELoader } from "three/addons/loaders/RGBELoader.js";
 
-const ROOT = "../../assets/three-viewport-gizmo";
+const ROOT = "../../three-viewport-gizmo/assets/";
 
 export const loadThreeModel = (scene, renderer) => {
   const threeModel = new Group();
