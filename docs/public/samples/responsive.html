@@ -48,13 +48,21 @@
       camera.position.setScalar(5);
 
       const scene = new THREE.Scene();
+      scene.add(camera);
+
       camera.lookAt(scene.position);
 
       const renderer = new THREE.WebGLRenderer({ antialias: true });
       renderer.setPixelRatio(window.devicePixelRatio);
       renderer.setClearColor(0x333333, 0);
       renderer.setSize(window.innerWidth, window.innerHeight);
-      document.body.appendChild(renderer.domElement);
+
+      const body = document.body;
+      body.appendChild(renderer.domElement);
+
+      let animate = true;
+      body.onmouseover = () => (animate = false);
+      body.onmouseleave = () => (animate = true);
 
       // Configurations
       const gizmoConfigs = [
@@ -251,10 +259,23 @@
         (config) => new ViewportGizmo(camera, renderer, config)
       );
 
+      const radius = 5;
+      let angle = 0;
       function animation(time) {
         renderer.render(scene, camera);
+
+        if (animate) {
+          angle += 0.01;
+          camera.position.x = radius * Math.cos(angle);
+          camera.position.z = radius * Math.sin(angle);
+          camera.lookAt(scene.position);
+        }
+
         // Render
-        gizmos.forEach((gizmos) => gizmos.render());
+        gizmos.forEach((gizmos) => {
+          gizmos.cameraUpdate();
+          gizmos.render();
+        });
       }
 
       renderer.setAnimationLoop(animation);
