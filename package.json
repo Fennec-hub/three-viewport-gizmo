@@ -27,6 +27,7 @@
     "docs:preview": "vitepress preview docs"
   },
   "devDependencies": {
+    "@rollup/plugin-commonjs": "^28.0.1",
     "@types/node": "^20.11.28",
     "@types/three": "^0.162.0",
     "@vitejs/plugin-vue": "^5.1.4",

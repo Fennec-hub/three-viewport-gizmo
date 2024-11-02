@@ -52,7 +52,7 @@
 
       const renderer = new THREE.WebGLRenderer({ antialias: true });
       renderer.setPixelRatio(window.devicePixelRatio);
-      renderer.setClearColor(0x333333, 1);
+      renderer.setClearColor(0x333333, 0);
       renderer.setSize(window.innerWidth, window.innerHeight);
       document.body.appendChild(renderer.domElement);
 
@@ -64,7 +64,7 @@
           lineWidth: 15,
           sphere: {
             enabled: true,
-            color: 0x222222,
+            color: 0x333333,
             opacity: 0.6,
             hoverOpacity: 0.2,
           },

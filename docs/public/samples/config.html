@@ -55,7 +55,7 @@
       document.body.appendChild(renderer.domElement);
 
       // Viewport Gizmo
-      const gizmo = new ViewportGizmo(camera, renderer, {
+      let gizmo = new ViewportGizmo(camera, renderer, {
         size: Math.min(width, height) * 0.8,
         placement: "center-center",
       });

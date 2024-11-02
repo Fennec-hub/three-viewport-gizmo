@@ -28,8 +28,7 @@ export default defineConfig({
   base: "/three-viewport-gizmo/",
   head: [["link", { rel: "icon", href: "./assets/three-viewport-gizmo.svg" }]],
   title: "Three Viewport Gizmo",
-  description:
-    "A three.js completely customizable 3D view helper for any camera setup",
+  description: "A three.js customizable 3D view helper for any camera setup",
   appearance: "force-dark",
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
@@ -66,5 +65,18 @@ export default defineConfig({
         link: "https://x.com/_Fennec_Xyz",
       },
     ],
+  },
+  vite: {
+    build: {
+      commonjsOptions: {
+        include: [/oh-vue-icons/],
+      },
+    },
+    optimizeDeps: {
+      include: ["oh-vue-icons"],
+    },
+    ssr: {
+      noExternal: ["oh-vue-icons"],
+    },
   },
 });
