@@ -13,7 +13,7 @@
         </button>
       </div>
 
-      <div class="responsive-container">
+      <div class="responsive-container" :style="{ paddingBottom: aspectRatioPadding }">
         <iframe ref="iframeRef" :src="fullUrl" :class="{ 'full-screen': isFullScreen }" loading="lazy"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowfullscreen></iframe>
@@ -36,6 +36,12 @@ const isFullScreen = ref(false)
 const sourceURL = computed(() => `https://https://github.com/Fennec-hub/three-viewport-gizmo/blob/main/docs/public/samples/${url}`)
 const fullUrl = computed(() => `${window.location.origin}/three-viewport-gizmo/samples/${url}`);
 
+// Convert aspect ratio to a percentage for padding-bottom
+const aspectRatioPadding = computed(() => {
+  const [width, height] = aspectRatio.split('/').map(Number);
+  return `${(height / width) * 100}%`;
+});
+
 // Handle fullscreen changes
 const onFullScreenChange = () => {
   isFullScreen.value = !!document.fullscreenElement
@@ -48,7 +54,6 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('fullscreenchange', onFullScreenChange)
 })
-
 
 // Toggle fullscreen
 const toggleFullScreen = async () => {
@@ -84,15 +89,8 @@ const toggleFullScreen = async () => {
   position: relative;
   width: 100%;
   height: 0;
-  padding-block-end: calc(100% * (v-bind('aspectRatio')));
-  /* Default 16:9 aspect ratio */
   overflow: hidden;
   background: transparent;
-
-  /* Apply custom aspect ratio if provided */
-  & :deep([style*="aspect-ratio"]) {
-    padding-block-end: calc(100% * v-bind('aspectRatio'));
-  }
 }
 
 iframe {
