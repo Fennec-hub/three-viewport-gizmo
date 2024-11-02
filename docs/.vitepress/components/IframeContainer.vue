@@ -1,23 +1,25 @@
 <template>
-  <div class="iframe-wrapper">
-    <div class="controls">
-      <a :href="fullUrl" target="_blank" title="Open in New Tab">
-        <v-icon name="fa-external-link-alt" />
-      </a>
-      <a :href="sourceURL" target="_blank" title="Source code">
-        <v-icon name="fa-code" />
-      </a>
-      <button @click="toggleFullScreen" :title="isFullScreen ? 'Exit Full Screen' : 'Full Screen'">
-        <v-icon name="fa-expand" />
-      </button>
-    </div>
+  <ClientOnly>
+    <div class="iframe-wrapper">
+      <div class="controls">
+        <a :href="fullUrl" target="_blank" title="Open in New Tab">
+          <v-icon name="fa-external-link-alt" />
+        </a>
+        <a :href="sourceURL" target="_blank" title="Source code">
+          <v-icon name="fa-code" />
+        </a>
+        <button @click="toggleFullScreen" :title="isFullScreen ? 'Exit Full Screen' : 'Full Screen'">
+          <v-icon name="fa-expand" />
+        </button>
+      </div>
 
-    <div class="responsive-container">
-      <iframe ref="iframeRef" :src="fullUrl" :class="{ 'full-screen': isFullScreen }" loading="lazy"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-        allowfullscreen></iframe>
+      <div class="responsive-container">
+        <iframe ref="iframeRef" :src="fullUrl" :class="{ 'full-screen': isFullScreen }" loading="lazy"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowfullscreen></iframe>
+      </div>
     </div>
-  </div>
+  </ClientOnly>
 </template>
 
 <script setup lang="ts">
