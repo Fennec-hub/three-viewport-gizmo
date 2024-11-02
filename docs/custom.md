@@ -2,4 +2,4 @@
 layout: home
 ---
 
-<IframeContainer url="config.html" aspectRatio="1" />
+<IframeContainer url="config.html" />
