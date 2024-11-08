@@ -61,13 +61,13 @@ export type GizmoOptions = {
    */
   offset?: {
     /** Offset from the left edge */
-    left?: 0;
+    left?: number;
     /** Offset from the top edge */
-    top?: 0;
+    top?: number;
     /** Offset from the right edge */
-    right?: 0;
+    right?: number;
     /** Offset from the bottom edge */
-    bottom?: 0;
+    bottom?: number;
   };
 
   /**
