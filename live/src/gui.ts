@@ -38,6 +38,7 @@ export const initGUI = () => {
       text: "X",
       line: true,
       border: false,
+      circle: true,
       colors: {
         main: "#ff3653",
         hover: "#ffffff",
@@ -49,6 +50,7 @@ export const initGUI = () => {
       text: "Y",
       line: true,
       border: false,
+      circle: true,
       colors: {
         main: "#8adb00",
         hover: "#ffffff",
@@ -60,6 +62,7 @@ export const initGUI = () => {
       text: "Z",
       line: true,
       border: false,
+      circle: true,
       colors: {
         main: "#2c8fff",
         hover: "#ffffff",
@@ -71,6 +74,7 @@ export const initGUI = () => {
       text: "",
       line: false,
       border: false,
+      circle: true,
       colors: {
         main: "#ff3653",
         hover: "#ffffff",
@@ -82,6 +86,7 @@ export const initGUI = () => {
       text: "",
       line: false,
       border: false,
+      circle: true,
       colors: {
         main: "#8adb00",
         hover: "#ffffff",
@@ -93,6 +98,7 @@ export const initGUI = () => {
       text: "",
       line: false,
       border: false,
+      circle: true,
       colors: {
         main: "#2c8fff",
         hover: "#ffffff",

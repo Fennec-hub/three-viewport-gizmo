@@ -212,6 +212,14 @@ export function responsive() {
   ];
 
   const gizmos = gizmoConfigs.map((config) => {
+    const camera = new PerspectiveCamera(
+      70,
+      window.innerWidth / window.innerHeight,
+      0.1,
+      100
+    );
+    camera.position.setScalar(5);
+    camera.lookAt(scene.position);
     return new ViewportGizmo(camera, renderer, { ...config });
   });
 

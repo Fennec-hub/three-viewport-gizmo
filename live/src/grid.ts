@@ -54,7 +54,7 @@ export function grid() {
   // Viewport Gizmo
   viewportGizmo = new ViewportGizmo(camera, renderer, {
     container,
-    placement: "top-right",
+    placement: "top-center",
   });
 
   // OrbitControls
