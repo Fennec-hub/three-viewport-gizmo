@@ -14,7 +14,7 @@
       "require": "./dist/three-viewport-gizmo.umd.cjs"
     }
   },
-  "version": "1.0.2",
+  "version": "1.0.3",
   "type": "module",
   "types": "./dist/three-viewport-gizmo.d.ts",
   "scripts": {
