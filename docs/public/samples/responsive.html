@@ -255,9 +255,17 @@
       ];
 
       // Initialization
-      const gizmos = gizmoConfigs.map(
-        (config) => new ViewportGizmo(camera, renderer, config)
-      );
+      const gizmos = gizmoConfigs.map((config) => {
+        const camera = new THREE.PerspectiveCamera(
+          70,
+          window.innerWidth / window.innerHeight,
+          0.1,
+          100
+        );
+        camera.position.setScalar(5);
+        camera.lookAt(scene.position);
+        new ViewportGizmo(camera, renderer, config);
+      });
 
       const radius = 5;
       let angle = 0;
@@ -286,7 +294,11 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
 
         // Update the Gizmo on Resize
-        gizmos.forEach((gizmos) => gizmos.update());
+        gizmos.forEach((gizmos) => {
+          gizmos.camera.aspect = window.innerWidth / window.innerHeight;
+          gizmos.camera.updateProjectionMatrix();
+          gizmos.update();
+        });
       };
     </script>
   </body>
