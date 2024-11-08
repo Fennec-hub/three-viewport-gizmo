@@ -264,7 +264,7 @@
         );
         camera.position.setScalar(5);
         camera.lookAt(scene.position);
-        new ViewportGizmo(camera, renderer, config);
+        return new ViewportGizmo(camera, renderer, config);
       });
 
       const radius = 5;
