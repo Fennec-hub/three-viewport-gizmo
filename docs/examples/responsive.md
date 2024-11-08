@@ -32,4 +32,4 @@ This setup ensures that the gizmo scales appropriately within your responsive de
 
 ### Source
 
-[...samples/responsive.html](https://https://github.com/Fennec-hub/three-viewport-gizmo/blob/main/docs/public/samples/responsive.html)
+[...samples/responsive.html](https://github.com/Fennec-hub/three-viewport-gizmo/blob/main/docs/public/samples/responsive.html)

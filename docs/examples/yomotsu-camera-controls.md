@@ -7,4 +7,4 @@ custom control setups. The gizmo is configured to follow the camera's movements,
 
 ### Source
 
-[...samples/yomotsu-camera-controls.html](https://https://github.com/Fennec-hub/three-viewport-gizmo/blob/main/docs/public/samples/yomotsu-camera-controls.html)
+[...samples/yomotsu-camera-controls.html](https://github.com/Fennec-hub/three-viewport-gizmo/blob/main/docs/public/samples/yomotsu-camera-controls.html)

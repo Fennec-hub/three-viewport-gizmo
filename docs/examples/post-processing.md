@@ -6,4 +6,4 @@ This example integrates ViewportGizmo with Three.js post-processing effects. The
 
 ### Source
 
-[...samples/post-processing.html](https://https://github.com/Fennec-hub/three-viewport-gizmo/blob/main/docs/public/samples/post-processing.html)
+[...samples/post-processing.html](https://github.com/Fennec-hub/three-viewport-gizmo/blob/main/docs/public/samples/post-processing.html)

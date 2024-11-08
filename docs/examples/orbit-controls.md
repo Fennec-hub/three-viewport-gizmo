@@ -33,4 +33,4 @@ window.onresize = () => {
 
 ### Source
 
-[...samples/orbit-controls.html](https://https://github.com/Fennec-hub/three-viewport-gizmo/blob/main/docs/public/samples/orbit-controls.html)
+[...samples/orbit-controls.html](https://github.com/Fennec-hub/three-viewport-gizmo/blob/main/docs/public/samples/orbit-controls.html)

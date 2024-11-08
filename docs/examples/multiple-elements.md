@@ -6,4 +6,4 @@ This example demonstrates using ViewportGizmo with Three.js multi-element render
 
 ### Source
 
-[...samples/multiple-elements.html](https://https://github.com/Fennec-hub/three-viewport-gizmo/blob/main/docs/public/samples/multiple-elements.html)
+[...samples/multiple-elements.html](https://github.com/Fennec-hub/three-viewport-gizmo/blob/main/docs/public/samples/multiple-elements.html)

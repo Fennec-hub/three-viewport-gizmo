@@ -6,4 +6,4 @@ This example shows ViewportGizmo used as a standalone component without OrbitCon
 
 ### Source
 
-[...samples/standalone.html](https://https://github.com/Fennec-hub/three-viewport-gizmo/blob/main/docs/public/samples/standalone.html)
+[...samples/standalone.html](https://github.com/Fennec-hub/three-viewport-gizmo/blob/main/docs/public/samples/standalone.html)

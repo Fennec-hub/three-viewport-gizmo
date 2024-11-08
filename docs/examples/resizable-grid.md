@@ -6,4 +6,4 @@ This example shows ViewportGizmo integrated with a resizable grid, simulating it
 
 ### Source
 
-[...samples/resizable-grid.html](https://https://github.com/Fennec-hub/three-viewport-gizmo/blob/main/docs/public/samples/resizable-grid.html)
+[...samples/resizable-grid.html](https://github.com/Fennec-hub/three-viewport-gizmo/blob/main/docs/public/samples/resizable-grid.html)
