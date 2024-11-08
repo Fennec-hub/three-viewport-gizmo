@@ -8,7 +8,7 @@ export function getAxesSpritePoints(options: GizmoOptions) {
   const { font, resolution: spriteResolution } = options;
 
   return GIZMO_AXES.map((key, i) => {
-    const { text, colors, border } = options[key]!;
+    const { text, colors, circle, border } = options[key]!;
     const isPositive = i < 3;
     const axis = (isPositive ? key : key[1]) as "x" | "y" | "z";
 
@@ -25,6 +25,7 @@ export function getAxesSpritePoints(options: GizmoOptions) {
         textColor != null ? colorManager.set(textColor).getStyle() : null,
         hover != null ? colorManager.set(hover).getStyle() : null,
         hoverText != null ? colorManager.set(hoverText).getStyle() : null,
+        circle ?? true,
         border
       )
     );

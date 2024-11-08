@@ -14,7 +14,8 @@ export function getSpriteMaterial(
   textColor: string | null,
   hover: string | null,
   hoverText: string | null,
-  border?: boolean
+  circle: boolean = true,
+  border: boolean = false
 ) {
   const canvas = document.createElement("canvas");
   resolution = resolution ?? 64;
@@ -30,14 +31,22 @@ export function getSpriteMaterial(
 
   const context = canvas.getContext("2d") as CanvasRenderingContext2D;
 
-  drawCircle(context, radius, centerY, centerY, color, border);
-  drawCircle(context, radius, circle2X, centerY, hover || "#FFF", border);
+  drawCircle(context, radius, centerY, centerY, color, circle, border);
+  drawCircle(
+    context,
+    radius,
+    circle2X,
+    centerY,
+    hover || "#FFF",
+    circle,
+    border
+  );
 
   if (text != null) {
     const family = font.family || "sans-serif";
     const weight = font.weight || 500;
 
-    const fixY = fitTextInBox(context, text, family, weight, resolution);
+    const fixY = textFitBox(context, text, family, weight, resolution);
 
     context.textAlign = "center";
     context.textBaseline = "middle";
@@ -65,17 +74,21 @@ function drawCircle(
   x: number,
   y: number,
   color: string,
+  circle: boolean,
   border: boolean = false
 ) {
   const borderSize = y * 0.1;
   radius = border ? radius - borderSize : radius;
 
   if (border) context.globalAlpha = 0.2;
-  context.beginPath();
-  context.arc(x, y, radius, 0, 2 * Math.PI);
-  context.closePath();
-  context.fillStyle = color;
-  context.fill();
+
+  if (circle) {
+    context.beginPath();
+    context.arc(x, y, radius, 0, 2 * Math.PI);
+    context.closePath();
+    context.fillStyle = color;
+    context.fill();
+  }
 
   if (border) {
     context.globalAlpha = 1;
@@ -85,7 +98,7 @@ function drawCircle(
   }
 }
 
-function fitTextInBox(
+function textFitBox(
   ctx: CanvasRenderingContext2D,
   text: string,
   font: string,
