@@ -111,6 +111,7 @@
             text: "X",
             drawLine: true,
             border: false,
+            circle: true,
             colors: {
               main: "#ff3653",
               hover: "#ffffff",
@@ -122,6 +123,7 @@
             text: "Y",
             drawLine: true,
             border: false,
+            circle: true,
             colors: {
               main: "#8adb00",
               hover: "#ffffff",
@@ -133,6 +135,7 @@
             text: "Z",
             drawLine: true,
             border: false,
+            circle: true,
             colors: {
               main: "#2c8fff",
               hover: "#ffffff",
@@ -144,6 +147,7 @@
             text: "",
             drawLine: false,
             border: false,
+            circle: true,
             colors: {
               main: "#ff3653",
               hover: "#ffffff",
@@ -155,6 +159,7 @@
             text: "",
             drawLine: false,
             border: false,
+            circle: true,
             colors: {
               main: "#8adb00",
               hover: "#ffffff",
@@ -166,6 +171,7 @@
             text: "",
             drawLine: false,
             border: false,
+            circle: true,
             colors: {
               main: "#2c8fff",
               hover: "#ffffff",
@@ -230,6 +236,7 @@
           const axis = options[key];
           axisFolder.add(axis, "text");
           axisFolder.add(axis, "drawLine");
+          axisFolder.add(axis, "circle");
           axisFolder.add(axis, "border");
 
           const colorsFolder = axisFolder.addFolder("Colors");
