@@ -11,7 +11,7 @@ export function getBackgroundSphere({
   color,
   opacity,
 }: { color?: ColorRepresentation; opacity?: number } = {}) {
-  const geometry = new SphereGeometry(1.6, 64, 64);
+  const geometry = new SphereGeometry(1.8, 64, 64);
   const sphere = new Mesh<BufferGeometry, MeshBasicMaterial>(
     geometry,
     new MeshBasicMaterial({
