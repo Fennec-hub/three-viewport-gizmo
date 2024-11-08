@@ -2,7 +2,7 @@
 
 ## Try it Online
 
-You can try ViewportGizmo directly in your browser on [jsFiddle](https://jsfiddle.net/wpxbcj6h/).
+You can try ViewportGizmo directly in your browser on [jsFiddle](https://jsfiddle.net/7wsoj680/).
 
 ## Installation
 
@@ -16,7 +16,7 @@ $ npm install three-viewport-gizmo
 
 ```javascript [CDN module]
 import * as THREE from "https://unpkg.com/three@0.169.0/build/three.module.js";
-import { ViewportGizmo } from "https://unpkg.com/three-viewport-gizmo@1.0.2/dist/three-viewport-gizmo.js";
+import { ViewportGizmo } from "https://unpkg.com/three-viewport-gizmo@1.0.3/dist/three-viewport-gizmo.js";
 ```
 
 ```html [CDN importsmap]
@@ -25,7 +25,7 @@ import { ViewportGizmo } from "https://unpkg.com/three-viewport-gizmo@1.0.2/dist
     "imports": {
       "three": "https://unpkg.com/three@0.169.0/build/three.module.js",
       "three/addons/": "https://unpkg.com/three@0.169.0/examples/jsm/",
-      "three-viewport-gizmo": "https://unpkg.com/three-viewport-gizmo@1.0.2/dist/three-viewport-gizmo.js"
+      "three-viewport-gizmo": "https://unpkg.com/three-viewport-gizmo@1.0.3/dist/three-viewport-gizmo.js"
     }
   }
 </script>
