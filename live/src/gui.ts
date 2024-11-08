@@ -50,7 +50,7 @@ export const initGUI = () => {
       text: "Y",
       line: true,
       border: false,
-      circle: true,
+      circle: false,
       colors: {
         main: "#8adb00",
         hover: "#ffffff",
