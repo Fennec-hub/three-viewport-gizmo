@@ -15,8 +15,8 @@ export const getAxesLines = (options: GizmoOptions) => {
 
     if (axis.line === false) return;
 
-    const negative = i < 3 ? 1 : -1;
-    const distance = i < 3 ? 0.9 : 1.025;
+    const negative = i < 3 ? 1.1 : -1.1;
+    const distance = i < 3 ? 1 : 1.125;
 
     positions.push(
       key.includes("x") ? distance * negative : 0,

@@ -33,7 +33,7 @@ export function getAxesSpritePoints(options: GizmoOptions) {
     sprite.userData.axis = key;
     sprite.userData.forceScale = forceScale;
     sprite.scale.setScalar(forceScale || isPositive ? 0.6 : 0.4);
-    sprite.position[axis] = isPositive ? 1.2 : -1.2;
+    sprite.position[axis] = isPositive ? 1.4 : -1.4;
     sprite.renderOrder = 100;
 
     return sprite;
