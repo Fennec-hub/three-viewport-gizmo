@@ -832,7 +832,7 @@ function $t(s, t, e, i, n, r, o, a = !0, h = !1) {
 }
 function K(s, t, e, i, n, r, o = !1) {
   const a = i * 0.1;
-  t = o ? t - a : t, o && (s.globalAlpha = 0.2), r && (s.beginPath(), s.arc(e, i, t, 0, 2 * Math.PI), s.closePath(), s.fillStyle = n, s.fill()), o && (s.globalAlpha = 1, s.strokeStyle = n, s.lineWidth = a, s.stroke());
+  t = o ? t - a : t, s.beginPath(), s.arc(e, i, t, 0, 2 * Math.PI), s.closePath(), o && (s.globalAlpha = 0.2), r && (s.fillStyle = n, s.fill()), o && (s.globalAlpha = 1, s.strokeStyle = n, s.lineWidth = a, s.stroke());
 }
 function kt(s, t, e, i, n) {
   const r = Math.sqrt(Math.pow(n * 0.7, 2) / 2);
