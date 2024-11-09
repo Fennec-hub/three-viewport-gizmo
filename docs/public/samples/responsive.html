@@ -58,10 +58,7 @@
       let animateRotation = true;
       let pointerup = false;
       let pointerout = false;
-      const rotateAnimation = () => {
-        animateRotation = pointerout && pointerup;
-        console.log(pointerout && pointerup, pointerout, pointerup);
-      };
+      const rotateAnimation = () => (animateRotation = pointerout && pointerup);
       body.onpointerover = () => {
         pointerout = false;
         rotateAnimation();
