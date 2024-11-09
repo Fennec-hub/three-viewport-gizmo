@@ -53,8 +53,6 @@ export type {
 
 const _matrix = /*@__PURE__*/ new Matrix4();
 const _euler = /*@__PURE__*/ new Euler();
-const _mouseStart = /*@__PURE__*/ new Vector2();
-const _mouseAngle = /*@__PURE__*/ new Vector2();
 
 /**
  * ViewportGizmo is a 3D camera orientation controller that provides a visual interface
@@ -109,6 +107,8 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
   private _targetQuaternion = new Quaternion();
   private _quaternionStart = new Quaternion();
   private _quaternionEnd = new Quaternion();
+  private _mouseStart = new Vector2();
+  private _mouseAngle = new Vector2();
   private _controls?: OrbitControls;
   private _controlsListeners?: {
     start: () => void;
@@ -475,23 +475,23 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
 
     const drag = (e: PointerEvent) => {
       if (!this._dragging) {
-        if (isClick(e, _mouseStart)) return;
+        if (isClick(e, this._mouseStart)) return;
 
         resetSprites(this._spritePoints);
         this._dragging = true;
       }
 
-      _mouseAngle
+      this._mouseAngle
         .set(e.clientX, e.clientY)
-        .sub(_mouseStart)
+        .sub(this._mouseStart)
         .multiplyScalar((1 / this._domRect.width) * Math.PI);
 
       this.rotation.x = clamp(
-        rotationStart.x + _mouseAngle.y,
+        rotationStart.x + this._mouseAngle.y,
         Math.PI / -2 + 0.001,
         Math.PI / 2 - 0.001
       );
-      this.rotation.y = rotationStart.y + _mouseAngle.x;
+      this.rotation.y = rotationStart.y + this._mouseAngle.x;
       this.updateMatrixWorld();
 
       this._quaternionStart.copy(this.quaternion).invert();
@@ -522,7 +522,7 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
 
     e.preventDefault();
 
-    _mouseStart.set(e.clientX, e.clientY);
+    this._mouseStart.set(e.clientX, e.clientY);
 
     const rotationStart = _euler.copy(this.rotation);
 
