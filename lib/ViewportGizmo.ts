@@ -51,12 +51,7 @@ export type {
   OrientationAxes,
 };
 
-const _targetPosition = /*@__PURE__*/ new Vector3();
-const _targetQuaternion = /*@__PURE__*/ new Quaternion();
-const _quaternionStart = /*@__PURE__*/ new Quaternion();
-const _quaternionEnd = /*@__PURE__*/ new Quaternion();
 const _matrix = /*@__PURE__*/ new Matrix4();
-const _clock = /*@__PURE__*/ new Clock();
 const _euler = /*@__PURE__*/ new Euler();
 const _mouseStart = /*@__PURE__*/ new Vector2();
 const _mouseAngle = /*@__PURE__*/ new Vector2();
@@ -109,6 +104,11 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
   private _domRect!: DOMRect;
   private _dragging: boolean = false;
   private _distance: number = 0;
+  private _clock: Clock = new Clock();
+  private _targetPosition = new Vector3();
+  private _targetQuaternion = new Quaternion();
+  private _quaternionStart = new Quaternion();
+  private _quaternionEnd = new Quaternion();
   private _controls?: OrbitControls;
   private _controlsListeners?: {
     start: () => void;
@@ -389,11 +389,11 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
 
     if (!this.animated) {
       position
-        .applyQuaternion(_quaternionEnd)
+        .applyQuaternion(this._quaternionEnd)
         .multiplyScalar(this._distance)
         .add(this.target);
 
-      quaternion.copy(_targetQuaternion);
+      quaternion.copy(this._targetQuaternion);
 
       this._updateOrientation();
 
@@ -403,22 +403,22 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
       return;
     }
 
-    const delta = _clock.getDelta();
+    const delta = this._clock.getDelta();
 
     const step = delta * GIZMO_TURN_RATE * this.speed;
 
-    _quaternionStart.rotateTowards(_quaternionEnd, step);
+    this._quaternionStart.rotateTowards(this._quaternionEnd, step);
     position
-      .applyQuaternion(_quaternionStart)
+      .applyQuaternion(this._quaternionStart)
       .multiplyScalar(this._distance)
       .add(this.target);
 
-    quaternion.rotateTowards(_targetQuaternion, step);
+    quaternion.rotateTowards(this._targetQuaternion, step);
 
     this._updateOrientation();
     requestAnimationFrame(() => this.dispatchEvent({ type: "change" }));
 
-    if (_quaternionStart.angleTo(_quaternionEnd) === 0) {
+    if (this._quaternionStart.angleTo(this._quaternionEnd) === 0) {
       this.animating = false;
       this.dispatchEvent({ type: "end" });
     }
@@ -435,21 +435,21 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
     const focusPoint = this.target;
 
     const [position, orientation] = GIZMO_AXES_ORIENTATIONS[axis];
-    _targetPosition.fromArray(position);
-    _targetQuaternion.setFromEuler(_euler.fromArray(orientation));
+    this._targetPosition.fromArray(position);
+    this._targetQuaternion.setFromEuler(_euler.fromArray(orientation));
 
-    _targetPosition.multiplyScalar(this._distance).add(focusPoint);
+    this._targetPosition.multiplyScalar(this._distance).add(focusPoint);
 
     _matrix.setPosition(camera.position);
     _matrix.lookAt(camera.position, focusPoint, this.up);
-    _quaternionStart.setFromRotationMatrix(_matrix);
+    this._quaternionStart.setFromRotationMatrix(_matrix);
 
-    _matrix.setPosition(_targetPosition);
-    _matrix.lookAt(_targetPosition, focusPoint, this.up);
-    _quaternionEnd.setFromRotationMatrix(_matrix);
+    _matrix.setPosition(this._targetPosition);
+    _matrix.lookAt(this._targetPosition, focusPoint, this.up);
+    this._quaternionEnd.setFromRotationMatrix(_matrix);
 
     this.animating = true;
-    _clock.start();
+    this._clock.start();
     this.dispatchEvent({ type: "start" });
   }
 
@@ -494,15 +494,15 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
       this.rotation.y = rotationStart.y + _mouseAngle.x;
       this.updateMatrixWorld();
 
-      _quaternionStart.copy(this.quaternion).invert();
+      this._quaternionStart.copy(this.quaternion).invert();
 
       this.camera.position
         .set(0, 0, 1)
-        .applyQuaternion(_quaternionStart)
+        .applyQuaternion(this._quaternionStart)
         .multiplyScalar(this._distance)
         .add(this.target);
 
-      this.camera.rotation.setFromQuaternion(_quaternionStart);
+      this.camera.rotation.setFromQuaternion(this._quaternionStart);
 
       this._updateOrientation(false);
 
