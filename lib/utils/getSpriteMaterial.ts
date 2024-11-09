@@ -80,12 +80,13 @@ function drawCircle(
   const borderSize = y * 0.1;
   radius = border ? radius - borderSize : radius;
 
+  context.beginPath();
+  context.arc(x, y, radius, 0, 2 * Math.PI);
+  context.closePath();
+
   if (border) context.globalAlpha = 0.2;
 
   if (circle) {
-    context.beginPath();
-    context.arc(x, y, radius, 0, 2 * Math.PI);
-    context.closePath();
     context.fillStyle = color;
     context.fill();
   }

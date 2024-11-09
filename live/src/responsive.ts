@@ -129,21 +129,21 @@ export function responsive() {
         },
       },
       nx: {
-        line: true,
+        line: false,
         border: true,
         colors: {
           main: 0x000000,
         },
       },
       ny: {
-        line: true,
+        line: false,
         border: true,
         colors: {
           main: 0x000000,
         },
       },
       nz: {
-        line: true,
+        line: false,
         border: true,
         colors: {
           main: 0x000000,
