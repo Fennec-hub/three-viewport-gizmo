@@ -45,12 +45,7 @@
         0.1,
         100
       );
-      camera.position.setScalar(5);
-
       const scene = new THREE.Scene();
-      scene.add(camera);
-
-      camera.lookAt(scene.position);
 
       const renderer = new THREE.WebGLRenderer({ antialias: true });
       renderer.setPixelRatio(window.devicePixelRatio);
@@ -60,9 +55,29 @@
       const body = document.body;
       body.appendChild(renderer.domElement);
 
-      let animate = true;
-      body.onmouseover = () => (animate = false);
-      body.onmouseleave = () => (animate = true);
+      let animateRotation = true;
+      let pointerup = false;
+      let pointerout = false;
+      const rotateAnimation = () => {
+        animateRotation = pointerout && pointerup;
+        console.log(pointerout && pointerup, pointerout, pointerup);
+      };
+      body.onpointerover = () => {
+        pointerout = false;
+        rotateAnimation();
+      };
+      body.onpointerleave = () => {
+        pointerout = true;
+        rotateAnimation();
+      };
+      body.onpointerdown = () => {
+        pointerup = false;
+        rotateAnimation();
+      };
+      body.onpointerup = () => {
+        pointerup = true;
+        rotateAnimation();
+      };
 
       // Configurations
       const gizmoConfigs = [
@@ -279,7 +294,7 @@
       ];
 
       // Initialization
-      const gizmos = gizmoConfigs.map((config) => {
+      const gizmos = gizmoConfigs.map((config, i) => {
         const camera = new THREE.PerspectiveCamera(
           70,
           window.innerWidth / window.innerHeight,
@@ -288,6 +303,7 @@
         );
         camera.position.setScalar(5);
         camera.lookAt(scene.position);
+        scene.add(camera);
         return new ViewportGizmo(camera, renderer, config);
       });
 
@@ -296,17 +312,18 @@
       function animation(time) {
         renderer.render(scene, camera);
 
-        if (animate) {
-          angle += 0.01;
-          camera.position.x = radius * Math.cos(angle);
-          camera.position.z = radius * Math.sin(angle);
-          camera.lookAt(scene.position);
-        }
+        if (animateRotation) angle += 0.01;
 
         // Render
-        gizmos.forEach((gizmos) => {
-          gizmos.cameraUpdate();
-          gizmos.render();
+        gizmos.forEach((gizmo) => {
+          if (animateRotation) {
+            const camera = gizmo.camera;
+            camera.position.x = radius * Math.cos(angle);
+            camera.position.z = radius * Math.sin(angle);
+            camera.lookAt(scene.position);
+            gizmo.update();
+          }
+          gizmo.render();
         });
       }
 
@@ -318,10 +335,11 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
 
         // Update the Gizmo on Resize
-        gizmos.forEach((gizmos) => {
-          gizmos.camera.aspect = window.innerWidth / window.innerHeight;
-          gizmos.camera.updateProjectionMatrix();
-          gizmos.update();
+        gizmos.forEach((gizmo) => {
+          if (!gizmo) return;
+          gizmo.camera.aspect = window.innerWidth / window.innerHeight;
+          gizmo.camera.updateProjectionMatrix();
+          gizmo.update();
         });
       };
     </script>
