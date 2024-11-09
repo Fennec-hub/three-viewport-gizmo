@@ -196,6 +196,8 @@ export declare class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
     private _targetQuaternion;
     private _quaternionStart;
     private _quaternionEnd;
+    private _mouseStart;
+    private _mouseAngle;
     private _controls?;
     private _controlsListeners?;
     /**
