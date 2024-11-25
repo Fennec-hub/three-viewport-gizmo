@@ -1,7 +1,7 @@
 import { ColorRepresentation } from 'three';
 import { Object3D } from 'three';
 import { Object3DEventMap } from 'three';
-import type { OrbitControls } from 'three/examples/jsm/Addons.js';
+import { OrbitControls } from 'three/examples/jsm/Addons.js';
 import { OrthographicCamera } from 'three';
 import { PerspectiveCamera } from 'three';
 import { Vector3 } from 'three';
