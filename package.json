@@ -37,11 +37,12 @@
     "vitepress": "^1.4.1",
     "vue": "^3.5.12"
   },
+  "peerDependencies": {
+    "three": "^0.162.0"
+  },
   "dependencies": {
     "camera-controls": "^2.8.3",
-    "oh-vue-icons": "^1.0.0-rc3",
-    "three": "^0.162.0",
-    "three-viewport-gizmo": "^0.1.0"
+    "oh-vue-icons": "^1.0.0-rc3"
   },
   "keywords": [
     "three.js",
