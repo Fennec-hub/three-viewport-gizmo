@@ -1,5 +1,9 @@
 import { PerspectiveCamera, Scene, WebGLRenderer } from "three";
-import { GizmoOptions, ViewportGizmo } from "@lib/ViewportGizmo";
+import {
+  GizmoAxisOptions,
+  GizmoOptions,
+  ViewportGizmo,
+} from "@lib/ViewportGizmo";
 
 export function responsive() {
   const container = document.querySelector<HTMLElement>("#app")!;
@@ -22,16 +26,101 @@ export function responsive() {
 
   container.appendChild(renderer.domElement);
 
+  const deepClone = <T>(obj: T) => JSON.parse(JSON.stringify(obj)) as T;
+
+  const offset = {
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  };
+
+  const topRightPositiveAxis: GizmoAxisOptions = {
+    color: 0xd491be,
+    labelColor: 0xffffff,
+    hover: {
+      labelColor: 0xd491be,
+    },
+  };
+
+  const topRightNegativeAxis: GizmoAxisOptions = {
+    color: "",
+    border: {
+      size: 0.15,
+      color: 0xe491ce,
+    },
+    hover: {
+      color: "",
+      scale: 0.45,
+      border: {
+        size: 0.15,
+        color: 0xffffff,
+      },
+    },
+  };
+
+  const bottomLeftPositiveAxis: GizmoAxisOptions = {
+    color: 0x000000,
+    labelColor: 0xffffff,
+    hover: {
+      color: "",
+      labelColor: 0x000000,
+      border: {
+        size: 0.1,
+        color: 0x000000,
+      },
+    },
+  };
+
+  const bottomLeftNegativeAxis: GizmoAxisOptions = {
+    color: "",
+    border: {
+      size: 0.15,
+      color: 0x000000,
+    },
+    hover: {
+      color: 0x000000,
+      scale: 0.4,
+      border: {
+        size: 0,
+        color: "",
+      },
+    },
+  };
+
+  const bottomRightPositiveAxis = {
+    line: false,
+    color: "",
+    labelColor: 0xf6d162,
+    border: {
+      size: 0.05,
+      color: 0xf6d162,
+    },
+    hover: {
+      scale: 0.75,
+      color: "",
+      labelColor: 0xf6d162,
+      border: {
+        size: 0.1,
+        color: 0xf6d162,
+      },
+    },
+  };
+
+  const bottomRightNegativeAxis = {
+    color: 0xf6d162,
+    hover: { color: 0xf6d162, border: { size: 0, color: "" } },
+  };
+
   const gizmoConfigs: GizmoOptions[] = [
     {
       placement: "top-left",
       className: "responsive-gizmo",
       lineWidth: 15,
-      sphere: {
-        enabled: true,
-        color: 0x222222,
+      offset: deepClone(offset),
+      background: {
         opacity: 0.6,
-        hoverOpacity: 0.2,
+        hover: { opacity: 0.2 },
       },
     },
     {
@@ -39,175 +128,60 @@ export function responsive() {
       className: "responsive-gizmo",
       lineWidth: 0,
       speed: 1,
-      sphere: {
-        enabled: true,
+      offset: deepClone(offset),
+      background: {
         color: 0x472875,
         opacity: 0.6,
-        hoverOpacity: 0.2,
-      },
-      x: {
-        text: "X",
-        line: false,
-        colors: {
-          main: 0xd491be,
-          text: 0xffffff,
-          hoverText: 0xd491be,
+        hover: {
+          opacity: 0.8,
+          color: 0x472875,
         },
       },
-      y: {
-        text: "Y",
-        line: false,
-        colors: {
-          main: 0xd491be,
-          text: 0xffffff,
-          hoverText: 0xd491be,
-        },
-      },
-      z: {
-        text: "Z",
-        line: false,
-        colors: {
-          main: 0xd491be,
-          text: 0xffffff,
-          hoverText: 0xd491be,
-        },
-      },
-      nx: {
-        line: false,
-        border: true,
-        colors: {
-          main: 0xd491be,
-        },
-      },
-      ny: {
-        line: false,
-        border: true,
-        colors: {
-          main: 0xd491be,
-        },
-      },
-      nz: {
-        line: false,
-        border: true,
-        colors: {
-          main: 0xd491be,
-        },
-      },
+      x: deepClone(topRightPositiveAxis),
+      y: deepClone(topRightPositiveAxis),
+      z: deepClone(topRightPositiveAxis),
+      nx: deepClone(topRightNegativeAxis),
+      ny: deepClone(topRightNegativeAxis),
+      nz: deepClone(topRightNegativeAxis),
     },
     {
       placement: "bottom-left",
       className: "responsive-gizmo",
       lineWidth: 15,
-      sphere: {
-        enabled: true,
-        color: 0xdddddd,
+      offset: deepClone(offset),
+      background: {
+        color: 0xffffff,
         opacity: 0.6,
-        hoverOpacity: 0.2,
-      },
-      x: {
-        text: "X",
-        colors: {
-          main: 0x000000,
-          text: 0xffffff,
-          hoverText: 0x000000,
+        hover: {
+          opacity: 0.8,
         },
       },
-      y: {
-        text: "Y",
-        colors: {
-          main: 0x000000,
-          text: 0xffffff,
-          hoverText: 0x000000,
-        },
-      },
-      z: {
-        text: "Z",
-        colors: {
-          main: 0x000000,
-          text: 0xffffff,
-          hoverText: 0x000000,
-        },
-      },
-      nx: {
-        line: false,
-        border: true,
-        colors: {
-          main: 0x000000,
-        },
-      },
-      ny: {
-        line: false,
-        border: true,
-        colors: {
-          main: 0x000000,
-        },
-      },
-      nz: {
-        line: false,
-        border: true,
-        colors: {
-          main: 0x000000,
-        },
-      },
+      x: deepClone(bottomLeftPositiveAxis),
+      y: deepClone(bottomLeftPositiveAxis),
+      z: deepClone(bottomLeftPositiveAxis),
+      nx: deepClone(bottomLeftNegativeAxis),
+      ny: deepClone(bottomLeftNegativeAxis),
+      nz: deepClone(bottomLeftNegativeAxis),
     },
     {
       placement: "bottom-right",
       className: "responsive-gizmo",
       speed: 1,
-      sphere: {
-        enabled: true,
+      offset: deepClone(offset),
+      background: {
         color: 0xcc3634,
-        opacity: 0.6,
-        hoverOpacity: 0.2,
-      },
-      x: {
-        text: "X",
-        line: false,
-        border: true,
-        circle: false,
-        colors: {
-          main: 0xf6d162,
-          text: 0xf6d162,
+        opacity: 0.4,
+        hover: {
+          color: 0xcc3634,
+          opacity: 0.6,
         },
       },
-      y: {
-        text: "Y",
-        line: false,
-        border: true,
-        circle: false,
-        colors: {
-          main: 0xf6d162,
-          text: 0xf6d162,
-        },
-      },
-      z: {
-        text: "Z",
-        line: false,
-        border: true,
-        circle: false,
-        colors: {
-          main: 0xf6d162,
-          text: 0xf6d162,
-        },
-      },
-      nx: {
-        line: false,
-        colors: {
-          main: 0xf6d162,
-        },
-      },
-      ny: {
-        line: false,
-        colors: {
-          main: 0xf6d162,
-        },
-      },
-      nz: {
-        line: false,
-        colors: {
-          main: 0xf6d162,
-        },
-      },
+      x: deepClone(bottomRightPositiveAxis),
+      y: deepClone(bottomRightPositiveAxis),
+      z: deepClone(bottomRightPositiveAxis),
+      nx: deepClone(bottomRightNegativeAxis),
+      ny: deepClone(bottomRightNegativeAxis),
+      nz: deepClone(bottomRightNegativeAxis),
     },
   ];
 
@@ -220,7 +194,9 @@ export function responsive() {
     );
     camera.position.setScalar(5);
     camera.lookAt(scene.position);
-    return new ViewportGizmo(camera, renderer, { ...config });
+    const gizmo = new ViewportGizmo(camera, renderer, { ...config });
+
+    return gizmo;
   });
 
   function animation() {
@@ -231,7 +207,6 @@ export function responsive() {
   renderer.setAnimationLoop(animation);
   window.onresize = () => {
     camera.aspect = window.innerWidth / window.innerHeight;
-    console.log(camera.position);
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
     gizmos.forEach((gizmo) => gizmo.update());

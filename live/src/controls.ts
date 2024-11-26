@@ -25,7 +25,7 @@ export const orbitOrTrackballControls = () => {
   };
 
   const animateControlsCallBack = () => {
-    gizmo.update();
+    //gizmo.update();
   };
 
   initScene(

@@ -1,112 +1,16 @@
 import { updateViewportGizmo } from "./configuration";
 
 import { GUI } from "three/addons/libs/lil-gui.module.min.js";
-import { GizmoAxisOptions, GizmoOptions } from "@lib/types";
+import { GizmoOptions, GizmoOptionsFallback } from "@lib/types";
 import { GIZMO_AXES } from "@lib/utils/constants";
+import { ViewportGizmo } from "@lib/ViewportGizmo";
 
-export const initGUI = () => {
+export const initGUI = (gizmo: ViewportGizmo) => {
   const gui = new GUI();
 
-  const options: Omit<
-    Required<GizmoOptions>,
-    "container" | "id" | "className"
-  > = {
-    placement: "center-center",
-    size: parseInt(`${Math.min(window.innerWidth, window.innerHeight) * 0.8}`),
-    animated: true,
-    speed: 1,
-    lineWidth: 20,
-    offset: {
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-    },
-    font: {
-      family: "helvetica",
-      weight: 900,
-    },
-    resolution: 64,
-    sphere: {
-      enabled: true,
-      color: 0xffffff,
-      opacity: 0,
-      hoverColor: 0xffffff,
-      hoverOpacity: 0.2,
-    },
-    x: {
-      text: "X",
-      line: true,
-      border: false,
-      circle: true,
-      colors: {
-        main: "#ff3653",
-        hover: "#ffffff",
-        text: "#000000",
-        hoverText: "#000000",
-      },
-    },
-    y: {
-      text: "Y",
-      line: true,
-      border: false,
-      circle: false,
-      colors: {
-        main: "#8adb00",
-        hover: "#ffffff",
-        text: "#000000",
-        hoverText: "#000000",
-      },
-    },
-    z: {
-      text: "Z",
-      line: true,
-      border: false,
-      circle: true,
-      colors: {
-        main: "#2c8fff",
-        hover: "#ffffff",
-        text: "#000000",
-        hoverText: "#000000",
-      },
-    },
-    nx: {
-      text: "",
-      line: false,
-      border: false,
-      circle: true,
-      colors: {
-        main: "#ff3653",
-        hover: "#ffffff",
-        text: "#000000",
-        hoverText: "#000000",
-      },
-    },
-    ny: {
-      text: "",
-      line: false,
-      border: false,
-      circle: true,
-      colors: {
-        main: "#8adb00",
-        hover: "#ffffff",
-        text: "#000000",
-        hoverText: "#000000",
-      },
-    },
-    nz: {
-      text: "",
-      line: false,
-      border: false,
-      circle: true,
-      colors: {
-        main: "#2c8fff",
-        hover: "#ffffff",
-        text: "#000000",
-        hoverText: "#000000",
-      },
-    },
-  };
+  const options = JSON.parse(
+    JSON.stringify((gizmo as any)["_options"])
+  ) as unknown as GizmoOptionsFallback;
 
   const sceneOptions = {
     background: "#333333",
@@ -135,9 +39,7 @@ export const initGUI = () => {
   gui.add(options, "resolution", 64, 256, 1);
 
   const offset = gui.addFolder("offset").close();
-  const optionsOffset = options.offset as Required<
-    Required<GizmoOptions>["offset"]
-  >;
+  const optionsOffset = options.offset;
   offset.add(optionsOffset, "top", 0, 50, 1);
   offset.add(optionsOffset, "left", 0, 50, 1);
   offset.add(optionsOffset, "right", 0, 50, 1);
@@ -152,32 +54,42 @@ export const initGUI = () => {
     [100, 200, 300, 400, 500, 600, 700, 800, 900]
   );
 
-  const sphere = gui.addFolder("sphere").close();
-  const sphereConfig = options.sphere as Required<
-    Required<GizmoOptions>["sphere"]
-  >;
-  sphere.add(sphereConfig, "enabled");
-  sphere.addColor(sphereConfig, "color");
-  sphere.add(sphereConfig, "opacity");
-  sphere.addColor(sphereConfig, "hoverColor");
-  sphere.add(sphereConfig, "hoverOpacity");
+  const background = gui.addFolder("background").close();
+  const bgConfig = options.background;
+  background.add(bgConfig, "enabled");
+  background.addColor(bgConfig, "color");
+  background.add(bgConfig, "opacity", 0, 1, 0.1);
+  const bgHover = background.addFolder("hover").close();
+  bgHover.addColor(bgConfig.hover, "color");
+  bgHover.add(bgConfig.hover, "opacity", 0, 1, 0.1);
 
   GIZMO_AXES.forEach((key) => {
     const axisFolder = gui.addFolder(key).close();
-    const axis = options[key] as Required<GizmoAxisOptions>;
-    axisFolder.add(axis, "text");
-    axisFolder.add(axis, "line");
-    axisFolder.add(axis, "circle");
-    axisFolder.add(axis, "border");
+    const axis = options[key];
 
-    const colorsFolder = axisFolder.addFolder("Colors");
-    const colors = axis.colors as Required<
-      Required<GizmoAxisOptions>["colors"]
-    >;
-    colorsFolder.addColor(colors, "main");
-    colorsFolder.addColor(colors, "text");
-    colorsFolder.addColor(colors, "hover");
-    colorsFolder.addColor(colors, "hoverText");
+    axisFolder.add(axis, "label");
+    axisFolder.add(axis, "opacity", 0, 1, 0.1);
+    axisFolder.add(axis, "scale", 0, 1, 0.1);
+    axisFolder.add(axis, "line");
+    axisFolder.addColor(axis, "color");
+    axisFolder.addColor(axis, "labelColor");
+
+    const border = axisFolder.addFolder("border").close();
+    const borderConfig = axis.border;
+    border.add(borderConfig, "size", 0, 1, 0.1);
+    border.addColor(borderConfig, "color");
+
+    const axisHover = axisFolder.addFolder("hover").close();
+    const hoverConfig = axis.hover;
+    axisHover.add(hoverConfig, "opacity", 0, 1, 0.1);
+    axisHover.add(hoverConfig, "scale", 0, 1, 0.1);
+    axisHover.addColor(hoverConfig, "color");
+    axisHover.addColor(hoverConfig, "labelColor");
+
+    const hoverBorder = axisHover.addFolder("hoverBorder").close();
+    const hoverBorderConfig = hoverConfig.border;
+    hoverBorder.add(hoverBorderConfig, "size", 0, 1, 0.1);
+    hoverBorder.addColor(hoverBorderConfig, "color");
   });
 
   gui.add({ copyOptions }, "copyOptions").name("Copy Options");

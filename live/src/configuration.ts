@@ -8,7 +8,7 @@ import {
 } from "three";
 import { ViewportGizmo } from "@lib/ViewportGizmo";
 import { initGUI } from "./gui";
-import { GizmoOptions } from "@lib/types";
+import { GizmoOptionsFallback } from "@lib/types";
 
 let viewportGizmo: ViewportGizmo;
 
@@ -40,11 +40,12 @@ export function configuration() {
 
   // Viewport Gizmo
   viewportGizmo = new ViewportGizmo(camera, renderer, {
-    size: Math.min(width, height) * 0.8,
+    size: Math.round(Math.min(width, height) * 0.8),
     placement: "center-center",
+    type: "cube",
   });
 
-  initGUI();
+  initGUI(viewportGizmo);
 
   function animation() {
     renderer.render(scene, camera);
@@ -61,12 +62,12 @@ export function configuration() {
 }
 
 export function updateViewportGizmo(
-  options: GizmoOptions,
+  options: GizmoOptionsFallback,
   params: { background: ColorRepresentation; grid: boolean }
 ) {
   const target = viewportGizmo.target;
   viewportGizmo.dispose();
-  viewportGizmo = new ViewportGizmo(camera, renderer, options);
+  viewportGizmo = new ViewportGizmo(camera, renderer, options as any);
   viewportGizmo.target = target;
 
   gridHelper.visible = params.grid;

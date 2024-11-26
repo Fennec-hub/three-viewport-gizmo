@@ -1,4 +1,5 @@
 import { ColorRepresentation } from 'three';
+import { DeepRequired } from 'utility-types';
 import { Object3D } from 'three';
 import { Object3DEventMap } from 'three';
 import { OrbitControls } from 'three/examples/jsm/Addons.js';
@@ -13,39 +14,43 @@ import { WebGLRenderer } from 'three';
  */
 export declare type GizmoAxisOptions = {
     /** Custom text label for the axis. If not specified, defaults to the axis name */
-    text?: string;
-    /** Whether to draw a circle indicator for this axis */
-    circle?: boolean;
-    /** Whether to draw the axis line */
+    label?: string;
+    /** The axis opacity. Default `1` */
+    opacity?: number;
+    /** The scale multiplayer for the indicator size. Default `1` */
+    scale?: number;
+    /** Whether to draw the the axis line */
     line?: boolean;
-    /** Whether to draw a border around the axis indicator */
-    border?: boolean;
-    /**
-     * Color configuration for the axis.
-     * Supports normal and hover states for both the axis and its label.
-     */
-    colors?: {
-        /**
-         * Main color for the axis.
-         * Can be either a single color,
-         * or a gradient between two colors represented as a tuple of [color, color]
-         */
-        main?: ColorRepresentation | [ColorRepresentation, ColorRepresentation];
-        /** Color when the axis is hovered */
-        hover?: ColorRepresentation;
-        /** Color for the axis label in normal state */
-        text?: ColorRepresentation;
-        /** Color for the axis label when hovered */
-        hoverText?: ColorRepresentation;
+    /** The axis indicator background color. */
+    color?: ColorRepresentation;
+    /** Color for the axis text label */
+    labelColor?: ColorRepresentation;
+    /** The border around the axis indicator. */
+    border?: {
+        /** The border size around the axis indicator. */
+        size: number;
+        /** The border color around the axis indicator. */
+        color: ColorRepresentation;
+    };
+    /** The axis indicator hover options. */
+    hover?: {
+        /** The fill color on hover */
+        color?: ColorRepresentation;
+        /** The label text color when the axis is hovered. */
+        labelColor?: ColorRepresentation;
+        /** The opacity when the axis is hovered. Default `1` */
+        opacity?: number;
+        /** The indicator scale multiplayer when the axis is hovered Default `1` */
+        scale?: number;
+        /** The border around the axis indicator. */
+        border?: {
+            /** The border size around the axis indicator. */
+            size: number;
+            /** The border color around the axis indicator. */
+            color: ColorRepresentation;
+        };
     };
 };
-
-/**
- * Represents the possible placement positions of the gizmo widget in the viewport.
- * The position is determined by combining vertical alignment (top, center, bottom)
- * with horizontal alignment (left, center, right).
- */
-export declare type GizmoDomPlacement = "top-left" | "top-center" | "top-right" | "center-left" | "center-center" | "center-right" | "bottom-left" | "bottom-center" | "bottom-right";
 
 /**
  * Configuration options for the ViewportGizmo.
@@ -54,49 +59,41 @@ export declare type GizmoDomPlacement = "top-left" | "top-center" | "top-right" 
 export declare type GizmoOptions = {
     /** Parent element for the gizmo. Can be an HTMLElement or a CSS selector string */
     container?: HTMLElement | string;
-    /** Size of the gizmo widget in pixels */
+    /** The Gizmo support two types a `sphere` and a `cube` configuration. Default `sphere` */
+    type?: "sphere" | "cube";
+    /** Size of the gizmo widget in pixels. Default `128`*/
     size?: number;
-    /** Position of the gizmo in the viewport */
-    placement?: GizmoDomPlacement;
-    /** Whether view changes should be animated */
-    animated?: boolean;
-    /** Animation speed multiplier. Higher values result in faster animations */
-    speed?: number;
-    /** Width of the axis lines in pixels */
-    lineWidth?: number;
     /**
-     * Offset of the gizmo from the container edges in pixels.
-     * All offset properties default to 0 if not specified.
+     * Represents the possible placement positions of the gizmo widget in the viewport.
+     * The position is determined by combining vertical alignment (top, center, bottom)
+     * with horizontal alignment (left, center, right).
      */
+    placement?: "top-left" | "top-center" | "top-right" | "center-left" | "center-center" | "center-right" | "bottom-left" | "bottom-center" | "bottom-right";
+    /** Offset of the gizmo from the container edges in pixels. */
     offset?: {
-        /** Offset from the left edge */
+        /** Offset from the left edge. Default `0` */
         left?: number;
-        /** Offset from the top edge */
+        /** Offset from the top edge. Default `0` */
         top?: number;
-        /** Offset from the right edge */
+        /** Offset from the right edge. Default `0` */
         right?: number;
-        /** Offset from the bottom edge */
+        /** Offset from the bottom edge. Default `0` */
         bottom?: number;
     };
+    /** Whether view changes should be animated. Default `true` */
+    animated?: boolean;
+    /** Animation speed multiplier. Higher values result in faster animations. Default `1` */
+    speed?: number;
     /**
-     * Configuration for the background sphere.
-     * The sphere provides visual context for the current orientation.
-     */
-    sphere?: {
-        /** Whether to show the background sphere */
-        enabled?: boolean;
-        /** Color of the background sphere in normal state */
-        color?: ColorRepresentation;
-        /** Opacity of the background sphere in normal state (0-1) */
-        opacity?: number;
-        /** Color of the background sphere when hovered */
-        hoverColor?: ColorRepresentation;
-        /** Opacity of the background sphere when hovered (0-1) */
-        hoverOpacity?: number;
-    };
-    /** HTML id attribute for the gizmo container */
+     * The texture resolution. Higher values improve quality at the cost of performance.
+     * Default `64` for a `sphere` type, and `128` for the cube.
+     **/
+    resolution?: number;
+    /** The width of the axes lines material in pixels.   LineMaterial2 */
+    lineWidth?: number;
+    /** HTML `id` attribute for the gizmo container */
     id?: string;
-    /** HTML class attribute for the gizmo container */
+    /** HTML `class` attribute for the gizmo container */
     className?: string;
     /**
      * Font configuration for axis labels.
@@ -108,46 +105,162 @@ export declare type GizmoOptions = {
         /** Font weight for axis labels */
         weight?: string | number;
     };
-    /** Resolution multiplier for the gizmo rendering. Higher values improve quality at the cost of performance */
-    resolution?: number;
     /**
-     * Configuration for positive X axis.
+     * The gizmo background configuration.
+     * The sphere provides visual context for the current orientation.
+     */
+    background?: {
+        /** Whether to display the background sphere */
+        enabled?: boolean;
+        /** Color of the background sphere in normal state */
+        color?: ColorRepresentation;
+        /** Opacity of the background sphere in normal state (0-1) */
+        opacity?: number;
+        hover?: {
+            /** Color of the background sphere when hovered */
+            color?: ColorRepresentation;
+            /** Opacity of the background sphere when hovered (0-1) */
+            opacity?: number;
+        };
+    };
+    /**
+     * Configuration for the corner axes indicators of the gizmo.
+     * Corners provide additional visual cues for orientation, particularly useful in cube mode.
+     */
+    corners?: {
+        /** Whether to display corner indicators. Default `true` */
+        enabled?: boolean;
+        /** Base color of the corner indicators in normal state */
+        color?: ColorRepresentation;
+        /** Opacity of corner indicators in normal state (0-1). Default `1` */
+        opacity?: number;
+        /** Scale multiplier for corner indicator size. Default `1` */
+        scale?: number;
+        /** Radius of the corner indicators in range [0, 1]. Controls the roundness.
+         * Default `1` for sphere type, `0.2` for the cube type.
+         */
+        radius?: number;
+        /** Smoothness of the corner indicators. Higher values create smoother transitions. Default `18` */
+        smoothness?: number;
+        /** Corner indicator appearance when hovered */
+        hover?: {
+            /** Color of corner indicators when hovered */
+            color?: ColorRepresentation;
+            /** Opacity of corner indicators when hovered (0-1) */
+            opacity?: number;
+            /** Scale multiplier for corner indicators when hovered */
+            scale?: number;
+        };
+    };
+    /**
+     * Configuration for the edge indicators of the gizmo.
+     * Edges help define the boundaries between faces and improve spatial understanding.
+     */
+    edges?: {
+        /** Whether to display edge indicators. Default `true` */
+        enabled?: boolean;
+        /** Base color of the edge indicators in normal state */
+        color?: ColorRepresentation;
+        /** Opacity of edge indicators in normal state (0-1). Default `1` */
+        opacity?: number;
+        /** Scale multiplier for edge indicator thickness. Default `1` */
+        scale?: number;
+        /** Radius of the edge indicators in pixels. Controls the roundness. Default `2` */
+        radius?: number;
+        /** Smoothness of the edge indicators (1-10). Higher values create smoother transitions. Default `8` */
+        smoothness?: number;
+        /** Edge indicator appearance when hovered */
+        hover?: {
+            /** Color of edge indicators when hovered */
+            color?: ColorRepresentation;
+            /** Opacity of edge indicators when hovered (0-1) */
+            opacity?: number;
+            /** Scale multiplier for edge indicators when hovered */
+            scale?: number;
+        };
+    };
+    /** The axes edge radius, applied to all axes */
+    radius?: number;
+    /** The axes edge smoothness, applied to all axes */
+    smoothness?: number;
+    /**
+     * Configuration for positive `X` axis or the `Right` face.
      * @see {@link GizmoAxisOptions}
      */
     x?: GizmoAxisOptions;
     /**
-     * Configuration for positive Y axis.
+     * Configuration for positive `Y` axis or the `Top` face.
      * @see {@link GizmoAxisOptions}
      */
     y?: GizmoAxisOptions;
     /**
-     * Configuration for positive Z axis.
+     * Configuration for positive `Z` axis or the `Front` face.
      * @see {@link GizmoAxisOptions}
      */
     z?: GizmoAxisOptions;
     /**
-     * Configuration for negative X axis.
+     * Configuration for negative X axis or the `Left` face.
      * @see {@link GizmoAxisOptions}
      */
     nx?: GizmoAxisOptions;
     /**
-     * Configuration for negative Y axis.
+     * Configuration for negative Y axis or the `Bottom` face.
      * @see {@link GizmoAxisOptions}
      */
     ny?: GizmoAxisOptions;
     /**
-     * Configuration for negative Z axis.
+     * Configuration for negative Z axis or the `Back` face.
      * @see {@link GizmoAxisOptions}
      */
     nz?: GizmoAxisOptions;
+    /**
+     * @alias An alias for the negative `x` axis configuration `options.nx`,
+     * can be used with a cube configuration for more clarity.
+     *
+     * @see {@link GizmoAxisOptions}
+     */
+    right?: GizmoAxisOptions;
+    /**
+     * @alias An alias for the `y` axis configuration `options.y`,
+     * can be used with a cube configuration for more clarity.
+     *
+     * @see {@link GizmoAxisOptions}
+     */
+    top?: GizmoAxisOptions;
+    /**
+     * @alias An alias for the `z` axis configuration `options.z`,
+     * can be used with a cube configuration for more clarity.
+     *
+     * @see {@link GizmoAxisOptions}
+     */
+    front?: GizmoAxisOptions;
+    /**
+     * @alias An alias for the `x` axis configuration `options.x`,
+     * can be used with a cube configuration for more clarity.
+     *
+     * @see {@link GizmoAxisOptions}
+     */
+    left?: GizmoAxisOptions;
+    /**
+     * @alias An alias for the negative `y` axis configuration `options.ny`,
+     * can be used with a cube configuration for more clarity.
+     *
+     * @see {@link GizmoAxisOptions}
+     */
+    bottom?: GizmoAxisOptions;
+    /**
+     * @alias An alias for the negative `z` axis configuration `options.nz`,
+     * can be used with a cube configuration for more clarity.
+     *
+     * @see {@link GizmoAxisOptions}
+     */
+    back?: GizmoAxisOptions;
 };
 
-/**
- * Valid orientation axes for the gizmo.
- * This type is derived from the GIZMO_AXES constant and includes
- * both positive and negative directions for each axis.
- */
-export declare type OrientationAxes = "x" | "y" | "z" | "nx" | "ny" | "nz";
+/** The {@link GizmoOptions } with all options set with their respective default and fallback */
+declare type GizmoOptionsFallback = DeepRequired<GizmoOptions> & {
+    isSphere: boolean;
+};
 
 /**
  * ViewportGizmo is a 3D camera orientation controller that provides a visual interface
@@ -161,10 +274,15 @@ export declare type OrientationAxes = "x" | "y" | "z" | "nx" | "ny" | "nz";
  * @extends Object3D
  */
 export declare class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
+    type: string;
     /** Whether the gizmo is currently active and responding to user input */
     enabled: boolean;
     /** The camera being controlled by this gizmo */
     camera: OrthographicCamera | PerspectiveCamera;
+    /** The WebGLRenderer rendering the gizmo */
+    renderer: WebGLRenderer;
+    /** The configuration options */
+    options: GizmoOptions;
     /** The point around which the camera rotates */
     target: Vector3;
     /** Whether view changes should be animated */
@@ -178,14 +296,13 @@ export declare class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
      * @readonly This value is set internally.
      **/
     animating: boolean;
-    private _sphere?;
-    private _sphereConfig?;
-    private _spritePoints;
+    private _options;
+    private _intersections;
+    private _background;
     private _viewport;
     private _originalViewport;
     private _originalScissor;
-    private _renderer;
-    private _orthoCamera;
+    private _camera;
     private _container;
     private _domElement;
     private _domRect;
@@ -196,8 +313,9 @@ export declare class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
     private _targetQuaternion;
     private _quaternionStart;
     private _quaternionEnd;
-    private _mouseStart;
-    private _mouseAngle;
+    private _pointerStart;
+    private _focus;
+    private _placement;
     private _controls?;
     private _controlsListeners?;
     /**
@@ -260,6 +378,9 @@ export declare class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
      * @param options.AXIS.colors.hoverText - Color for the axis label on hover
      */
     constructor(camera: PerspectiveCamera | OrthographicCamera, renderer: WebGLRenderer, options?: GizmoOptions);
+    get placement(): GizmoOptionsFallback["placement"];
+    set placement(placement: GizmoOptionsFallback["placement"]);
+    set(options?: GizmoOptions): this;
     /**
      * Renders the gizmo to the screen.
      * This method handles viewport and scissor management to ensure the gizmo
@@ -295,9 +416,9 @@ export declare class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
      *
      * @param controls - The scene's {@link https://threejs.org/docs/#examples/en/controls/OrbitControls OrbitControls}
      */
-    attachControls(controls: OrbitControls): void;
+    attachControls(controls: OrbitControls): this;
     /** Removes all control event listeners and references. Safe to call multiple times. */
-    detachControls(): void;
+    detachControls(): this | undefined;
     /** Cleans up all resources including geometries, materials, textures, and event listeners. */
     dispose(): void;
     /**
@@ -317,15 +438,9 @@ export declare class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
      * Sets the camera orientation to look at the target from a specific axis.
      *
      * @private
-     * @param axis - The axis to orient the camera along
+     * @param position - The axis point position
      */
     private _setOrientation;
-    /**
-     * Initializes event listeners for user interaction.
-     *
-     * @private
-     */
-    private _startListening;
     /**
      * Handles the pointer down event for starting drag operations.
      *

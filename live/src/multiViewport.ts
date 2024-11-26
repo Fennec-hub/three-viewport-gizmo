@@ -1,4 +1,4 @@
-import { GizmoDomPlacement } from "@lib/types";
+import { GizmoOptionsFallback } from "@lib/types";
 import { ViewportGizmo } from "@lib/ViewportGizmo";
 import {
   BoxGeometry,
@@ -93,7 +93,7 @@ const geometries = [
   new CapsuleGeometry(0.25, 1),
 ];
 
-const placements: GizmoDomPlacement[] = [
+const placements: GizmoOptionsFallback["placement"][] = [
   "top-left",
   "top-center",
   "top-right",

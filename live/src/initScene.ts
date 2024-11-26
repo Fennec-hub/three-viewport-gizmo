@@ -1,11 +1,13 @@
 import {
   CineonToneMapping,
   Clock,
+  Color,
   ConeGeometry,
   DoubleSide,
   GridHelper,
   Mesh,
   MeshPhysicalMaterial,
+  NoToneMapping,
   Object3D,
   OctahedronGeometry,
   PerspectiveCamera,
@@ -18,6 +20,7 @@ import { loadModel } from "./utils/loadModel";
 import { setSceneLights } from "./utils/getSceneLights";
 import { loadEnvMap } from "./utils/loadEnvMap";
 import { get3DText } from "./utils/get3DText";
+import { cubeDarkTheme } from "./constant";
 
 let viewportGizmo: ViewportGizmo;
 
@@ -42,10 +45,10 @@ export function initScene(
   );
   camera.position.set(0, 5, 8);
   const scene = new Scene();
+  scene.background = new Color(0x333333);
 
   const renderer = new WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(window.devicePixelRatio);
-  renderer.setClearColor(0x333333, 1);
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setAnimationLoop(animation);
   container.appendChild(renderer.domElement);
@@ -63,7 +66,7 @@ export function initScene(
   });
 
   // Viewport Gizmo
-  viewportGizmo = new ViewportGizmo(camera, renderer);
+  viewportGizmo = new ViewportGizmo(camera, renderer, cubeDarkTheme);
 
   initControlsCallback?.(camera, viewportGizmo);
 
@@ -138,9 +141,6 @@ export function initScene(
   scene.add(sphere, octahedron, cone);
 
   function animation() {
-    renderer.render(scene, camera);
-    viewportGizmo.render();
-
     const time = clock.getElapsedTime();
 
     // Rotation
@@ -152,6 +152,14 @@ export function initScene(
     sphere.position.y = 2.5 + Math.cos(time + 2) * 0.25;
     octahedron.position.y = 6 + Math.cos(time + 1) * 0.2;
     cone.position.y = 2 + Math.cos(time) * 0.3;
+
+    renderer.render(scene, camera);
+
+    const toneMapping = renderer.toneMapping;
+    renderer.toneMapping = NoToneMapping;
+    viewportGizmo.render();
+
+    renderer.toneMapping = toneMapping;
 
     animateControlsCallBack?.();
   }
