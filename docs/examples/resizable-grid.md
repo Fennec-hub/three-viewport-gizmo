@@ -1,6 +1,10 @@
+<script setup lang="ts">
+const type = new URLSearchParams(window.location.search).get("type") || "sphere";
+</script>
+
 # Resizable Grid
 
-<IframeContainer url="resizable-grid.html" />
+<IframeContainer :url="`resizable-grid.html?type=${type}`" />
 
 This example shows ViewportGizmo integrated with a resizable grid, simulating its use in a mockup editor. The gizmo provides orientation feedback for camera movements within a grid-based layout, allowing users to navigate and align objects within a design space. The grid and gizmo adjust responsively as the editor is resized, ensuring smooth, intuitive interaction.
 

@@ -1,6 +1,10 @@
+<script setup lang="ts">
+const type = new URLSearchParams(window.location.search).get("type") || "sphere";
+</script>
+
 # Responsive
 
-<IframeContainer url="responsive.html" />
+<IframeContainer :url="`responsive.html?type=${type}`" />
 
 This example illustrates ViewportGizmo in a CSS-responsive design setup. The gizmo adapts to different screen sizes, maintaining its functionality and orientation cues across various devices. CSS media queries and flexible layouts ensure that the gizmo remains usable and visually appealing in responsive web environments, enhancing the user experience.
 
@@ -8,11 +12,26 @@ This example illustrates ViewportGizmo in a CSS-responsive design setup. The giz
 
 First, assign a class name or an ID to the gizmo instance for styling purposes:
 
+<div v-if="type === `sphere`">
+
 ```javascript
 const gizmo = new ViewportGizmo(camera, renderer, {
   className: "responsive-gizmo",
 });
 ```
+
+</div>
+
+<div v-else>
+
+```javascript
+const gizmo = new ViewportGizmo(camera, renderer, {
+  type: "cube",
+  className: "responsive-gizmo",
+});
+```
+
+</div>
 
 Next, define your CSS styles with responsiveness in mind, just as you would for any HTML element.
 
