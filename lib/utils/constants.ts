@@ -10,3 +10,4 @@ export const GIZMO_FACES = [
   "bottom",
   "back",
 ] as const;
+export const GIZMO_SPHERE_AXES_DISTANCE = 1.3;
