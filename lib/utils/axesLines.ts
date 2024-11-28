@@ -3,7 +3,7 @@ import { Line2 } from "three/addons/lines/Line2.js";
 import { LineGeometry } from "three/addons/lines/LineGeometry.js";
 import { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { GizmoOptionsFallback } from "../types";
-import { GIZMO_AXES } from "./constants";
+import { GIZMO_AXES, GIZMO_SPHERE_AXES_DISTANCE } from "./constants";
 
 export const axesLines = (options: GizmoOptionsFallback) => {
   const colorManager = new Color();
@@ -12,12 +12,12 @@ export const axesLines = (options: GizmoOptionsFallback) => {
   const { isSphere } = options;
 
   GIZMO_AXES.forEach((axisName, i) => {
-    const { line, scale, color } = options[axisName];
+    const { enabled, line, scale, color } = options[axisName];
 
-    if (!line) return;
+    if (!enabled || !line) return;
 
     const negative = i < 3 ? 1 : -1;
-    const distance = isSphere ? 1.4 - scale / 2 : 0.975;
+    const distance = isSphere ? GIZMO_SPHERE_AXES_DISTANCE - scale / 2 : 0.975;
     const point = distance * negative;
 
     positions.push(

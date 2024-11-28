@@ -28,5 +28,7 @@ export const intersectedObjects = (
     false
   );
 
-  return intersects.length ? intersects[0] : null;
+  const intersection = intersects.length ? intersects[0] : null;
+
+  return !intersection || !intersection.object.visible ? null : intersection;
 };
