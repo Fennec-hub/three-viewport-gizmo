@@ -40,16 +40,16 @@ export type GizmoOptions = {
 
   /** Offset of the gizmo from the container edges in pixels. */
   offset?: {
-    /** Offset from the left edge. Default `0` */
+    /** Offset from the left edge in pixel. Default `10` */
     left?: number;
 
-    /** Offset from the top edge. Default `0` */
+    /** Offset from the top edge in pixel. Default `10` */
     top?: number;
 
-    /** Offset from the right edge. Default `0` */
+    /** Offset from the right edge in pixel. Default `10` */
     right?: number;
 
-    /** Offset from the bottom edge. Default `0` */
+    /** Offset from the bottom edge in pixel. Default `10` */
     bottom?: number;
   };
 
@@ -277,6 +277,9 @@ export type GizmoOptions = {
  * Each axis can be customized with its own appearance and behavior.
  */
 export type GizmoAxisOptions = {
+  /** Whether to draw the axis. Default `true` */
+  enabled?: boolean;
+
   /** Custom text label for the axis. If not specified, defaults to the axis name */
   label?: string;
 
@@ -286,7 +289,7 @@ export type GizmoAxisOptions = {
   /** The scale multiplayer for the indicator size. Default `1` */
   scale?: number;
 
-  /** Whether to draw the the axis line */
+  /** Whether to draw the the axis line. */
   line?: boolean;
 
   /** The axis indicator background color. */
