@@ -16,20 +16,46 @@
         background: #1b1b1f;
       }
 
+      .grid {
+        position: absolute;
+        top: 0;
+        left: 0;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        grid-template-rows: repeat(2, 1fr);
+        gap: 10px;
+        width: 100vw;
+        height: 100vh;
+      }
+
+      .cell {
+        position: relative;
+      }
+
       .responsive-gizmo {
-        width: auto !important;
-        height: 50% !important;
+        width: 100% !important;
+        height: auto !important;
+        max-height: 100%;
         aspect-ratio: 1;
       }
     </style>
   </head>
   <body>
+    <div class="grid">
+      <div class="cell"></div>
+      <div class="cell"></div>
+      <div class="cell"></div>
+      <div class="cell"></div>
+      <div class="cell"></div>
+      <div class="cell"></div>
+    </div>
+
     <script type="importmap">
       {
         "imports": {
           "three": "https://unpkg.com/three@0.169.0/build/three.module.js",
           "three/addons/": "https://unpkg.com/three@0.169.0/examples/jsm/",
-          "three-viewport-gizmo": "https://unpkg.com/three-viewport-gizmo@1.0.6/dist/three-viewport-gizmo.js"
+          "three-viewport-gizmo": "https://unpkg.com/three-viewport-gizmo@2.0.1/dist/three-viewport-gizmo.js"
         }
       }
     </script>
@@ -76,217 +102,171 @@
         rotateAnimation();
       };
 
-      // Configurations
+      const offset = {
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+      };
+
+      const topRightPositiveAxis = {
+        color: 0xd491be,
+        labelColor: 0xffffff,
+        hover: {
+          labelColor: 0xd491be,
+        },
+      };
+
+      const topRightNegativeAxis = {
+        color: "",
+        border: {
+          size: 0.15,
+          color: 0xe491ce,
+        },
+        hover: {
+          color: "",
+          scale: 0.45,
+          border: {
+            size: 0.15,
+            color: 0xffffff,
+          },
+        },
+      };
+
+      const bottomLeftPositiveAxis = {
+        color: 0x000000,
+        labelColor: 0xffffff,
+        hover: {
+          color: "",
+          labelColor: 0x000000,
+          border: {
+            size: 0.1,
+            color: 0x000000,
+          },
+        },
+      };
+
+      const bottomLeftNegativeAxis = {
+        color: "",
+        border: {
+          size: 0.15,
+          color: 0x000000,
+        },
+        hover: {
+          color: 0x000000,
+          scale: 0.4,
+          border: {
+            size: 0,
+            color: "",
+          },
+        },
+      };
+
+      const bottomRightPositiveAxis = {
+        line: false,
+        color: "",
+        labelColor: 0xf6d162,
+        border: {
+          size: 0.05,
+          color: 0xf6d162,
+        },
+        hover: {
+          scale: 0.75,
+          color: "",
+          labelColor: 0xf6d162,
+          border: {
+            size: 0.1,
+            color: 0xf6d162,
+          },
+        },
+      };
+
+      const bottomRightNegativeAxis = {
+        color: 0xf6d162,
+        hover: { color: 0xf6d162, border: { size: 0, color: "" } },
+      };
+
       const gizmoConfigs = [
         {
-          placement: "top-left",
+          placement: "center-center",
           className: "responsive-gizmo",
           lineWidth: 15,
-          offset: {
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-          },
-          sphere: {
-            enabled: true,
-            color: 0x444444,
+          offset: offset,
+          background: {
             opacity: 0.6,
-            hoverOpacity: 0.2,
+            hover: { opacity: 0.2 },
           },
         },
         {
-          placement: "top-right",
+          placement: "center-center",
           className: "responsive-gizmo",
-          lineWidth: 0,
-          speed: 1,
-          offset: {
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-          },
-          sphere: {
-            enabled: true,
+          offset: offset,
+          background: {
             color: 0x472875,
             opacity: 0.6,
-            hoverOpacity: 0.2,
-          },
-          x: {
-            text: "X",
-            line: false,
-            colors: {
-              main: 0xd491be,
-              text: 0xffffff,
-              hoverText: 0xd491be,
+            hover: {
+              opacity: 0.8,
+              color: 0x472875,
             },
           },
-          y: {
-            text: "Y",
-            line: false,
-            colors: {
-              main: 0xd491be,
-              text: 0xffffff,
-              hoverText: 0xd491be,
-            },
-          },
-          z: {
-            text: "Z",
-            line: false,
-            colors: {
-              main: 0xd491be,
-              text: 0xffffff,
-              hoverText: 0xd491be,
-            },
-          },
-          nx: {
-            line: false,
-            border: true,
-            colors: {
-              main: 0xd491be,
-            },
-          },
-          ny: {
-            line: false,
-            border: true,
-            colors: {
-              main: 0xd491be,
-            },
-          },
-          nz: {
-            line: false,
-            border: true,
-            colors: {
-              main: 0xd491be,
-            },
-          },
+          x: topRightPositiveAxis,
+          y: topRightPositiveAxis,
+          z: topRightPositiveAxis,
+          nx: topRightNegativeAxis,
+          ny: topRightNegativeAxis,
+          nz: topRightNegativeAxis,
         },
         {
-          placement: "bottom-left",
+          placement: "center-center",
           className: "responsive-gizmo",
           lineWidth: 15,
-          offset: {
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-          },
-          sphere: {
-            enabled: true,
-            color: 0xdddddd,
+          offset: offset,
+          background: {
+            color: 0xffffff,
             opacity: 0.6,
-            hoverOpacity: 0.2,
-          },
-          x: {
-            text: "X",
-            colors: {
-              main: 0x000000,
-              text: 0xffffff,
-              hoverText: 0x000000,
+            hover: {
+              opacity: 0.8,
             },
           },
-          y: {
-            text: "Y",
-            colors: {
-              main: 0x000000,
-              text: 0xffffff,
-              hoverText: 0x000000,
-            },
-          },
-          z: {
-            text: "Z",
-            colors: {
-              main: 0x000000,
-              text: 0xffffff,
-              hoverText: 0x000000,
-            },
-          },
-          nx: {
-            line: false,
-            border: true,
-            colors: {
-              main: 0x000000,
-            },
-          },
-          ny: {
-            line: false,
-            border: true,
-            colors: {
-              main: 0x000000,
-            },
-          },
-          nz: {
-            line: false,
-            border: true,
-            colors: {
-              main: 0x000000,
-            },
-          },
+          x: bottomLeftPositiveAxis,
+          y: bottomLeftPositiveAxis,
+          z: bottomLeftPositiveAxis,
+          nx: bottomLeftNegativeAxis,
+          ny: bottomLeftNegativeAxis,
+          nz: bottomLeftNegativeAxis,
         },
         {
-          placement: "bottom-right",
+          placement: "center-center",
           className: "responsive-gizmo",
-          speed: 1,
-          offset: {
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-          },
-          sphere: {
-            enabled: true,
+          offset: offset,
+          background: {
             color: 0xcc3634,
-            opacity: 0.6,
-            hoverOpacity: 0.2,
-          },
-          x: {
-            text: "X",
-            line: false,
-            border: true,
-            circle: false,
-            colors: {
-              main: 0xf6d162,
-              text: 0xf6d162,
+            opacity: 0.4,
+            hover: {
+              color: 0xcc3634,
+              opacity: 0.6,
             },
           },
-          y: {
-            text: "Y",
-            line: false,
-            border: true,
-            circle: false,
-            colors: {
-              main: 0xf6d162,
-              text: 0xf6d162,
-            },
-          },
-          z: {
-            text: "Z",
-            line: false,
-            border: true,
-            circle: false,
-            colors: {
-              main: 0xf6d162,
-              text: 0xf6d162,
-            },
-          },
-          nx: {
-            line: false,
-            colors: {
-              main: 0xf6d162,
-            },
-          },
-          ny: {
-            line: false,
-            colors: {
-              main: 0xf6d162,
-            },
-          },
-          nz: {
-            line: false,
-            colors: {
-              main: 0xf6d162,
-            },
-          },
+          x: bottomRightPositiveAxis,
+          y: bottomRightPositiveAxis,
+          z: bottomRightPositiveAxis,
+          nx: bottomRightNegativeAxis,
+          ny: bottomRightNegativeAxis,
+          nz: bottomRightNegativeAxis,
+        },
+        // Cube
+        {
+          type: "cube",
+          placement: "center-center",
+          className: "responsive-gizmo",
+          offset: offset,
+        },
+        {
+          type: "cube",
+          placement: "center-center",
+          className: "responsive-gizmo",
+          offset: offset,
+          ...getGizmoConfig(),
         },
       ];
 
@@ -301,7 +281,10 @@
         camera.position.setScalar(5);
         camera.lookAt(scene.position);
         scene.add(camera);
-        return new ViewportGizmo(camera, renderer, config);
+        return new ViewportGizmo(camera, renderer, {
+          ...config,
+          container: `.cell:nth-child(${i + 1})`,
+        });
       });
 
       const radius = 5;
@@ -339,6 +322,40 @@
           gizmo.update();
         });
       };
+
+      function getGizmoConfig() {
+        // Gizmo URL type `?type=sphere|cube`
+        const urlParams = new URLSearchParams(window.location.search);
+        const type = urlParams.get("type") || "sphere";
+
+        if (type === "sphere") return {};
+
+        const darkColors = {
+          color: 0x333333,
+          labelColor: 0xdddddd,
+          hover: {
+            color: 0x4bac84,
+            labelColor: 0xffffff,
+          },
+        };
+
+        const darkBackground = {
+          color: 0x444444,
+          hover: { color: 0x444444 },
+        };
+
+        const darkCubeConfig = {
+          type,
+          background: darkBackground,
+          corners: darkColors,
+          edges: darkColors,
+          right: darkColors,
+          top: darkColors,
+          front: darkColors,
+        };
+
+        return darkCubeConfig;
+      }
     </script>
   </body>
 </html>

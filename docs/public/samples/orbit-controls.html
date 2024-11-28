@@ -26,7 +26,7 @@
         "imports": {
           "three": "https://unpkg.com/three@0.169.0/build/three.module.js",
           "three/addons/": "https://unpkg.com/three@0.169.0/examples/jsm/",
-          "three-viewport-gizmo": "https://unpkg.com/three-viewport-gizmo@1.0.6/dist/three-viewport-gizmo.js"
+          "three-viewport-gizmo": "https://unpkg.com/three-viewport-gizmo@2.0.1/dist/three-viewport-gizmo.js"
         }
       }
     </script>
@@ -57,7 +57,7 @@
       scene.add(threeModel);
 
       // Init Gizmo with OrbitControls
-      const gizmo = new ViewportGizmo(camera, renderer);
+      const gizmo = new ViewportGizmo(camera, renderer, getGizmoConfig());
       gizmo.attachControls(new OrbitControls(camera, renderer.domElement));
 
       // Optional. Set the target
@@ -66,9 +66,11 @@
 
       function animation(time) {
         threeModelAnimation();
+        renderer.toneMapping = THREE.CineonToneMapping;
         renderer.render(scene, camera);
 
         // Render the Gizmo
+        renderer.toneMapping = THREE.NoToneMapping;
         gizmo.render();
       }
 
@@ -79,6 +81,40 @@
 
         gizmo.update();
       };
+
+      function getGizmoConfig() {
+        // Gizmo URL type `?type=sphere|cube`
+        const urlParams = new URLSearchParams(window.location.search);
+        const type = urlParams.get("type") || "sphere";
+
+        if (type === "sphere") return {};
+
+        const darkColors = {
+          color: 0x333333,
+          labelColor: 0xdddddd,
+          hover: {
+            color: 0x4bac84,
+            labelColor: 0xffffff,
+          },
+        };
+
+        const darkBackground = {
+          color: 0x444444,
+          hover: { color: 0x444444 },
+        };
+
+        const darkCubeConfig = {
+          type,
+          background: darkBackground,
+          corners: darkColors,
+          edges: darkColors,
+          right: darkColors,
+          top: darkColors,
+          front: darkColors,
+        };
+
+        return darkCubeConfig;
+      }
     </script>
   </body>
 </html>
