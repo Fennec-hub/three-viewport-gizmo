@@ -61,6 +61,8 @@ export const axesEdges = (
 
       if (!isSphere && !edge.position.y) edge.rotation.z = Math.PI / 2;
 
+      edge.renderOrder = 1;
+
       edge.userData = {
         color,
         opacity,

@@ -58,6 +58,7 @@ export const axesCorners = (
 
       corner.scale.setScalar(scale);
       corner.lookAt(target.copy(corner.position).multiplyScalar(2));
+      corner.renderOrder = 1;
 
       corner.userData = {
         color,
