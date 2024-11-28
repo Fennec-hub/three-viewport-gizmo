@@ -11,8 +11,6 @@ const axisMap: [
   ["y", 1, 4],
   ["z", 2, 5],
 ];
-const primaryOpacity = 1;
-const secondaryOpacity = 0.5;
 
 const point = /*@__PURE__*/ new Vector3();
 export function updateAxis(
@@ -27,16 +25,14 @@ export function updateAxis(
   axisMap.forEach(([axis, positiveIndex, negativeIndex]) => {
     const value = point[axis];
 
-    axes[positiveIndex].material.opacity = clamp(
-      value >= 0 ? primaryOpacity : secondaryOpacity,
-      0,
-      1
-    );
+    let object = axes[positiveIndex];
+    let opacity = object.userData.opacity;
 
-    axes[negativeIndex].material.opacity = clamp(
-      value >= 0 ? secondaryOpacity : primaryOpacity,
-      0,
-      1
-    );
+    object.material.opacity = clamp(value >= 0 ? opacity : opacity / 2, 0, 1);
+
+    object = axes[negativeIndex];
+    opacity = object.userData.opacity;
+
+    object.material.opacity = clamp(value >= 0 ? opacity / 2 : opacity, 0, 1);
   });
 }
