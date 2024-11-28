@@ -21,7 +21,7 @@
 
 ### Try it Online
 
-You can try ViewportGizmo directly in your browser on [jsFiddle](https://jsfiddle.net/fmo2g4yh/).
+You can try ViewportGizmo directly in your browser on [jsFiddle](https://jsfiddle.net/nq5se98L/).
 
 ### Installation
 
