@@ -118,11 +118,12 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
    *
    * @param camera - The camera to be controlled by this gizmo
    * @param renderer - The WebGL renderer used to render the scene
-   * @param options - {@link GizmoOptions}, Configuration options for the gizmo
+   * @param options - {@link GizmoOptions}, Configuration options for the gizmo.
    * @param options.container - Parent element for the gizmo. Can be an HTMLElement or a CSS selector string
-   * @param options.size - Size of the gizmo widget in pixels
-   * @param options.placement - Position of the gizmo in the viewport. One of:
-   *
+   * @param options.type - The gizmo configuration type. Either 'sphere' or 'cube', defaults to 'sphere'
+   * @param options.size - Size of the gizmo widget in pixels. Defaults to 128
+   * @param options.placement - Position of the gizmo in the viewport
+   *    Options include:
    *    - `"top-left"`
    *    - `"top-center"`
    *    - `"top-right"`
@@ -132,45 +133,77 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
    *    - `"bottom-left"`
    *    - `"bottom-center"`
    *    - `"bottom-right"`
-   *
-   * @param options.animated - Whether view changes should be animated
-   * @param options.speed - Animation speed multiplier
-   * @param options.lineWidth - Width of the axis lines
-   * @param options.offset - Offset from the container edges in pixels
+   * @param options.offset - Offset of the gizmo from container edges in pixels
    * @param options.offset.left - Offset from the left edge
    * @param options.offset.top - Offset from the top edge
    * @param options.offset.right - Offset from the right edge
    * @param options.offset.bottom - Offset from the bottom edge
-   * @param options.sphere - Configuration for the background sphere
-   * @param options.sphere.enabled - Whether to show the background sphere
-   * @param options.sphere.color - Color of the background sphere
-   * @param options.sphere.opacity - Opacity of the background sphere
-   * @param options.sphere.hoverColor - Hover color of the background sphere
-   * @param options.sphere.hoverOpacity - Hover opacity of the background sphere
-   * @param options.id - HTML id attribute for the gizmo container
-   * @param options.className - HTML class attribute for the gizmo container
+   * @param options.animated - Whether view changes should be animated. Defaults to true
+   * @param options.speed - Animation speed multiplier. Defaults to 1
+   * @param options.resolution - Texture resolution. Defaults to 64 for sphere, 128 for cube
+   * @param options.lineWidth - Width of the axes lines in pixels
+   * @param options.id - HTML `id` attribute for the gizmo container
+   * @param options.className - HTML `class` attribute for the gizmo container
    * @param options.font - Font configuration for axis labels
    * @param options.font.family - Font family for axis labels
    * @param options.font.weight - Font weight for axis labels
-   * @param options.resolution - Resolution of the gizmo rendering
-   * @param options.x - Configuration for positive X axis
-   * @param options.y - Configuration for positive Y axis
-   * @param options.z - Configuration for positive Z axis
-   * @param options.nx - Configuration for negative X axis
-   * @param options.ny - Configuration for negative Y axis
-   * @param options.nz - Configuration for negative Z axis
+   * @param options.background - Configuration for the background sphere/cube
+   * @param options.background.enabled - Whether to display the background
+   * @param options.background.color - Color of the background in normal state
+   * @param options.background.opacity - Opacity of the background in normal state
+   * @param options.background.hover.color - Color of the background when hovered
+   * @param options.background.hover.opacity - Opacity of the background when hovered
+   * @param options.corners - Configuration for corner indicators
+   * @param options.corners.enabled - Whether to display corner indicators
+   * @param options.corners.color - Base color of corner indicators
+   * @param options.corners.opacity - Opacity of corner indicators
+   * @param options.corners.scale - Scale multiplier for corner indicators
+   * @param options.corners.radius - Radius of corner indicators
+   * @param options.corners.smoothness - Smoothness of corner indicators
+   * @param options.corners.hover.color - Color of corner indicators when hovered
+   * @param options.corners.hover.opacity - Opacity of corner indicators when hovered
+   * @param options.corners.hover.scale - Scale of corner indicators when hovered
+   * @param options.edges - Configuration for edge indicators
+   * @param options.edges.enabled - Whether to display edge indicators
+   * @param options.edges.color - Base color of edge indicators
+   * @param options.edges.opacity - Opacity of edge indicators
+   * @param options.edges.scale - Scale multiplier for edge indicators
+   * @param options.edges.radius - Radius of edge indicators
+   * @param options.edges.smoothness - Smoothness of edge indicators
+   * @param options.edges.hover.color - Color of edge indicators when hovered
+   * @param options.edges.hover.opacity - Opacity of edge indicators when hovered
+   * @param options.edges.hover.scale - Scale of edge indicators when hovered
+   * @param options.x - Configuration for positive X axis/face
+   * @param options.y - Configuration for positive Y axis/face
+   * @param options.z - Configuration for positive Z axis/face
+   * @param options.nx - Configuration for negative X axis/face
+   * @param options.ny - Configuration for negative Y axis/face
+   * @param options.nz - Configuration for negative Z axis/face
    *
-   * @AXIS The following is the configuration for each AXIS `options.[x | y | z | nx | ny | nz]`:
+   * @remarks Axis-specific configuration can also use alias names for cube mode:
+   * - `right` (same as `x`)
+   * - `left` (same as `nx`)
+   * - `top` (same as `y`)
+   * - `bottom` (same as `ny`)
+   * - `front` (same as `z`)
+   * - `back` (same as `nz`)
    *
-   * @param options.AXIS.text - Custom text label for the axis
-   * @param options.AXIS.circle - Whether to draw a circle indicator
+   * For each axis/face configuration, the following options are available:
+   * @param options.AXIS.enabled - Whether to draw the axis
+   * @param options.AXIS.label - Custom text label for the axis
+   * @param options.AXIS.opacity - Axis opacity
+   * @param options.AXIS.scale - Scale multiplier for indicator size
    * @param options.AXIS.line - Whether to draw the axis line
-   * @param options.AXIS.border - Whether to draw a border around the axis indicator
-   * @param options.AXIS.colors - Color configuration for the axis
-   * @param options.AXIS.colors.main - Main color(s) for the axis. Can be a single color or [normal, hover] colors
-   * @param options.AXIS.colors.hover - Hover color for the axis
-   * @param options.AXIS.colors.text - Color for the axis label
-   * @param options.AXIS.colors.hoverText - Color for the axis label on hover
+   * @param options.AXIS.color - Axis indicator background color
+   * @param options.AXIS.labelColor - Axis label color
+   * @param options.AXIS.border.size - Border size around the axis indicator
+   * @param options.AXIS.border.color - Border color around the axis indicator
+   * @param options.AXIS.hover.color - Fill color on hover
+   * @param options.AXIS.hover.labelColor - Label text color on hover
+   * @param options.AXIS.hover.opacity - Opacity when hovered
+   * @param options.AXIS.hover.scale - Indicator scale when hovered
+   * @param options.AXIS.hover.border.size - Hover border size
+   * @param options.AXIS.hover.border.color - Hover border color
    */
   constructor(
     camera: PerspectiveCamera | OrthographicCamera,
@@ -184,15 +217,29 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
     this.set(options);
   }
 
+  /** Gets the current placement of the gizmo relative to its container. */
   get placement(): GizmoOptionsFallback["placement"] {
     return this._placement;
   }
 
+  /**
+   * Sets and update the placement of the gizmo relative to its container.
+   *
+   * @param placement - The new placement position
+   */
   set placement(placement: GizmoOptionsFallback["placement"]) {
-    this._placement = placement;
-    setDomPlacement(this._domElement, placement);
+    this._placement = setDomPlacement(this._domElement, placement);
+    this.domUpdate();
   }
 
+  /**
+   * Regenerates the gizmo with the new options.
+   *
+   * @remarks
+   * - Not recommended for use in real-time rendering or animation loops
+   * - Provides a way to completely rebuild the gizmo with new options
+   * - Can be computationally expensive, so use sparingly
+   */
   set(options: GizmoOptions = {}) {
     this.dispose();
 
@@ -201,7 +248,7 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
 
     this._camera = this._options.isSphere
       ? new OrthographicCamera(-1.8, 1.8, 1.8, -1.8, 5, 10)
-      : new PerspectiveCamera(25, 1, 5, 10);
+      : new PerspectiveCamera(26, 1, 5, 10);
 
     this._camera.position.set(0, 0, 7);
 
