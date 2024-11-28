@@ -33,7 +33,7 @@ const { url, aspectRatio = '16/9' } = defineProps<{
 const iframeRef = ref<HTMLIFrameElement>();
 const isFullScreen = ref(false)
 
-const sourceURL = computed(() => `https://https://github.com/Fennec-hub/three-viewport-gizmo/blob/main/docs/public/samples/${url}`)
+const sourceURL = computed(() => `https://github.com/Fennec-hub/three-viewport-gizmo/blob/main/docs/public/samples/${url}`)
 const fullUrl = computed(() => `${window.location.origin}/three-viewport-gizmo/samples/${url}`);
 
 // Convert aspect ratio to a percentage for padding-bottom
