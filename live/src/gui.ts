@@ -54,22 +54,36 @@ export const initGUI = (gizmo: ViewportGizmo) => {
     [100, 200, 300, 400, 500, 600, 700, 800, 900]
   );
 
-  const background = gui.addFolder("background").close();
-  const bgConfig = options.background;
-  background.add(bgConfig, "enabled");
-  background.addColor(bgConfig, "color");
-  background.add(bgConfig, "opacity", 0, 1, 0.1);
-  const bgHover = background.addFolder("hover").close();
-  bgHover.addColor(bgConfig.hover, "color");
-  bgHover.add(bgConfig.hover, "opacity", 0, 1, 0.1);
+  ["background", "corners", "edges"].forEach((param) => {
+    const isBackground = param === "background";
+    const folder = gui.addFolder(param).close();
+    const config = (options as any)[param];
+
+    folder.add(config, "enabled");
+    folder.addColor(config, "color");
+    folder.add(config, "opacity", 0, 1, 0.01);
+
+    if (!isBackground) {
+      folder.add(config, "scale", 0, 1, 0.1);
+      folder.add(config, "radius", 0, 1, 0.01);
+      folder.add(config, "smoothness", 0, 32, 0.01);
+    }
+
+    const hoverFolder = folder.addFolder("hover").close();
+    hoverFolder.addColor(config.hover, "color");
+    hoverFolder.add(config.hover, "opacity", 0, 1, 0.01);
+
+    if (!isBackground) hoverFolder.add(config.hover, "scale", 0, 1, 0.01);
+  });
 
   GIZMO_AXES.forEach((key) => {
     const axisFolder = gui.addFolder(key).close();
     const axis = options[key];
 
+    axisFolder.add(axis, "enabled");
     axisFolder.add(axis, "label");
-    axisFolder.add(axis, "opacity", 0, 1, 0.1);
-    axisFolder.add(axis, "scale", 0, 1, 0.1);
+    axisFolder.add(axis, "opacity", 0, 1, 0.01);
+    axisFolder.add(axis, "scale", 0, 1, 0.01);
     axisFolder.add(axis, "line");
     axisFolder.addColor(axis, "color");
     axisFolder.addColor(axis, "labelColor");
@@ -81,20 +95,21 @@ export const initGUI = (gizmo: ViewportGizmo) => {
 
     const axisHover = axisFolder.addFolder("hover").close();
     const hoverConfig = axis.hover;
-    axisHover.add(hoverConfig, "opacity", 0, 1, 0.1);
-    axisHover.add(hoverConfig, "scale", 0, 1, 0.1);
+    axisHover.add(hoverConfig, "opacity", 0, 1, 0.01);
+    axisHover.add(hoverConfig, "scale", 0, 1, 0.01);
     axisHover.addColor(hoverConfig, "color");
     axisHover.addColor(hoverConfig, "labelColor");
 
     const hoverBorder = axisHover.addFolder("hoverBorder").close();
     const hoverBorderConfig = hoverConfig.border;
-    hoverBorder.add(hoverBorderConfig, "size", 0, 1, 0.1);
+    hoverBorder.add(hoverBorderConfig, "size", 0, 1, 0.01);
     hoverBorder.addColor(hoverBorderConfig, "color");
   });
 
   gui.add({ copyOptions }, "copyOptions").name("Copy Options");
 
   gui.onChange(() => {
+    options.container = "body";
     updateViewportGizmo(options, sceneOptions);
   });
 

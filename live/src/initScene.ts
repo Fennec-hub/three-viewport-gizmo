@@ -33,6 +33,7 @@ export function initScene(
   resizeControlsCallback?: () => void,
   modelLoadedControlsCallback?: (model: Object3D) => void
 ) {
+  const isSphere = false;
   const container = document.querySelector<HTMLElement>("#app")!;
 
   const clock = new Clock();
@@ -66,7 +67,10 @@ export function initScene(
   });
 
   // Viewport Gizmo
-  viewportGizmo = new ViewportGizmo(camera, renderer, cubeDarkTheme);
+  viewportGizmo = new ViewportGizmo(camera, renderer, {
+    x: { opacity: 0 },
+    ...(isSphere ? { type: "sphere" } : cubeDarkTheme),
+  });
 
   initControlsCallback?.(camera, viewportGizmo);
 

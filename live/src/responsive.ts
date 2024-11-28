@@ -4,6 +4,7 @@ import {
   GizmoOptions,
   ViewportGizmo,
 } from "@lib/ViewportGizmo";
+import { cubeDarkTheme } from "./constant";
 
 export function responsive() {
   const container = document.querySelector<HTMLElement>("#app")!;
@@ -25,8 +26,6 @@ export function responsive() {
   renderer.setSize(window.innerWidth, window.innerHeight);
 
   container.appendChild(renderer.domElement);
-
-  const deepClone = <T>(obj: T) => JSON.parse(JSON.stringify(obj)) as T;
 
   const offset = {
     top: 0,
@@ -117,18 +116,16 @@ export function responsive() {
       placement: "top-left",
       className: "responsive-gizmo",
       lineWidth: 15,
-      offset: deepClone(offset),
+      offset: offset,
       background: {
         opacity: 0.6,
         hover: { opacity: 0.2 },
       },
     },
     {
-      placement: "top-right",
+      placement: "top-center",
       className: "responsive-gizmo",
-      lineWidth: 0,
-      speed: 1,
-      offset: deepClone(offset),
+      offset: offset,
       background: {
         color: 0x472875,
         opacity: 0.6,
@@ -137,18 +134,18 @@ export function responsive() {
           color: 0x472875,
         },
       },
-      x: deepClone(topRightPositiveAxis),
-      y: deepClone(topRightPositiveAxis),
-      z: deepClone(topRightPositiveAxis),
-      nx: deepClone(topRightNegativeAxis),
-      ny: deepClone(topRightNegativeAxis),
-      nz: deepClone(topRightNegativeAxis),
+      x: topRightPositiveAxis,
+      y: topRightPositiveAxis,
+      z: topRightPositiveAxis,
+      nx: topRightNegativeAxis,
+      ny: topRightNegativeAxis,
+      nz: topRightNegativeAxis,
     },
     {
       placement: "bottom-left",
       className: "responsive-gizmo",
       lineWidth: 15,
-      offset: deepClone(offset),
+      offset: offset,
       background: {
         color: 0xffffff,
         opacity: 0.6,
@@ -156,18 +153,17 @@ export function responsive() {
           opacity: 0.8,
         },
       },
-      x: deepClone(bottomLeftPositiveAxis),
-      y: deepClone(bottomLeftPositiveAxis),
-      z: deepClone(bottomLeftPositiveAxis),
-      nx: deepClone(bottomLeftNegativeAxis),
-      ny: deepClone(bottomLeftNegativeAxis),
-      nz: deepClone(bottomLeftNegativeAxis),
+      x: bottomLeftPositiveAxis,
+      y: bottomLeftPositiveAxis,
+      z: bottomLeftPositiveAxis,
+      nx: bottomLeftNegativeAxis,
+      ny: bottomLeftNegativeAxis,
+      nz: bottomLeftNegativeAxis,
     },
     {
-      placement: "bottom-right",
+      placement: "bottom-center",
       className: "responsive-gizmo",
-      speed: 1,
-      offset: deepClone(offset),
+      offset: offset,
       background: {
         color: 0xcc3634,
         opacity: 0.4,
@@ -176,12 +172,26 @@ export function responsive() {
           opacity: 0.6,
         },
       },
-      x: deepClone(bottomRightPositiveAxis),
-      y: deepClone(bottomRightPositiveAxis),
-      z: deepClone(bottomRightPositiveAxis),
-      nx: deepClone(bottomRightNegativeAxis),
-      ny: deepClone(bottomRightNegativeAxis),
-      nz: deepClone(bottomRightNegativeAxis),
+      x: bottomRightPositiveAxis,
+      y: bottomRightPositiveAxis,
+      z: bottomRightPositiveAxis,
+      nx: bottomRightNegativeAxis,
+      ny: bottomRightNegativeAxis,
+      nz: bottomRightNegativeAxis,
+    },
+    // Cube
+    {
+      type: "cube",
+      placement: "top-right",
+      className: "responsive-gizmo",
+      offset: offset,
+    },
+    {
+      type: "cube",
+      placement: "bottom-right",
+      className: "responsive-gizmo",
+      offset: offset,
+      ...cubeDarkTheme,
     },
   ];
 

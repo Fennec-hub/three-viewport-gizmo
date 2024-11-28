@@ -1,17 +1,11 @@
 import { GizmoOptions } from "@lib/types";
 
-const mainColor = 0x333333;
-const hoverColor = 0x4bac84;
-const background = 0x444444;
-const label = 0xdddddd;
-const labelHover = 0xffffff;
-
 const colors = {
-  color: mainColor,
-  labelColor: label,
+  color: 0x333333,
+  labelColor: 0xdddddd,
   hover: {
-    color: hoverColor,
-    labelColor: labelHover,
+    color: 0x4bac84,
+    labelColor: 0xffffff,
   },
 };
 
@@ -20,10 +14,8 @@ const deepClone = <T>(obj: T) => JSON.parse(JSON.stringify(obj)) as T;
 export const cubeDarkTheme: GizmoOptions = {
   type: "cube",
   background: {
-    color: background,
-    hover: {
-      color: background,
-    },
+    color: 0x444444,
+    hover: { color: 0x444444 },
   },
   corners: deepClone(colors),
   edges: deepClone(colors),
