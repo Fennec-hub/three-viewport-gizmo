@@ -41,7 +41,7 @@
     "vue": "^3.5.12"
   },
   "peerDependencies": {
-    "three": "^0.162.0"
+    "three": ">=0.162.0 <1.0.0"
   },
   "keywords": [
     "three.js",
