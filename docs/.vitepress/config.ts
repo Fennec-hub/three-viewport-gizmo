@@ -1,25 +1,25 @@
 import { defineConfig } from "vitepress";
 
-const exampleItems = [
+const examples = (type: "sphere" | "cube") => [
   {
     text: "Orbit controls",
-    link: "examples/orbit-controls",
+    link: `examples/orbit-controls?type=${type}`,
   },
   {
     text: "OrbitControls Events",
-    link: "examples/orbit-controls-events",
+    link: `examples/orbit-controls-events?type=${type}`,
   },
-  { text: "Standalone", link: "examples/standalone" },
-  { text: "Post processing", link: "examples/post-processing" },
+  { text: "Standalone", link: `examples/standalone?type=${type}` },
+  { text: "Post processing", link: `examples/post-processing?type=${type}` },
   {
     text: "Yomotsu camera controls",
-    link: "examples/yomotsu-camera-controls",
+    link: `examples/yomotsu-camera-controls?type=${type}`,
   },
-  { text: "Responsive", link: "examples/responsive" },
-  { text: "Resizable grid", link: "examples/resizable-grid" },
+  { text: "Responsive", link: `examples/responsive?type=${type}` },
+  { text: "Resizable grid", link: `examples/resizable-grid?type=${type}` },
   {
     text: "Multiple elements",
-    link: "examples/multiple-elements",
+    link: `examples/multiple-elements?type=${type}`,
   },
 ];
 
@@ -37,7 +37,10 @@ export default defineConfig({
       { text: "API", link: "/api" },
       {
         text: "Examples",
-        items: exampleItems,
+        items: [
+          { text: "Sphere", link: "examples/orbit-controls?type=sphere" },
+          { text: "Cube", link: "examples/orbit-controls?type=cube" },
+        ],
       },
       {
         text: "Customize Your Gizmo",
@@ -51,7 +54,10 @@ export default defineConfig({
       { text: "API", link: "/api" },
       {
         text: "Examples",
-        items: exampleItems,
+        items: [
+          { text: "Sphere", items: examples("sphere"), collapsed: false },
+          { text: "Cube", items: examples("cube"), collapsed: false },
+        ],
       },
     ],
 
