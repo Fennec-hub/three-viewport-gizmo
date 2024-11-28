@@ -14,6 +14,8 @@ export const setDomPlacement = (
       y === "center" ? "translateY(-50%)" : ""
     }`,
   });
+
+  return placement;
 };
 
 export const gizmoDomElement = ({
@@ -38,7 +40,8 @@ export const gizmoDomElement = ({
 
   setDomPlacement(div, placement);
 
-  Object.assign(div, { id, className });
+  if (id) div.id = id;
+  if (className) div.className = className;
 
   return div;
 };

@@ -14,6 +14,11 @@ export const optionsFallback = (
   const isSphere = type === "sphere";
   const resolution = options.resolution || isSphere ? 64 : 128;
 
+  const { container } = options;
+  options.container = undefined;
+  options = JSON.parse(JSON.stringify(options));
+  options.container = container;
+
   // Convert face axis to regular axis
   GIZMO_FACES.forEach((face, index) => {
     if (options[face]) options[GIZMO_AXES[index]] = options[face];
@@ -21,9 +26,10 @@ export const optionsFallback = (
 
   // Positive Axes fallback options
   const axesFallback: GizmoAxisOptions = {
+    enabled: true,
     color: 0xffffff,
     opacity: 1,
-    scale: isSphere ? 0.7 : 0.8,
+    scale: isSphere ? 0.7 : 0.7,
     labelColor: 0x222222,
     line: false,
     border: {
@@ -34,7 +40,7 @@ export const optionsFallback = (
       color: isSphere ? 0xffffff : 0x93d3eb,
       labelColor: 0x222222,
       opacity: 1,
-      scale: isSphere ? 0.7 : 0.8,
+      scale: isSphere ? 0.7 : 0.7,
       border: {
         size: 0,
         color: 0xdddddd,
@@ -45,9 +51,9 @@ export const optionsFallback = (
   // Negative Axes fallback options
   const negativeAxesFallback = {
     line: false,
-    scale: isSphere ? 0.45 : 0.8,
+    scale: isSphere ? 0.45 : 0.7,
     hover: {
-      scale: isSphere ? 0.5 : 0.8,
+      scale: isSphere ? 0.5 : 0.7,
     },
   };
 
@@ -83,20 +89,20 @@ export const optionsFallback = (
     },
     corners: {
       enabled: !isSphere,
-      color: isSphere ? 0xffffff : 0xffffff,
+      color: isSphere ? 0xf2d962 : 0xffffff,
       opacity: 1,
-      scale: isSphere ? 0.15 : 0.175,
+      scale: isSphere ? 0.15 : 0.2,
       radius: 1,
       smoothness: 18,
       hover: {
         color: isSphere ? 0xffffff : 0x93d3eb,
         opacity: 1,
-        scale: isSphere ? 0.4 : 0.2,
+        scale: isSphere ? 0.2 : 0.225,
       },
     },
     edges: {
       enabled: !isSphere,
-      color: isSphere ? 0xffffff : 0xffffff,
+      color: isSphere ? 0xf2d962 : 0xffffff,
       opacity: isSphere ? 1 : 0,
       radius: isSphere ? 1 : 0.125,
       smoothness: 18,
@@ -104,7 +110,7 @@ export const optionsFallback = (
       hover: {
         color: isSphere ? 0xffffff : 0x93d3eb,
         opacity: 1,
-        scale: isSphere ? 0.4 : 1,
+        scale: isSphere ? 0.2 : 1,
       },
     },
     x: {
@@ -161,7 +167,10 @@ export const optionsFallback = (
 
   // Negative axis fallback to positive axis
   AXES.forEach((axis) =>
-    assignNestedDefaults((options as any)[`n${axis}`], (options as any)[axis])
+    assignNestedDefaults(
+      (options as any)[`n${axis}`],
+      deepClone((options as any)[axis])
+    )
   );
 
   return { ...options, isSphere } as GizmoOptionsFallback;
@@ -177,6 +186,8 @@ function assignNestedDefaults<T>(target: T, ...defaultObjects: T[]) {
 
   for (const defaults of defaultObjects) {
     for (const key in defaults) {
+      if (key === "container") continue;
+
       if (key in (defaults as any)) {
         if (target[key] === undefined) {
           (target as any)[key] = defaults[key];
