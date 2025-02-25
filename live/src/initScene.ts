@@ -24,6 +24,8 @@ import { cubeDarkTheme } from "./constant";
 
 let viewportGizmo: ViewportGizmo;
 
+//Object3D.DEFAULT_UP = new Vector3(1, 0, 0);
+
 export function initScene(
   initControlsCallback?: (
     camera: PerspectiveCamera,

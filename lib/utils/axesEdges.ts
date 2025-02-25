@@ -37,6 +37,7 @@ export const axesEdges = (
   ].map((val) => val * 0.925);
 
   const target = new Vector3();
+  const defaultUp = new Vector3(0, 1, 0);
   return Array(positions.length / 3)
     .fill(0)
     .map<Mesh<any, MeshBasicMaterial> | Sprite>((_, i) => {
@@ -57,8 +58,8 @@ export const axesEdges = (
       if (isSphere) edge.position.normalize().multiplyScalar(1.7);
       edge.scale.setScalar(scale);
 
+      edge.up.copy(defaultUp);
       edge.lookAt(target.copy(edge.position).multiplyScalar(2));
-
       if (!isSphere && !edge.position.y) edge.rotation.z = Math.PI / 2;
 
       edge.renderOrder = 1;

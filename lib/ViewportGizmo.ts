@@ -8,11 +8,12 @@ import {
   OrthographicCamera,
   PerspectiveCamera,
   Quaternion,
+  Scene,
   Spherical,
   Vector2,
   Vector3,
   Vector4,
-  WebGLRenderer,
+  type WebGLRenderer,
 } from "three";
 
 import { gizmoDomElement, setDomPlacement } from "./utils/gizmoDomElement";
@@ -27,6 +28,7 @@ import {
   GizmoAxisOptions,
   GizmoOptionsFallback,
   GizmoAxisObject,
+  GizmoViewportArray,
 } from "./types";
 import { EPSILON, GIZMO_TURN_RATE } from "./utils/constants";
 import { updateBackground } from "./utils/updateBackground";
@@ -35,13 +37,15 @@ import { optionsFallback } from "./utils/optionsFallback";
 import { clamp } from "three/src/math/MathUtils.js";
 import { axesObjects } from "./utils/axesObjects";
 import { axisHover } from "./utils/axisHover";
+import type WebGPURenderer from "three/examples/jsm/renderers/webgpu/WebGPURenderer.js";
 
 export type { GizmoOptions, ViewportGizmoEventMap, GizmoAxisOptions };
 
 const _matrix = /*@__PURE__*/ new Matrix4();
 const _spherical = /*@__PURE__*/ new Spherical();
-const _vec3 = /*@__PURE__*/ new Vector3();
 const _vec2 = /*@__PURE__*/ new Vector2();
+const _vec3 = /*@__PURE__*/ new Vector3();
+const _vec4 = /*@__PURE__*/ new Vector4();
 
 /**
  * ViewportGizmo is a 3D camera orientation controller that provides a visual interface
@@ -55,8 +59,6 @@ const _vec2 = /*@__PURE__*/ new Vector2();
  * @extends Object3D
  */
 export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
-  type = "ViewportGizmo";
-
   /** Whether the gizmo is currently active and responding to user input */
   enabled: boolean = true;
 
@@ -64,7 +66,7 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
   camera: OrthographicCamera | PerspectiveCamera;
 
   /** The WebGLRenderer rendering the gizmo */
-  renderer: WebGLRenderer;
+  renderer: WebGLRenderer | WebGPURenderer;
 
   /** The configuration options */
   options!: GizmoOptions;
@@ -89,9 +91,10 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
   private _options!: GizmoOptionsFallback;
   private _intersections!: GizmoAxisObject[];
   private _background: Mesh<any, MeshBasicMaterial> | null = null;
-  private _viewport: Vector4 = new Vector4();
-  private _originalViewport: Vector4 = new Vector4();
-  private _originalScissor: Vector4 = new Vector4();
+  private _viewport: GizmoViewportArray = [0, 0, 0, 0];
+  private _originalViewport: GizmoViewportArray = [0, 0, 0, 0];
+  private _originalScissor: GizmoViewportArray = [0, 0, 0, 0];
+  private _scene: Scene;
   private _camera!: Camera;
   private _container!: HTMLElement;
   private _domElement!: HTMLElement;
@@ -99,7 +102,6 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
   private _dragging: boolean = false;
   private _distance: number = 0;
   private _clock: Clock = new Clock();
-  private _targetPosition = new Vector3();
   private _targetQuaternion = new Quaternion();
   private _quaternionStart = new Quaternion();
   private _quaternionEnd = new Quaternion();
@@ -207,13 +209,14 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
    */
   constructor(
     camera: PerspectiveCamera | OrthographicCamera,
-    renderer: WebGLRenderer,
+    renderer: WebGLRenderer | WebGPURenderer,
     options: GizmoOptions = {}
   ) {
     super();
 
     this.camera = camera;
     this.renderer = renderer;
+    this._scene = new Scene().add(this);
     this.set(options);
   }
 
@@ -300,14 +303,14 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
     const _prevAutoClear = renderer.autoClear;
 
     renderer.autoClear = false;
-    renderer.setViewport(_viewport);
-    if (_prevScissorTest) renderer.setScissor(_viewport);
+    renderer.setViewport(..._viewport);
+    if (_prevScissorTest) renderer.setScissor(..._viewport);
 
     renderer.clear(false, true, false);
-    renderer.render(this, this._camera);
+    renderer.render(this._scene, this._camera);
 
-    renderer.setViewport(this._originalViewport);
-    if (_prevScissorTest) renderer.setScissor(this._originalScissor);
+    renderer.setViewport(...this._originalViewport);
+    if (_prevScissorTest) renderer.setScissor(...this._originalScissor);
 
     renderer.autoClear = _prevAutoClear;
 
@@ -327,7 +330,9 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
     const domRect = this._domRect;
     const containerRect = renderer.domElement.getBoundingClientRect();
 
-    this._viewport.set(
+    this._viewport.splice(
+      0,
+      4,
       domRect.left - containerRect.left,
       renderer.domElement.clientHeight -
         (domRect.top - containerRect.top + domRect.height),
@@ -335,8 +340,9 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
       domRect.height
     );
 
-    renderer.getViewport(this._originalViewport);
-    if (renderer.getScissorTest()) renderer.getScissor(this._originalScissor);
+    renderer.getViewport(_vec4).toArray(this._originalViewport);
+    if (renderer.getScissorTest())
+      renderer.getScissor(_vec4).toArray(this._originalScissor);
 
     return this;
   }
@@ -465,6 +471,8 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
       return;
     }
 
+    if (this._controls) this._controls.enabled = false;
+
     const delta = this._clock.getDelta();
 
     const step = delta * GIZMO_TURN_RATE * this.speed;
@@ -479,9 +487,11 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
     quaternion.rotateTowards(this._targetQuaternion, step);
 
     this._updateOrientation();
+    // FIXME - Need fix?
     requestAnimationFrame(() => this.dispatchEvent({ type: "change" }));
 
     if (this._quaternionStart.angleTo(this._quaternionEnd) < EPSILON) {
+      if (this._controls) this._controls.enabled = true;
       this.animating = false;
       this.dispatchEvent({ type: "end" });
     }
@@ -497,16 +507,14 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
     const camera = this.camera;
     const focusPoint = this.target;
 
-    this._targetPosition.copy(position).multiplyScalar(this._distance);
+    _vec3.copy(position).multiplyScalar(this._distance);
 
-    _matrix
-      .setPosition(this._targetPosition)
-      .lookAt(this._targetPosition, this.position, this.up);
+    _matrix.setPosition(_vec3).lookAt(_vec3, this.position, this.up);
     this._targetQuaternion.setFromRotationMatrix(_matrix);
 
-    this._targetPosition.add(focusPoint);
+    _vec3.add(focusPoint);
 
-    _matrix.lookAt(this._targetPosition, focusPoint, this.up);
+    _matrix.lookAt(_vec3, focusPoint, this.up);
     this._quaternionEnd.setFromRotationMatrix(_matrix);
 
     _matrix

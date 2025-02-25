@@ -369,3 +369,11 @@ export type GizmoOptionsFallback = DeepRequired<GizmoOptions> & {
 
 /** Axes Object */
 export type GizmoAxisObject = Mesh<BufferGeometry, MeshBasicMaterial> | Sprite;
+
+/** Object containing the viewport bounding box  */
+export type GizmoViewportArray = [
+  x: number,
+  y: number,
+  width: number,
+  height: number
+];
