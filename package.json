@@ -27,17 +27,17 @@
     "docs:preview": "vitepress preview docs"
   },
   "devDependencies": {
-    "@rollup/plugin-commonjs": "^28.0.1",
-    "@types/node": "^20.11.28",
     "@types/three": "^0.162.0",
-    "@vitejs/plugin-vue": "^5.1.4",
     "camera-controls": "^2.8.3",
-    "oh-vue-icons": "^1.0.0-rc3",
-    "typescript": "^5.2.2",
     "utility-types": "^3.11.0",
-    "vite": "^5.1.6",
+    "typescript": "^5.2.2",
+    "@types/node": "^20.11.28",
+    "oh-vue-icons": "^1.0.0-rc3",
+    "@rollup/plugin-commonjs": "^28.0.1",
+    "@vitejs/plugin-vue": "^5.1.4",
+    "vite": "^6.2.0",
     "vite-plugin-dts": "^4.3.0",
-    "vitepress": "^1.4.1",
+    "vitepress": "^1.6.3",
     "vue": "^3.5.12"
   },
   "peerDependencies": {
@@ -58,5 +58,9 @@
   "bugs": {
     "url": "https://github.com/Fennec-hub/three-viewport-gizmo/issues"
   },
-  "homepage": "https://github.com/Fennec-hub/three-viewport-gizmo#readme"
+  "homepage": "https://github.com/Fennec-hub/three-viewport-gizmo#readme",
+  "dependencies": {
+    "audit": "^0.0.6",
+    "build": "^0.1.4"
+  }
 }
