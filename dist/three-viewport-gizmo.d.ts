@@ -7,6 +7,7 @@ import { OrthographicCamera } from 'three';
 import { PerspectiveCamera } from 'three';
 import { Vector3 } from 'three';
 import { WebGLRenderer } from 'three';
+import { WebGPURenderer } from 'three/webgpu';
 
 /**
  * Configuration options for individual gizmo axes.
@@ -276,13 +277,12 @@ declare type GizmoOptionsFallback = DeepRequired<GizmoOptions> & {
  * @extends Object3D
  */
 export declare class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
-    type: string;
     /** Whether the gizmo is currently active and responding to user input */
     enabled: boolean;
     /** The camera being controlled by this gizmo */
     camera: OrthographicCamera | PerspectiveCamera;
     /** The WebGLRenderer rendering the gizmo */
-    renderer: WebGLRenderer;
+    renderer: WebGLRenderer | WebGPURenderer;
     /** The configuration options */
     options: GizmoOptions;
     /** The point around which the camera rotates */
@@ -304,6 +304,7 @@ export declare class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
     private _viewport;
     private _originalViewport;
     private _originalScissor;
+    private _scene;
     private _camera;
     private _container;
     private _domElement;
@@ -311,7 +312,6 @@ export declare class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
     private _dragging;
     private _distance;
     private _clock;
-    private _targetPosition;
     private _targetQuaternion;
     private _quaternionStart;
     private _quaternionEnd;
@@ -412,7 +412,7 @@ export declare class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
      * @param options.AXIS.hover.border.size - Hover border size
      * @param options.AXIS.hover.border.color - Hover border color
      */
-    constructor(camera: PerspectiveCamera | OrthographicCamera, renderer: WebGLRenderer, options?: GizmoOptions);
+    constructor(camera: PerspectiveCamera | OrthographicCamera, renderer: WebGLRenderer | WebGPURenderer, options?: GizmoOptions);
     /** Gets the current placement of the gizmo relative to its container. */
     get placement(): GizmoOptionsFallback["placement"];
     /**

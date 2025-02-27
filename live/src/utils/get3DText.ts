@@ -9,7 +9,6 @@ export const get3DText = (text: string, font: string, material?: Material) =>
       const geometry = new TextGeometry(text, {
         font: font,
         size: 80,
-        height: 30,
         curveSegments: 12,
         bevelEnabled: false,
         bevelThickness: 10,

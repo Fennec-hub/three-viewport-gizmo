@@ -37,7 +37,7 @@ import { optionsFallback } from "./utils/optionsFallback";
 import { clamp } from "three/src/math/MathUtils.js";
 import { axesObjects } from "./utils/axesObjects";
 import { axisHover } from "./utils/axisHover";
-import type WebGPURenderer from "three/examples/jsm/renderers/webgpu/WebGPURenderer.js";
+import type { WebGPURenderer } from "three/webgpu";
 
 export type { GizmoOptions, ViewportGizmoEventMap, GizmoAxisOptions };
 
