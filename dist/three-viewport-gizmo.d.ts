@@ -498,6 +498,23 @@ export declare class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
      */
     private _onPointerDown;
     /**
+     * Converts the input-coordinates from the standard Y-axis up to what is set in Object3D.DEFAULT_UP.
+     *
+     * @private
+     * @param input - The coordinates to be converted
+     * @param spherical - Whether or not the coordinates are for a sphere
+     * @returns The converted coordinates
+     */
+    private coordinateConversion;
+    /**
+     * Based on the Three.js-function setFromSphericalCoords, with coordinate conversion applied.
+     *
+     * @private
+     * @param s - The spherical coordinates
+     * @returns - Vector x, y, z
+     */
+    private setFromSpherical;
+    /**
      * Handles pointer move events for hover effects and drag operations.
      *
      * @private
