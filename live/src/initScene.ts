@@ -5,6 +5,7 @@ import {
   ConeGeometry,
   DoubleSide,
   GridHelper,
+  Group,
   Mesh,
   MeshPhysicalMaterial,
   NoToneMapping,
@@ -13,6 +14,7 @@ import {
   PerspectiveCamera,
   Scene,
   SphereGeometry,
+  Vector3,
   WebGLRenderer,
 } from "three";
 import { ViewportGizmo } from "@lib/ViewportGizmo";
@@ -24,21 +26,25 @@ import { cubeDarkTheme } from "./constant";
 
 let viewportGizmo: ViewportGizmo;
 
-//Object3D.DEFAULT_UP = new Vector3(1, 0, 0);
-
 export function initScene(
   initControlsCallback?: (
     camera: PerspectiveCamera,
-    viewportGizmo: ViewportGizmo
+    viewportGizmo: ViewportGizmo,
+    scene: Scene
   ) => void,
   animateControlsCallBack?: () => void,
   resizeControlsCallback?: () => void,
-  modelLoadedControlsCallback?: (model: Object3D) => void
+  modelLoadedControlsCallback?: (model: Object3D) => void,
+  zUp?: boolean
 ) {
-  const isSphere = false;
+  if (zUp) Object3D.DEFAULT_UP = new Vector3(0, 0, 1);
+
+  const isSphere = true;
   const container = document.querySelector<HTMLElement>("#app")!;
 
   const clock = new Clock();
+
+  const modelGroup = new Group();
 
   const camera = new PerspectiveCamera(
     70,
@@ -46,7 +52,7 @@ export function initScene(
     0.1,
     100
   );
-  camera.position.set(0, 5, 8);
+  camera.position.set(-3, 8, 5);
   const scene = new Scene();
   scene.background = new Color(0x333333);
 
@@ -57,10 +63,10 @@ export function initScene(
   container.appendChild(renderer.domElement);
 
   // GridHelper
-  scene.add(new GridHelper(10, 10, 0x111111, 0x111111));
+  modelGroup.add(new GridHelper(10, 10, 0x111111, 0x111111));
 
   // Lights and Environment
-  const lights = setSceneLights(scene);
+  const lights = setSceneLights(modelGroup);
   loadEnvMap({
     path: "studio_small_04_1k.hdr",
     renderer,
@@ -69,12 +75,13 @@ export function initScene(
   });
 
   // Viewport Gizmo
-  viewportGizmo = new ViewportGizmo(camera, renderer, {
-    x: { opacity: 0 },
-    ...(isSphere ? { type: "sphere" } : cubeDarkTheme),
-  });
+  viewportGizmo = new ViewportGizmo(
+    camera,
+    renderer,
+    isSphere ? { type: "sphere" } : cubeDarkTheme
+  );
 
-  initControlsCallback?.(camera, viewportGizmo);
+  initControlsCallback?.(camera, viewportGizmo, scene);
 
   const darkGlassMaterial = new MeshPhysicalMaterial({
     color: 0,
@@ -113,7 +120,7 @@ export function initScene(
 
     mesh.material = darkGlassMaterial;
 
-    scene.add(mesh);
+    modelGroup.add(mesh);
 
     camera.lookAt(mesh.position);
 
@@ -129,7 +136,7 @@ export function initScene(
     text.scale.setScalar(0.01);
     text.position.set(1.75, 0.75, 0);
 
-    scene.add(text);
+    modelGroup.add(text);
   });
 
   // Primitives
@@ -144,7 +151,14 @@ export function initScene(
   cone.position.set(-4, 2, 0);
   cone.rotation.z = -Math.PI / 6;
 
-  scene.add(sphere, octahedron, cone);
+  modelGroup.add(sphere, octahedron, cone);
+
+  if (zUp) {
+    modelGroup.rotation.x = Math.PI / 2;
+    modelGroup.rotation.y = Math.PI;
+  }
+
+  scene.add(modelGroup);
 
   function animation() {
     const time = clock.getElapsedTime();

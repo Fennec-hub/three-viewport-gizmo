@@ -1,0 +1,104 @@
+{
+  "asset": {
+    "version": "2.0"
+  },
+  "scene": 0,
+  "scenes": [
+    {
+      "nodes": [0]
+    }
+  ],
+  "nodes": [
+    {
+      "children": [1],
+      "matrix": [0.001, 0, 0, 0, 0, 0.001, 0, 0, 0, 0, 0.001, 0, 0, 0, 0, 1],
+      "name": "Z-Limit switch Support plate",
+      "extras": {
+        "Dtk_PrototypeID": 1
+      }
+    },
+    {
+      "mesh": 0,
+      "name": "Mesh"
+    }
+  ],
+  "meshes": [
+    {
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 2,
+            "POSITION": 1
+          },
+          "indices": 0,
+          "material": 0,
+          "mode": 4
+        }
+      ]
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "byteOffset": 0,
+      "componentType": 5123,
+      "count": 3072,
+      "max": [1035],
+      "min": [0],
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 0,
+      "componentType": 5126,
+      "count": 1036,
+      "max": [31, 20, 5],
+      "min": [-1.776356839e-15, 3.996802889e-15, 0],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 12432,
+      "componentType": 5126,
+      "count": 1036,
+      "max": [1, 1, 1],
+      "min": [-1, -1, -1],
+      "type": "VEC3"
+    }
+  ],
+  "materials": [
+    {
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [1, 0.5254901961, 0.03137254902, 1],
+        "metallicFactor": 0,
+        "roughnessFactor": 1
+      },
+      "doubleSided": true,
+      "alphaMode": "OPAQUE",
+      "extras": {
+        "Dtk_ColorId": 3
+      }
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteOffset": 0,
+      "byteLength": 6144,
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 6144,
+      "byteLength": 24864,
+      "byteStride": 12,
+      "target": 34962
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 31008,
+      "uri": "support_plate.bin"
+    }
+  ]
+}

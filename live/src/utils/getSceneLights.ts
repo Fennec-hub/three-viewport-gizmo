@@ -1,6 +1,6 @@
 import { AmbientLight, Group, PointLight, Scene } from "three";
 
-export const setSceneLights = (scene: Scene) => {
+export const setSceneLights = (group: Group | Scene) => {
   const lightGroup = new Group();
 
   const color = 0x999999;
@@ -15,7 +15,7 @@ export const setSceneLights = (scene: Scene) => {
   lightGroup.add(pointLight1, pointLight2, pointLight3);
 
   const ambientLight = new AmbientLight(0x000000, 100);
-  scene.add(ambientLight, lightGroup);
+  group.add(ambientLight, lightGroup);
 
   return lightGroup;
 };

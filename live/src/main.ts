@@ -7,6 +7,7 @@ import { staticRenderScene } from "./static";
 import { multiViewport } from "./multiViewport";
 import { grid } from "./grid";
 import { responsive } from "./responsive";
+import { zUp } from "./z_up";
 
 const hashtag:
   | ""
@@ -18,6 +19,7 @@ const hashtag:
   | "multiViewport"
   | "grid"
   | "responsive"
+  | "z_up"
   | "controls" = window.location.hash.substring(2) as any;
 
 switch (hashtag) {
@@ -51,6 +53,10 @@ switch (hashtag) {
 
   case "grid":
     grid();
+    break;
+
+  case "z_up":
+    zUp();
     break;
 
   default:
