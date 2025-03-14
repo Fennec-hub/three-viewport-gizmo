@@ -21,6 +21,10 @@ const examples = (type: "sphere" | "cube") => [
     text: "Multiple elements",
     link: `examples/multiple-elements?type=${type}`,
   },
+  {
+    text: "Z-UP",
+    link: `examples/z-up?type=${type}`,
+  },
 ];
 
 // https://vitepress.dev/reference/site-config

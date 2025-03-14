@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OrbitControls - Three Viewport Gizmo Example</title>
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="../assets/three-viewport-gizmo.svg"
+    />
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: #333;
+        font-family: Arial;
+        font-size: 14px;
+        color: #aaa;
+      }
+    </style>
+  </head>
+  <body>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.169.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.169.0/examples/jsm/",
+          "three-viewport-gizmo": "https://unpkg.com/three-viewport-gizmo@2.1.0/dist/three-viewport-gizmo.js"
+        }
+      }
+    </script>
+
+    <script type="module">
+      import * as THREE from "three";
+      import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+      import { ViewportGizmo } from "three-viewport-gizmo";
+      import { loadThreeModel } from "./common/threeModel.js";
+
+      THREE.Object3D.DEFAULT_UP.set(0, 0, 1);
+
+      // Init Scene
+      const camera = new THREE.PerspectiveCamera(
+        70,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        100
+      );
+      camera.position.set(0, 8, 5);
+
+      const scene = new THREE.Scene();
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setAnimationLoop(animation);
+      document.body.appendChild(renderer.domElement);
+
+      const [threeModel, threeModelAnimation] = loadThreeModel(scene, renderer);
+      // Adjust rotation for the z-up
+      threeModel.rotation.x = Math.PI / 2;
+      threeModel.rotation.y = Math.PI;
+      scene.add(threeModel);
+
+      // Init Gizmo with OrbitControls
+      const gizmo = new ViewportGizmo(camera, renderer, getGizmoConfig());
+      gizmo.attachControls(new OrbitControls(camera, renderer.domElement));
+
+      // Optional. Set the target
+      gizmo.target.set(0, 0, 3);
+      camera.lookAt(gizmo.target);
+
+      function animation(time) {
+        threeModelAnimation();
+        renderer.toneMapping = THREE.CineonToneMapping;
+        renderer.render(scene, camera);
+
+        // Render the Gizmo
+        renderer.toneMapping = THREE.NoToneMapping;
+        gizmo.render();
+      }
+
+      window.onresize = () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+
+        gizmo.update();
+      };
+
+      function getGizmoConfig() {
+        // Gizmo URL type `?type=sphere|cube`
+        const urlParams = new URLSearchParams(window.location.search);
+        const type = urlParams.get("type") || "sphere";
+
+        if (type === "sphere") return {};
+
+        const darkColors = {
+          color: 0x333333,
+          labelColor: 0xdddddd,
+          hover: {
+            color: 0x4bac84,
+            labelColor: 0xffffff,
+          },
+        };
+
+        const darkBackground = {
+          color: 0x444444,
+          hover: { color: 0x444444 },
+        };
+
+        const darkCubeConfig = {
+          type,
+          background: darkBackground,
+          corners: darkColors,
+          edges: darkColors,
+          right: darkColors,
+          top: darkColors,
+          front: darkColors,
+        };
+
+        return darkCubeConfig;
+      }
+    </script>
+  </body>
+</html>
