@@ -70,8 +70,7 @@ export const axesMap = (options: GizmoOptionsFallback, offset: number = 2) => {
     }
   );
 
-  /* 
-  // Debug
+  /* // Debug
   document.body.appendChild(canvas);
   Object.assign(canvas.style, {
     position: "fixed",

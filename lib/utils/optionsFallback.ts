@@ -3,9 +3,22 @@ import {
   GizmoOptions,
   GizmoOptionsFallback,
 } from "@lib/types";
-import { AXES, GIZMO_AXES, GIZMO_FACES } from "./constants";
+import {
+  GIZMO_MAIN_AXES,
+  GIZMO_AXES,
+  GIZMO_AXES_X_UP,
+  GIZMO_AXES_Z_UP,
+  GIZMO_FACES,
+  GIZMO_FACE_TOP,
+  GIZMO_FACE_RIGHT,
+  GIZMO_FACE_FRONT,
+  GIZMO_FACE_BOTTOM,
+  GIZMO_FACE_LEFT,
+  GIZMO_FACE_BACK,
+} from "./constants";
 
 import { deepClone } from "./deepClone";
+import { Object3D } from "three";
 
 export const optionsFallback = (
   options: GizmoOptions
@@ -14,14 +27,20 @@ export const optionsFallback = (
   const isSphere = type === "sphere";
   const resolution = options.resolution || isSphere ? 64 : 128;
 
+  const defaultUp = Object3D.DEFAULT_UP;
+  const zUp = defaultUp.z === 1;
+  const xUp = defaultUp.x === 1;
+
   const { container } = options;
   options.container = undefined;
   options = JSON.parse(JSON.stringify(options));
   options.container = container;
 
   // Convert face axis to regular axis
+  const faceAxis = zUp ? GIZMO_AXES_Z_UP : xUp ? GIZMO_AXES_X_UP : GIZMO_AXES;
   GIZMO_FACES.forEach((face, index) => {
-    if (options[face]) options[GIZMO_AXES[index]] = options[face];
+    if ((options as any)[face])
+      options[faceAxis[index]] = (options as any)[face];
   });
 
   // Positive Axes fallback options
@@ -63,7 +82,7 @@ export const optionsFallback = (
     size: 128,
     placement: "top-right",
     resolution,
-    lineWidth: 20,
+    lineWidth: 4,
     radius: isSphere ? 1 : 0.2,
     smoothness: 18,
     animated: true,
@@ -116,57 +135,51 @@ export const optionsFallback = (
     x: {
       ...deepClone(axesFallback),
       ...(isSphere
-        ? {
-            label: "X",
-            color: 0xff3653,
-            line: true,
-          }
-        : {
-            label: "Right",
-          }),
+        ? { label: "X", color: 0xff3653, line: true }
+        : { label: xUp ? GIZMO_FACE_TOP : GIZMO_FACE_RIGHT }),
     },
     y: {
       ...deepClone(axesFallback),
       ...(isSphere
-        ? {
-            label: "Y",
-            color: 0x8adb00,
-            line: true,
-          }
-        : {
-            label: "Top",
-          }),
+        ? { label: "Y", color: 0x8adb00, line: true }
+        : { label: zUp || xUp ? GIZMO_FACE_FRONT : GIZMO_FACE_TOP }),
     },
     z: {
       ...deepClone(axesFallback),
       ...(isSphere
-        ? {
-            label: "Z",
-            color: 0x2c8fff,
-            line: true,
-          }
+        ? { label: "Z", color: 0x2c8fff, line: true }
         : {
-            label: "Front",
+            label: zUp
+              ? GIZMO_FACE_TOP
+              : xUp
+              ? GIZMO_FACE_RIGHT
+              : GIZMO_FACE_FRONT,
           }),
     },
     nx: {
       ...deepClone(negativeAxesFallback),
-      label: isSphere ? "" : "Left",
+      label: isSphere ? "" : xUp ? GIZMO_FACE_BOTTOM : GIZMO_FACE_LEFT,
     },
     ny: {
       ...deepClone(negativeAxesFallback),
-      label: isSphere ? "" : "Bottom",
+      label: isSphere ? "" : zUp || xUp ? GIZMO_FACE_BACK : GIZMO_FACE_BOTTOM,
     },
     nz: {
       ...deepClone(negativeAxesFallback),
-      label: isSphere ? "" : "Back",
+      label: isSphere
+        ? ""
+        : zUp
+        ? GIZMO_FACE_BOTTOM
+        : xUp
+        ? GIZMO_FACE_LEFT
+        : GIZMO_FACE_BACK,
     },
   };
 
   assignNestedDefaults(options, optionsFallback);
 
   // Negative axis fallback to positive axis
-  AXES.forEach((axis) =>
+  GIZMO_MAIN_AXES.forEach((axis) =>
     assignNestedDefaults(
       (options as any)[`n${axis}`],
       deepClone((options as any)[axis])

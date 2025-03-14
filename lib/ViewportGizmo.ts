@@ -30,7 +30,7 @@ import {
   GizmoAxisObject,
   GizmoViewportArray,
 } from "./types";
-import { EPSILON, GIZMO_TURN_RATE } from "./utils/constants";
+import { GIZMO_EPSILON, GIZMO_TURN_RATE } from "./utils/constants";
 import { updateBackground } from "./utils/updateBackground";
 import type { OrbitControls } from "three/examples/jsm/Addons.js";
 import { optionsFallback } from "./utils/optionsFallback";
@@ -490,7 +490,7 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
     // FIXME - Need fix?
     requestAnimationFrame(() => this.dispatchEvent({ type: "change" }));
 
-    if (this._quaternionStart.angleTo(this._quaternionEnd) < EPSILON) {
+    if (this._quaternionStart.angleTo(this._quaternionEnd) < GIZMO_EPSILON) {
       if (this._controls) this._controls.enabled = true;
       this.animating = false;
       this.dispatchEvent({ type: "end" });
@@ -547,21 +547,24 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
         .sub(this._pointerStart)
         .multiplyScalar((1 / this._domRect.width) * Math.PI);
 
-      const direction = _vec3.subVectors(this.camera.position, this.target);
-      const {x, y, z} = this.coordinateConversion(direction);
+      const direction = this.coordinateConversion(
+        _vec3.subVectors(this.camera.position, this.target)
+      );
 
-      const spherical = _spherical.setFromCartesianCoords(x, y, z);
+      const spherical = _spherical.setFromVector3(direction);
 
       spherical.theta = initialTheta - pointerAngle.x;
       spherical.phi = clamp(
         initialPhi - pointerAngle.y,
-        EPSILON,
-        Math.PI - EPSILON
+        GIZMO_EPSILON,
+        Math.PI - GIZMO_EPSILON
       );
 
-      const positions = this.setFromSpherical(spherical);
+      this.coordinateConversion(
+        this.camera.position.setFromSpherical(spherical),
+        true
+      ).add(this.target);
 
-      this.camera.position.set(positions.x, positions.y, positions.z).add(this.target);
       this.camera.lookAt(this.target);
 
       this.quaternion.copy(this.camera.quaternion).invert();
@@ -590,10 +593,11 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
     e.preventDefault();
     this._pointerStart.set(e.clientX, e.clientY);
 
-    const direction = _vec3.subVectors(this.camera.position, this.target);
-    const {x, y, z} = this.coordinateConversion(direction);
-    
-    const initialSpherical = new Spherical().setFromCartesianCoords(x, y, z);
+    const direction = this.coordinateConversion(
+      _vec3.subVectors(this.camera.position, this.target)
+    );
+
+    const initialSpherical = _spherical.setFromVector3(direction);
     const initialTheta = initialSpherical.theta;
     const initialPhi = initialSpherical.phi;
     this._distance = initialSpherical.radius;
@@ -606,43 +610,25 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
 
   /**
    * Converts the input-coordinates from the standard Y-axis up to what is set in Object3D.DEFAULT_UP.
-   * 
+   *
    * @private
-   * @param input - The coordinates to be converted
-   * @param spherical - Whether or not the coordinates are for a sphere
+   * @param target      - The target Vector3 to be converted
+   * @param isSpherical - Whether or not the coordinates are for a sphere
    * @returns The converted coordinates
    */
-  private coordinateConversion(input: {x: number, y: number, z: number}, spherical = false) {
-    const {x, y, z} = input;
+  private coordinateConversion(target: Vector3, isSpherical = false) {
+    const { x, y, z } = target;
 
-    if (Object3D.DEFAULT_UP.x === 1)
-      return spherical ? {x: y, y: z, z: x} : {x: z, y: x, z: y}
-    else if (Object3D.DEFAULT_UP.z === 1)
-      return spherical ? {x: z, y: x, z: y} : {x: y, y: z, z: x}
-    else
-      return {x, y, z}
+    const defaultUp = Object3D.DEFAULT_UP;
+
+    if (defaultUp.x === 1)
+      return isSpherical ? target.set(y, z, x) : target.set(z, x, y);
+
+    if (defaultUp.z === 1)
+      return isSpherical ? target.set(z, x, y) : target.set(y, z, x);
+
+    return target;
   }
-
-  /**
-   * Based on the Three.js-function setFromSphericalCoords, with coordinate conversion applied.
-   * 
-   * @private
-   * @param s - The spherical coordinates
-   * @returns - Vector x, y, z
-   */
-  private setFromSpherical( s: Spherical ) {
-    const radius = s.radius;
-    const phi = s.phi;
-    const theta = s.theta;
-
-		const sinPhiRadius = Math.sin( phi ) * radius;
-
-		const x = sinPhiRadius * Math.sin( theta );
-		const y = radius * Math.cos( phi );
-    const z = sinPhiRadius * Math.cos( theta );
-
-		return this.coordinateConversion({x, y, z}, true);
-	}
 
   /**
    * Handles pointer move events for hover effects and drag operations.
