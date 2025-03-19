@@ -7,98 +7,111 @@ A 3D camera orientation controller that provides a visual interface for manipula
 `constructor( camera: PerspectiveCamera | OrthographicCamera, renderer: WebGLRenderer, options?: GizmoOptions )`
 
 - **`camera`** — `PerspectiveCamera | OrthographicCamera`
-  - The camera to be controlled by the gizmo.
+
+  The camera to be controlled by the gizmo.
+
 - **`renderer`** — `WebGLRenderer`
-  - The renderer used to render the scene.
+
+  The renderer used to render the scene.
+
 - **`options`** — [GizmoOptions](#gizmooptions) (optional)
-  - Configuration options for the gizmo.
+
+  Configuration options for the gizmo.
 
 ## Events
 
 - **`start`** — Triggered when a view change interaction begins.
 
-  - This event occurs when:
-    - Dragging starts
-    - Clicking an axis initiates a view transition
+  Occurs when:
+
+  - Dragging starts
+  - Clicking an axis initiates a view transition
 
 - **`change`** — Triggered during view changes.
 
-  - This event occurs when:
-    - Dragging updates the view
-    - View transition animations are in progress
-    - Any camera orientation updates happen
+  Occurs when:
+
+  - Dragging updates the view
+  - View transition animations are in progress
+  - Any camera orientation updates happen
 
 - **`end`** — Triggered when a view change interaction ends.
-  - This event occurs when:
-    - Dragging stops
-    - View transition animation completes
+
+  Occurs when:
+
+  - Dragging stops
+  - View transition animation completes
 
 ## Properties
 
 - **`enabled`** — `boolean`
 
-  - Specifies if the gizmo is active and responsive to user input.
+  Specifies if the gizmo is active and responsive to user input.
 
 - **`camera`** — `OrthographicCamera | PerspectiveCamera`
 
-  - The camera controlled by this gizmo.
+  The camera controlled by this gizmo.
 
 - **`target`** — `Vector3`
 
-  - The point around which the camera rotates.
+  The point around which the camera rotates.
 
 - **`placement`** — `boolean`
 
-  - Sets and update the placement of the gizmo relative to its container.
+  Sets and update the placement of the gizmo relative to its container.
 
 - **`animated`** — `boolean`
 
-  - Specifies if view changes should be animated.
+  Specifies if view changes should be animated.
 
 - **`speed`** — `number`
 
-  - Controls animation speed, where higher values result in faster animations.
+  Controls animation speed, where higher values result in faster animations.
 
 - **`animating`** — `boolean` (readonly)
-  - `True` if the gizmo is currently animating view changes.
+
+  `True` if the gizmo is currently animating view changes.
 
 ## Methods
 
 - **`set`** — `( options?: GizmoOptions ): ViewportGizmo`
 
-  - Regenerates the gizmo with the new options.
-    ::: warning
-    - Not recommended for use in real-time rendering or animation loops
-    - Provides a way to completely rebuild the gizmo with new options
-    - Can be computationally expensive, so use sparingly
-      :::
+  Regenerates the gizmo with the new options.
+
+  ::: warning
+
+  - Not recommended for use in real-time rendering or animation loops
+  - Provides a way to completely rebuild the gizmo with new options
+  - Can be computationally expensive, so use sparingly
+    :::
 
 - **`render`** — `(): ViewportGizmo`
 
-  - Renders the gizmo within the viewport.
+  Renders the gizmo within the viewport.
 
 - **`domUpdate`** — `(): ViewportGizmo`
 
-  - Updates the gizmo's DOM properties based on position and size in the document.
+  Updates the gizmo's DOM properties based on position and size in the document.
 
 - **`cameraUpdate`** — `(): ViewportGizmo`
 
-  - Updates the gizmo's orientation to match the current camera orientation.
+  Updates the gizmo's orientation to match the current camera orientation.
 
 - **`update`** — `( controls?: boolean ): ViewportGizmo`
 
-  - Performs a full update of the gizmo, including DOM and camera-related updates.
+  Performs a full update of the gizmo, including DOM and camera-related updates.
 
 - **`attachControls`** — `( controls: OrbitControls ): void`
 
-  - Links `OrbitControls` with the gizmo, managing interaction states and updates.
+  Links `OrbitControls` with the gizmo, managing interaction states and updates.
 
 - **`detachControls`** — `(): void`
 
-  - Removes all event listeners and detaches controls if previously attached.
+  Removes all event listeners and detaches controls if previously attached.
 
 - **`dispose`** — `(): void`
-  - Cleans up all resources, including geometries, materials, textures, and event listeners.
+
+  Cleans up all resources, including geometries, materials, textures, and event listeners.
 
 ---
 
@@ -229,68 +242,78 @@ Defines comprehensive configuration options for the `ViewportGizmo`. Each option
 
 - **`container`** — `HTMLElement | string`
 
-  - Specifies the parent container for the gizmo. Can be an HTML element or a CSS selector string.
+  Specifies the parent container for the gizmo. Can be an HTML element or a CSS selector string.
 
 - **`type`** — `"sphere" | "cube"`
 
-  - Determines the gizmo configuration type. Defaults to `"sphere"`.
+  Determines the gizmo configuration type. Defaults to `"sphere"`.
 
 - **`size`** — `number`
 
-  - Sets the size of the gizmo widget in pixels. Defaults to `128`.
+  Sets the size of the gizmo widget in pixels. Defaults to `128`.
 
 - **`placement`** — `GizmoDomPlacement`
 
-  - Determines the position of the gizmo in the viewport. Valid values include:
-    - `"top-left"`
-    - `"top-center"`
-    - `"top-right"`
-    - `"center-left"`
-    - `"center-center"`
-    - `"center-right"`
-    - `"bottom-left"`
-    - `"bottom-center"`
-    - `"bottom-right"`
+  Determines the position of the gizmo in the viewport. Valid values include:
+
+  - `"top-left"`
+  - `"top-center"`
+  - `"top-right"`
+  - `"center-left"`
+  - `"center-center"`
+  - `"center-right"`
+  - `"bottom-left"`
+  - `"bottom-center"`
+  - `"bottom-right"`
 
 - **`offset`** — `object`
 
-  - Configures offset from container edges in pixels.
+  Configures offset from container edges in pixels.
+
   - **`left`** — `number`
-    - Offset from the left edge.
+
+    Offset from the left edge.
+
   - **`top`** — `number`
-    - Offset from the top edge.
+
+    Offset from the top edge.
+
   - **`right`** — `number`
-    - Offset from the right edge.
+
+    Offset from the right edge.
+
   - **`bottom`** — `number`
-    - Offset from the bottom edge.
+
+    Offset from the bottom edge.
 
 - **`animated`** — `boolean`
 
-  - Enables or disables animations for view changes. Defaults to `true`.
+  Enables or disables animations for view changes. Defaults to `true`.
 
 - **`speed`** — `number`
 
-  - Adjusts the animation speed for view transitions. Defaults to `1`.
+  Adjusts the animation speed for view transitions. Defaults to `1`.
 
 - **`resolution`** — `number`
 
-  - Adjusts the texture resolution. Defaults to `64` for sphere, `128` for cube.
+  Adjusts the texture resolution. Defaults to `64` for sphere, `128` for cube.
 
 - **`lineWidth`** — `number`
 
-  - Sets the width of the axes lines in pixels.
+  Sets the width of the axes lines in pixels.
 
 - **`id`** — `string`
 
-  - Sets the HTML `id` attribute for the gizmo container element.
+  Sets the HTML `id` attribute for the gizmo container element.
 
 - **`className`** — `string`
 
-  - Sets the HTML `class` attribute for the gizmo container element.
+  Sets the HTML `class` attribute for the gizmo container element.
 
 - **`font`** — `object`
 
-  - Configuration for the font used in axis labels.
+  Configuration for the font used in axis labels.
+
   - **`family`** — `string`
     - Specifies the font family for the axis labels.
   - **`weight`** — `string | number`
@@ -298,45 +321,66 @@ Defines comprehensive configuration options for the `ViewportGizmo`. Each option
 
 - **`background`** — `object`
 
-  - Configures the background sphere/cube.
+  Configures the background sphere/cube.
+
   - **`enabled`** — `boolean`
-    - Enables or disables the background.
+
+    Enables or disables the background.
+
   - **`color`** — `ColorRepresentation`
-    - Sets the background color in normal state.
+
+    Sets the background color in normal state.
+
   - **`opacity`** — `number`
-    - Sets the background opacity in normal state.
+
+    Sets the background opacity in normal state.
+
   - **`hover`** — `object`
+
     - **`color`** — `ColorRepresentation`
-      - Sets the background color when hovered.
+
+      Sets the background color when hovered.
+
     - **`opacity`** — `number`
-      - Sets the background opacity when hovered.
+
+      Sets the background opacity when hovered.
 
 - **`corners`** — `object`
 
-  - Configures corner indicators.
+  Configures corner indicators.
+
   - **`enabled`** — `boolean`
-    - Enables or disables corner indicators.
+
+    Enables or disables corner indicators.
+
   - **`color`** — `ColorRepresentation`
-    - Sets the base color of corner indicators.
+    Sets the base color of corner indicators.
   - **`opacity`** — `number`
-    - Sets the opacity of corner indicators.
+    Sets the opacity of corner indicators.
   - **`scale`** — `number`
-    - Sets the scale multiplier for corner indicators.
+    Sets the scale multiplier for corner indicators.
   - **`radius`** — `number`
-    - Sets the radius of corner indicators.
+    Sets the radius of corner indicators.
   - **`smoothness`** — `number`
-    - Controls the smoothness of corner indicators.
+    Controls the smoothness of corner indicators.
   - **`hover`** — `object`
+
     - **`color`** — `ColorRepresentation`
-      - Sets the color of corner indicators when hovered.
+
+      Sets the color of corner indicators when hovered.
+
     - **`opacity`** — `number`
-      - Sets the opacity of corner indicators when hovered.
+
+      Sets the opacity of corner indicators when hovered.
+
     - **`scale`** — `number`
-      - Sets the scale of corner indicators when hovered.
+
+      Sets the scale of corner indicators when hovered.
 
 - **`edges`** — `object`
 
-  - Configures edge indicators.
+  Configures edge indicators.
+
   - **`enabled`** — `boolean`
     - Enables or disables edge indicators.
   - **`color`** — `ColorRepresentation`
@@ -358,42 +402,77 @@ Defines comprehensive configuration options for the `ViewportGizmo`. Each option
       - Sets the scale of edge indicators when hovered.
 
 - **Axis Configurations**
-  - Configurations for `x`, `y`, `z`, `nx`, `ny`, `nz`
+
+  - Configurations for `x`, `y`, `z`, `nx`, `ny`, `nz` axes
   - Alias names for cube mode: `right`, `left`, `top`, `bottom`, `front`, `back`
-  - Each axis configuration supports:
-    - **`enabled`** — `boolean`
-      - Toggles the axis visibility.
-    - **`label`** — `string`
-      - Custom text label for the axis.
-    - **`opacity`** — `number`
-      - Sets the axis opacity.
-    - **`scale`** — `number`
-      - Sets the scale multiplier for the indicator size.
-    - **`line`** — `boolean`
-      - Toggles the axis line visibility.
+
+  Each axis configuration supports:
+
+  - **`enabled`** — `boolean`
+
+    Toggles the axis visibility.
+
+  - **`label`** — `string`
+
+    Custom text label for the axis.
+
+  - **`opacity`** — `number`
+
+    Sets the axis opacity.
+
+  - **`scale`** — `number`
+
+    Sets the scale multiplier for the indicator size.
+
+  - **`line`** — `boolean`
+
+    Toggles the axis line visibility.
+
+  - **`color`** — `ColorRepresentation`
+
+    Sets the axis indicator background color.
+
+  - **`labelColor`** — `ColorRepresentation`
+
+    Sets the axis label color.
+
+  - **`border`** — `object`
+
+    - **`size`** — `number`
+
+      Sets the border size around the axis indicator.
+
     - **`color`** — `ColorRepresentation`
-      - Sets the axis indicator background color.
+
+      Sets the border color around the axis indicator.
+
+  - **`hover`** — `object`
+
+    - **`color`** — `ColorRepresentation`
+
+      Sets the fill color on hover.
+
     - **`labelColor`** — `ColorRepresentation`
-      - Sets the axis label color.
+
+      Sets the label text color on hover.
+
+    - **`opacity`** — `number`
+
+      Sets the opacity when hovered.
+
+    - **`scale`** — `number`
+
+      Sets the indicator scale when hovered.
+
     - **`border`** — `object`
+
       - **`size`** — `number`
-        - Sets the border size around the axis indicator.
+
+        Sets the hover border size.
+
       - **`color`** — `ColorRepresentation`
-        - Sets the border color around the axis indicator.
-    - **`hover`** — `object`
-      - **`color`** — `ColorRepresentation`
-        - Sets the fill color on hover.
-      - **`labelColor`** — `ColorRepresentation`
-        - Sets the label text color on hover.
-      - **`opacity`** — `number`
-        - Sets the opacity when hovered.
-      - **`scale`** — `number`
-        - Sets the indicator scale when hovered.
-      - **`border`** — `object`
-        - **`size`** — `number`
-          - Sets the hover border size.
-        - **`color`** — `ColorRepresentation`
-          - Sets the hover border color.
+
+        Sets the hover border color.
 
 ---
 
