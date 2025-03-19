@@ -216,12 +216,16 @@
           });
       }
 
-      function getGizmoConfig() {
+      function getGizmoConfig(container, placement) {
         // Gizmo URL type `?type=sphere|cube`
         const urlParams = new URLSearchParams(window.location.search);
         const type = urlParams.get("type") || "sphere";
 
-        if (type === "sphere") return {};
+        if (type === "sphere")
+          return {
+            container,
+            placement,
+          };
 
         const darkColors = {
           color: 0x333333,
@@ -238,6 +242,8 @@
         };
 
         const darkCubeConfig = {
+          container,
+          placement,
           type,
           background: darkBackground,
           corners: darkColors,
