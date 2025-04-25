@@ -4,18 +4,19 @@ import {
   Mesh,
   MeshBasicMaterial,
   MeshBasicMaterialParameters,
+  SphereGeometry,
   Sprite,
   SpriteMaterial,
   Vector3,
 } from "three";
-import { roundedRectangleGeometry } from "./roundedRectangleGeometry";
 import { setMapColumnOffset } from "./axesMap";
+import { roundedRectangleGeometry } from "./roundedRectangleGeometry";
 
 export const axesCorners = (
   options: GizmoOptionsFallback,
   texture: CanvasTexture
 ) => {
-  const { isSphere, corners } = options;
+  const { isSphere, corners, rounded } = options;
 
   if (!corners.enabled) return [];
 
@@ -23,17 +24,20 @@ export const axesCorners = (
 
   const geometry = isSphere
     ? null
-    : roundedRectangleGeometry(radius, smoothness);
+    : rounded ?
+      new SphereGeometry(radius, smoothness * 2, smoothness)
+      : roundedRectangleGeometry(radius, smoothness);
 
   const materialConfig: MeshBasicMaterialParameters = {
     transparent: true,
     opacity,
   };
 
+  const positionOffsetRatio = rounded ? (1 - radius) : 0.85;
   const positions = [
     1, 1, 1, -1, 1, 1, 1, -1, 1, -1, -1, 1, 1, 1, -1, -1, 1, -1, 1, -1, -1, -1,
     -1, -1,
-  ].map((val) => val * 0.85);
+  ].map((val) => val * positionOffsetRatio);
 
   const target = new Vector3();
   return Array(positions.length / 3)
@@ -65,6 +69,7 @@ export const axesCorners = (
         opacity,
         scale,
         hover,
+        intersectionOrder: 1,
       };
 
       return corner;

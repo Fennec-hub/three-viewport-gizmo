@@ -18,6 +18,8 @@ export type GizmoOptions = {
 
   /** The Gizmo support two types a `sphere` and a `cube` configuration. Default `sphere` */
   type?: "sphere" | "cube";
+  /** Whether the gizmo cube should be rounded. Default `false` */
+  rounded?: boolean;
 
   /** Size of the gizmo widget in pixels. Default `128`*/
   size?: number;
@@ -181,7 +183,7 @@ export type GizmoOptions = {
     };
   };
 
-  /** The axes edge radius, applied to all axes */
+  /** The axes edge radius, applied to all axes. When `rounded: true`, this will be the radius of the rounded edges and corners */
   radius?: number;
 
   /** The axes edge smoothness, applied to all axes */

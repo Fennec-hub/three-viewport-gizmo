@@ -18,8 +18,9 @@ export const axesFaces = (
   texture: CanvasTexture
 ): GizmoAxisObject[] => {
   const target = new Vector3();
-  const { isSphere, radius, smoothness } = options;
-  const geometry = roundedRectangleGeometry(radius, smoothness);
+  const { isSphere, radius, smoothness, rounded } = options;
+  const faceLength = rounded ? (2 - options.edges.radius * 2) : 2;
+  const geometry = roundedRectangleGeometry(radius, smoothness, faceLength, faceLength);
 
   return GIZMO_AXES.map((_, i) => {
     const isPositive = i < 3;

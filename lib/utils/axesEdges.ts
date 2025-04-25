@@ -7,6 +7,7 @@ import {
   Sprite,
   SpriteMaterial,
   Vector3,
+  CylinderGeometry,
 } from "three";
 import { roundedRectangleGeometry } from "./roundedRectangleGeometry";
 import { setMapColumnOffset } from "./axesMap";
@@ -16,25 +17,29 @@ export const axesEdges = (
   texture: CanvasTexture,
   textureColumn: number
 ) => {
-  const { isSphere, edges } = options;
+  const { isSphere, edges, rounded } = options;
 
   if (!edges.enabled) return [];
 
   const { color, opacity, scale, hover, radius, smoothness } = edges;
 
+  const edgeLength = rounded ? (2 - radius * 2) : 1.2;
   const geometry = isSphere
     ? null
-    : roundedRectangleGeometry(radius, smoothness, 1.2, 0.25);
+    : rounded ?
+      new CylinderGeometry(radius, radius, edgeLength, smoothness * 4)
+      : roundedRectangleGeometry(radius, smoothness, edgeLength, 0.25);
 
   const materialConfig: MeshBasicMaterialParameters = {
     transparent: true,
     opacity,
   };
 
+  const positionOffsetRatio = rounded ? (1 - radius) : 0.925;
   const positions = [
     0, 1, 1, 0, -1, 1, 1, 0, 1, -1, 0, 1, 0, 1, -1, 0, -1, -1, 1, 0, -1, -1, 0,
     -1, 1, 1, 0, 1, -1, 0, -1, 1, 0, -1, -1, 0,
-  ].map((val) => val * 0.925);
+  ].map((val) => val * positionOffsetRatio);
 
   const target = new Vector3();
   const defaultUp = new Vector3(0, 1, 0);
@@ -60,7 +65,13 @@ export const axesEdges = (
 
       edge.up.copy(defaultUp);
       edge.lookAt(target.copy(edge.position).multiplyScalar(2));
-      if (!isSphere && !edge.position.y) edge.rotation.z = Math.PI / 2;
+      if (rounded) {
+        if (!isSphere && !edge.position.z) edge.rotation.z = Math.PI;
+        if (!isSphere && !edge.position.x) edge.rotation.x = 0;
+        if (!isSphere && !edge.position.x) edge.rotation.z = Math.PI / 2;
+      } else {
+        if (!isSphere && !edge.position.y) edge.rotation.z = Math.PI / 2;
+      }
 
       edge.renderOrder = 1;
 
