@@ -173,6 +173,9 @@ export const axesMap = (options: GizmoOptionsFallback, offset: number = 2) => {
       ? Math.sqrt(Math.pow(resolution * 0.7, 2) / 2)
       : resolution;
     let fontSize = square;
+    if (options.font.size > 0) {
+      fontSize = options.font.size;
+    }
     let textWidth = 0;
     let textHeight = 0;
 
