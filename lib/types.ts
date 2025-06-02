@@ -83,6 +83,8 @@ export type GizmoOptions = {
     family?: string;
     /** Font weight for axis labels */
     weight?: string | number;
+    /** Font size in pixels for axis labels */
+    size?: number;
   };
 
   /**
