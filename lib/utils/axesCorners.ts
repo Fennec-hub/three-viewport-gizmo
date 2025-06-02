@@ -26,7 +26,6 @@ export const axesCorners = (
   const geometry = isSphere
     ? null
     : isRoundedCube ?
-      // Optimized SphereGeometry with reduced segments for better performance
       new SphereGeometry(radius, smoothness * 2, smoothness)
       : roundedRectangleGeometry(radius, smoothness);
 

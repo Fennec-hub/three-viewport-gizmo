@@ -28,7 +28,6 @@ export const axesEdges = (
   const geometry = isSphere
     ? null
     : isRoundedCube ?
-      // Optimized CylinderGeometry with reduced segments for better performance
       new CylinderGeometry(radius, radius, edgeLength, smoothness * 4)
       : roundedRectangleGeometry(radius, smoothness, edgeLength, 0.25);
 
