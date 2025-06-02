@@ -25,7 +25,7 @@ export const optionsFallback = (
 ): GizmoOptionsFallback => {
   const type = options.type || "sphere";
   const isSphere = type === "sphere";
-  const rounded = options.rounded || false;
+  const isRoundedCube = type === "rounded-cube";
   const resolution = options.resolution || isSphere ? 64 : 128;
 
   const defaultUp = Object3D.DEFAULT_UP;
@@ -79,7 +79,6 @@ export const optionsFallback = (
 
   const optionsFallback: GizmoOptions = {
     type,
-    rounded,
     container: document.body,
     size: 128,
     placement: "top-right",
@@ -123,7 +122,7 @@ export const optionsFallback = (
     },
     edges: {
       enabled: !isSphere,
-      color: isSphere ? 0xf2d962 : rounded ? 0xeeeeee : 0xffffff,
+      color: isSphere ? 0xf2d962 : isRoundedCube ? 0xeeeeee : 0xffffff,
       opacity: isSphere ? 1 : 0,
       radius: isSphere ? 1 : 0.125,
       smoothness: 18,
@@ -180,8 +179,8 @@ export const optionsFallback = (
 
   assignNestedDefaults(options, optionsFallback);
 
-  /** Handle rounded options */
-  if (rounded) {
+  /** Handle rounded-cube type options */
+  if (isRoundedCube) {
     const mergedOptions = options as GizmoOptionsFallback;
     mergedOptions.edges.radius = mergedOptions.radius;
     mergedOptions.edges.scale = 1;

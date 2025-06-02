@@ -16,7 +16,8 @@ export const axesCorners = (
   options: GizmoOptionsFallback,
   texture: CanvasTexture
 ) => {
-  const { isSphere, corners, rounded } = options;
+  const { isSphere, corners, type } = options;
+  const isRoundedCube = type === "rounded-cube";
 
   if (!corners.enabled) return [];
 
@@ -24,7 +25,8 @@ export const axesCorners = (
 
   const geometry = isSphere
     ? null
-    : rounded ?
+    : isRoundedCube ?
+      // Optimized SphereGeometry with reduced segments for better performance
       new SphereGeometry(radius, smoothness * 2, smoothness)
       : roundedRectangleGeometry(radius, smoothness);
 
@@ -33,7 +35,7 @@ export const axesCorners = (
     opacity,
   };
 
-  const positionOffsetRatio = rounded ? (1 - radius) : 0.85;
+  const positionOffsetRatio = isRoundedCube ? (1 - radius) : 0.85;
   const positions = [
     1, 1, 1, -1, 1, 1, 1, -1, 1, -1, -1, 1, 1, 1, -1, -1, 1, -1, 1, -1, -1, -1,
     -1, -1,

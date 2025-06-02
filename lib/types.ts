@@ -16,10 +16,8 @@ export type GizmoOptions = {
   /** Parent element for the gizmo. Can be an HTMLElement or a CSS selector string */
   container?: HTMLElement | string;
 
-  /** The Gizmo support two types a `sphere` and a `cube` configuration. Default `sphere` */
-  type?: "sphere" | "cube";
-  /** Whether the gizmo cube should be rounded. Default `false` */
-  rounded?: boolean;
+  /** The Gizmo supports three types: `sphere`, `cube`, and `rounded-cube` configuration. Default `sphere` */
+  type?: "sphere" | "cube" | "rounded-cube";
 
   /** Size of the gizmo widget in pixels. Default `128`*/
   size?: number;
@@ -183,7 +181,7 @@ export type GizmoOptions = {
     };
   };
 
-  /** The axes edge radius, applied to all axes. When `rounded: true`, this will be the radius of the rounded edges and corners */
+  /** The axes edge radius, applied to all axes. When `type: rounded-cube`, this will be the radius of the rounded edges and corners */
   radius?: number;
 
   /** The axes edge smoothness, applied to all axes */
