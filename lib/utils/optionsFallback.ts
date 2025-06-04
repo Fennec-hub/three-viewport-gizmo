@@ -25,6 +25,7 @@ export const optionsFallback = (
 ): GizmoOptionsFallback => {
   const type = options.type || "sphere";
   const isSphere = type === "sphere";
+  const isRoundedCube = type === "rounded-cube";
   const resolution = options.resolution || isSphere ? 64 : 128;
 
   const defaultUp = Object3D.DEFAULT_UP;
@@ -121,7 +122,7 @@ export const optionsFallback = (
     },
     edges: {
       enabled: !isSphere,
-      color: isSphere ? 0xf2d962 : 0xffffff,
+      color: isSphere ? 0xf2d962 : isRoundedCube ? 0xeeeeee : 0xffffff,
       opacity: isSphere ? 1 : 0,
       radius: isSphere ? 1 : 0.125,
       smoothness: 18,
@@ -177,6 +178,28 @@ export const optionsFallback = (
   };
 
   assignNestedDefaults(options, optionsFallback);
+
+  /** Handle rounded-cube type options */
+  if (isRoundedCube) {
+    const mergedOptions = options as GizmoOptionsFallback;
+    mergedOptions.edges.radius = mergedOptions.radius;
+    mergedOptions.edges.scale = 1;
+    mergedOptions.edges.opacity = 1;
+    mergedOptions.edges.hover.scale = 1;
+    mergedOptions.edges.hover.opacity = 1;
+    mergedOptions.corners.radius = mergedOptions.radius;
+    mergedOptions.corners.scale = 1;
+    mergedOptions.corners.opacity = 1;
+    mergedOptions.corners.hover.scale = 1;
+    mergedOptions.corners.hover.opacity = 1;
+    mergedOptions.radius = 0;
+    GIZMO_AXES.forEach(axis => {
+      mergedOptions[axis].scale = 1;
+      mergedOptions[axis].opacity = 1;
+      mergedOptions[axis].hover.scale = 1;
+      mergedOptions[axis].hover.opacity = 1;
+    });
+  }
 
   // Negative axis fallback to positive axis
   GIZMO_MAIN_AXES.forEach((axis) =>
