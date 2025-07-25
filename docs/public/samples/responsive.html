@@ -21,7 +21,7 @@
         top: 0;
         left: 0;
         display: grid;
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(4, 1fr);
         grid-template-rows: repeat(2, 1fr);
         gap: 10px;
         width: 100vw;
@@ -42,6 +42,8 @@
   </head>
   <body>
     <div class="grid">
+      <div class="cell"></div>
+      <div class="cell"></div>
       <div class="cell"></div>
       <div class="cell"></div>
       <div class="cell"></div>
@@ -190,7 +192,7 @@
         {
           placement: "center-center",
           className: "responsive-gizmo",
-          lineWidth: 15,
+          lineWidth: 10,
           offset: offset,
           background: {
             opacity: 0.6,
@@ -219,7 +221,7 @@
         {
           placement: "center-center",
           className: "responsive-gizmo",
-          lineWidth: 15,
+          lineWidth: 10,
           offset: offset,
           background: {
             color: 0xffffff,
@@ -266,7 +268,20 @@
           placement: "center-center",
           className: "responsive-gizmo",
           offset: offset,
-          ...getGizmoConfig(),
+          ...getGizmoCubeConfig(),
+        },
+        {
+          type: 'rounded-cube',
+          placement: "center-center",
+          className: "responsive-gizmo",
+          offset: offset,
+        },
+        {
+          type: 'rounded-cube',
+          placement: "center-center",
+          className: "responsive-gizmo",
+          offset: offset,
+          ...getGizmoRoundedCubeConfig(),
         },
       ];
 
@@ -323,7 +338,7 @@
         });
       };
 
-      function getGizmoConfig() {
+      function getGizmoCubeConfig() {
         const darkColors = {
           color: 0x333333,
           labelColor: 0xdddddd,
@@ -349,6 +364,41 @@
         };
 
         return darkCubeConfig;
+      }
+
+      function getGizmoRoundedCubeConfig() {
+        const faceConfig = {
+          color: 0x444444,
+          labelColor: 0xffffff,
+          hover: {
+            color: 0x4bac84,
+          },
+        };
+        const edgeConfig = {
+          color: 0x555555,
+          opacity: 1,
+          hover: {
+            color: 0x4bac84,
+          },
+        };
+        const cornerConfig = {
+          ...faceConfig,
+          color: 0x444444,
+          hover: {
+            color: 0x4bac84,
+          },
+        };
+        return {
+          type: 'rounded-cube',
+          corners: cornerConfig,
+          edges: edgeConfig,
+          right: faceConfig,
+          top: faceConfig,
+          front: faceConfig,
+          left: faceConfig,
+          bottom: faceConfig,
+          back: faceConfig,
+        }
       }
     </script>
   </body>

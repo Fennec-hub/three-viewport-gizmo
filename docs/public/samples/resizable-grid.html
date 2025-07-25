@@ -307,6 +307,41 @@
 
         if (type === "sphere") return {};
 
+        if (type === "rounded-cube") {
+          const faceConfig = {
+            color: 0x444444,
+            labelColor: 0xffffff,
+            hover: {
+              color: 0x4bac84,
+            },
+          };
+          const edgeConfig = {
+            color: 0x555555,
+            opacity: 1,
+            hover: {
+              color: 0x4bac84,
+            },
+          };
+          const cornerConfig = {
+            ...faceConfig,
+            color: 0x444444,
+            hover: {
+              color: 0x4bac84,
+            },
+          };
+          return {
+            type,
+            corners: cornerConfig,
+            edges: edgeConfig,
+            right: faceConfig,
+            top: faceConfig,
+            front: faceConfig,
+            left: faceConfig,
+            bottom: faceConfig,
+            back: faceConfig,
+          }
+        }
+
         const darkColors = {
           color: 0x333333,
           labelColor: 0xdddddd,
