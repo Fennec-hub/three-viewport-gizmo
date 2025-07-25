@@ -122,7 +122,7 @@ A 3D camera orientation controller that provides a visual interface for manipula
 ```typescript
 type GizmoOptions = {
   container?: HTMLElement | string;
-  type?: "sphere" | "cube";
+  type?: "sphere" | "cube" | "rounded-cube";
   size?: number;
   placement?:
     | "top-left"
@@ -244,7 +244,7 @@ Defines comprehensive configuration options for the `ViewportGizmo`. Each option
 
   Specifies the parent container for the gizmo. Can be an HTML element or a CSS selector string.
 
-- **`type`** — `"sphere" | "cube"`
+- **`type`** — `"sphere" | "cube" | "rounded-cube"`
 
   Determines the gizmo configuration type. Defaults to `"sphere"`.
 
@@ -318,6 +318,10 @@ Defines comprehensive configuration options for the `ViewportGizmo`. Each option
     - Specifies the font family for the axis labels.
   - **`weight`** — `string | number`
     - Sets the font weight for axis labels.
+
+- **`radius`** — `number`
+
+  Sets the axes edge radius. When `type: 'rounded-cube'`, this will be the radius of the rounded edges and corners. Defaults to `1` for `sphere` and `0.2` for `rounded-cube`.
 
 - **`background`** — `object`
 

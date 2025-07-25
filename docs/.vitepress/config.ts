@@ -1,6 +1,6 @@
 import { defineConfig } from "vitepress";
 
-const examples = (type: "sphere" | "cube") => [
+const examples = (type: "sphere" | "cube" | "rounded-cube") => [
   {
     text: "Orbit controls",
     link: `examples/orbit-controls?type=${type}`,
@@ -44,6 +44,7 @@ export default defineConfig({
         items: [
           { text: "Sphere", link: "examples/orbit-controls?type=sphere" },
           { text: "Cube", link: "examples/orbit-controls?type=cube" },
+          { text: "Rounded Cube", link: "examples/orbit-controls?type=rounded-cube" },
         ],
       },
       {
@@ -61,6 +62,7 @@ export default defineConfig({
         items: [
           { text: "Sphere", items: examples("sphere"), collapsed: false },
           { text: "Cube", items: examples("cube"), collapsed: false },
+          { text: "Rounded Cube", items: examples("rounded-cube"), collapsed: false },
         ],
       },
     ],

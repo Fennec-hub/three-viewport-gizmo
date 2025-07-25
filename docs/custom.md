@@ -6,10 +6,10 @@ layout: home
 
 import { ref, computed } from "vue";
 
-const type = ref<"cube" | "sphere">("sphere");
-const label = computed(() => type.value === "sphere" ? "⬜ Cube" : "⬤ Sphere");
+const type = ref<"cube" | "sphere" | "rounded-cube">("sphere");
+const label = computed(() => type.value === "sphere" ? "⬜ Cube" : type.value === "rounded-cube" ? "⬜ Rounded Cube" : "⬤ Sphere");
 
-const switchType = () => type.value = type.value === "sphere" ? "cube" : "sphere";
+const switchType = () => type.value = type.value === "sphere" ? "cube" : type.value === "cube" ? "rounded-cube" : "sphere";
 
 </script>
 
