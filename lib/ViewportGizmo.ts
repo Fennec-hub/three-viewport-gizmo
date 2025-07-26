@@ -493,6 +493,7 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
     if (this._quaternionStart.angleTo(this._quaternionEnd) < GIZMO_EPSILON) {
       if (this._controls) this._controls.enabled = true;
       this.animating = false;
+      this.up.copy(Object3D.DEFAULT_UP); // Reset the up vector to the default after applying coordinate system changes
       this.dispatchEvent({ type: "end" });
     }
   }
@@ -507,19 +508,33 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
     const camera = this.camera;
     const focusPoint = this.target;
 
+    // Apply proper camera rotation to ensure text is upright when looking along the up axis
+    const defaultUp = Object3D.DEFAULT_UP;
+    let forwardAxis = this.up;
+
+    // Determine the correct "forward" direction for the top view based on coordinate system
+    if (Math.abs(position.z) >= 1 && defaultUp.z === 1) {
+      // Z-up: use positive Y as forward 
+      forwardAxis.set(0, 1, 0);
+    } else if (Math.abs(position.x) >= 1 && defaultUp.x === 1) {
+      // X-up: use negative Y as forward?
+      // TODO: determine what the correct forward axis should be for X-up
+      // forwardAxis.set(0, -1, 0);
+    }
+
     _vec3.copy(position).multiplyScalar(this._distance);
 
-    _matrix.setPosition(_vec3).lookAt(_vec3, this.position, this.up);
+    _matrix.setPosition(_vec3).lookAt(_vec3, this.position, forwardAxis);
     this._targetQuaternion.setFromRotationMatrix(_matrix);
 
     _vec3.add(focusPoint);
 
-    _matrix.lookAt(_vec3, focusPoint, this.up);
+    _matrix.lookAt(_vec3, focusPoint, forwardAxis);
     this._quaternionEnd.setFromRotationMatrix(_matrix);
 
     _matrix
       .setPosition(camera.position)
-      .lookAt(camera.position, focusPoint, this.up);
+      .lookAt(camera.position, focusPoint, forwardAxis);
     this._quaternionStart.setFromRotationMatrix(_matrix);
 
     this.animating = true;
