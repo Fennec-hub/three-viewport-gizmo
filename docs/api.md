@@ -321,7 +321,7 @@ Defines comprehensive configuration options for the `ViewportGizmo`. Each option
 
 - **`radius`** — `number`
 
-  Sets the axes edge radius. When `type: 'rounded-cube'`, this will be the radius of the rounded edges and corners. Defaults to `1` for `sphere` and `0.2` for `rounded-cube`.
+  Sets the axes edge radius. When using `rounded-cube` type, this will be the radius of the rounded edges and corners. Defaults to `1` for `sphere` and `0.2` for `rounded-cube`.
 
 - **`background`** — `object`
 
