@@ -46,7 +46,7 @@
         0.1,
         100
       );
-      camera.position.set(0, 8, 5);
+      camera.position.set(0, -8, 5);
 
       const scene = new THREE.Scene();
 
@@ -58,7 +58,6 @@
       const [threeModel, threeModelAnimation] = loadThreeModel(scene, renderer);
       // Adjust rotation for the z-up
       threeModel.rotation.x = Math.PI / 2;
-      threeModel.rotation.y = Math.PI;
       scene.add(threeModel);
 
       // Init Gizmo with OrbitControls
