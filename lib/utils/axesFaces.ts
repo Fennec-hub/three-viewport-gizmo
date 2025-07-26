@@ -59,7 +59,7 @@ export const axesFaces = (
           face.rotateZ(-Math.PI / 2);
         } else if ((axis === "nz" && zUp) || (axis === "nx" && xUp)) {
           // Bottom face: rotate 90 degrees clockwise around Z-axis to make "bottom" text readable left-to-right (from back)
-          face.rotateZ(Math.PI / 2);
+          face.rotateZ(-Math.PI / 2);
         }
       }
     }
