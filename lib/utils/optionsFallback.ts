@@ -115,7 +115,7 @@ export const optionsFallback = (
     placement: "top-right",
     resolution,
     lineWidth: 4,
-    radius: isSphere ? 1 : 0.2,
+    radius: isSphere ? 1 : isRoundedCube ? 0.3 : 0.2,
     smoothness: 18,
     animated: true,
     speed: 1,
