@@ -46,7 +46,7 @@
         0.1,
         100
       );
-      camera.position.set(0, -8, 5);
+      camera.position.set(0, -8, 3);
 
       const scene = new THREE.Scene();
 
@@ -56,17 +56,23 @@
       document.body.appendChild(renderer.domElement);
 
       const [threeModel, threeModelAnimation] = loadThreeModel(scene, renderer);
-      // Adjust rotation for the z-up
+      // Adjust rotations for the Z-up coordinate system
       threeModel.rotation.x = Math.PI / 2;
       scene.add(threeModel);
 
+      // Init OrbitControls first
+      const controls = new OrbitControls(camera, renderer.domElement);
+      
       // Init Gizmo with OrbitControls
       const gizmo = new ViewportGizmo(camera, renderer, getGizmoConfig());
-      gizmo.attachControls(new OrbitControls(camera, renderer.domElement));
+      gizmo.attachControls(controls);
 
       // Optional. Set the target
       gizmo.target.set(0, 0, 3);
       camera.lookAt(gizmo.target);
+      
+      // Controls must be updated after the camera transform - https://threejs.org/docs/#examples/en/controls/OrbitControls.update
+      controls.update();
 
       function animation(time) {
         threeModelAnimation();
@@ -87,7 +93,7 @@
       };
 
       function getGizmoConfig() {
-        // Gizmo URL type `?type=sphere|cube`
+        // Gizmo URL type `?type=sphere|cube|rounded-cube`
         const urlParams = new URLSearchParams(window.location.search);
         const type = urlParams.get("type") || "sphere";
 

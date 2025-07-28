@@ -138,7 +138,7 @@
         0.1,
         100
       );
-      camera.position.set(0, 5, 8);
+      camera.position.set(0, 3, 8);
 
       const scene = new THREE.Scene();
 
@@ -301,7 +301,7 @@
       }
 
       function getGizmoConfig() {
-        // Gizmo URL type `?type=sphere|cube`
+        // Gizmo URL type `?type=sphere|cube|rounded-cube`
         const urlParams = new URLSearchParams(window.location.search);
         const type = urlParams.get("type") || "sphere";
 

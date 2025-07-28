@@ -22,8 +22,12 @@ const examples = (type: "sphere" | "cube" | "rounded-cube") => [
     link: `examples/multiple-elements?type=${type}`,
   },
   {
-    text: "Z-UP",
+    text: "Z-up coordinate system",
     link: `examples/z-up?type=${type}`,
+  },
+  {
+    text: "X-up coordinate system",
+    link: `examples/x-up?type=${type}`,
   },
 ];
 

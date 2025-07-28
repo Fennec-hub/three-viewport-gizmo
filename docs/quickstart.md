@@ -40,7 +40,7 @@ import { ViewportGizmo } from "https://cdn.jsdelivr.net/gh/taucad/three-viewport
 
 ## Usage
 
-ViewportGizmo can be integrated with [OrbitControls](https://threejs.org/docs/#examples/en/controls/OrbitControls) in just a few lines of code
+ViewportGizmo can be integrated with [OrbitControls](https://threejs.org/docs/#examples/en/controls/OrbitControls) in just a few lines of code.
 
 ```js {9,10,16,23}
 import * as THREE from "three";
@@ -68,6 +68,17 @@ window.onresize = () => {
   gizmo.update();
 };
 ```
+
+## Coordinate System
+
+The Gizmo examples demonstrate the Y-up coordinate system, which aligns with the Three.js default coordinate system.
+
+The default directions for the Y-up coordinate system are as follows:
+- Up: `Y+`
+- Right: `X+`
+- Forward: `Z-`
+
+If you need to use a different coordinate system, refer to the [Z-up](./examples/z-up) and [X-up](./examples/x-up) sections.
 
 ## Example
 

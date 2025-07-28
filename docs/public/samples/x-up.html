@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Post Processing - Three Viewport Gizmo Example</title>
+    <title>OrbitControls - Three Viewport Gizmo Example</title>
     <link
       rel="icon"
       type="image/svg+xml"
@@ -26,7 +26,7 @@
         "imports": {
           "three": "https://unpkg.com/three@0.173.0/build/three.module.js",
           "three/addons/": "https://unpkg.com/three@0.173.0/examples/jsm/",
-          "three-viewport-gizmo": "https://cdn.jsdelivr.net/gh/taucad/three-viewport-gizmo/dist/three-viewport-gizmo.js"
+          "three-viewport-gizmo": "../assets/js/three-viewport-gizmo.js"
         }
       }
     </script>
@@ -37,10 +37,7 @@
       import { ViewportGizmo } from "three-viewport-gizmo";
       import { loadThreeModel } from "./common/threeModel.js";
 
-      import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
-      import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
-      import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
-      import { RenderPixelatedPass } from "three/addons/postprocessing/RenderPixelatedPass.js";
+      THREE.Object3D.DEFAULT_UP.set(1, 0, 0);
 
       // Init Scene
       const camera = new THREE.PerspectiveCamera(
@@ -49,7 +46,7 @@
         0.1,
         100
       );
-      camera.position.set(0, 3, 8);
+      camera.position.set(3, 8, 0);
 
       const scene = new THREE.Scene();
 
@@ -58,25 +55,25 @@
       renderer.setAnimationLoop(animation);
       document.body.appendChild(renderer.domElement);
 
-      const composer = new EffectComposer(renderer);
-      composer.addPass(new RenderPass(scene, camera));
-
-      const renderPixelatedPass = new RenderPixelatedPass(8, scene, camera);
-      composer.addPass(renderPixelatedPass);
-
-      const outputPass = new OutputPass();
-      composer.addPass(outputPass);
-
       const [threeModel, threeModelAnimation] = loadThreeModel(scene, renderer);
+      // Adjust rotations for the X-up coordinate system
+      threeModel.rotation.z = -Math.PI / 2;
+      threeModel.rotation.x = -Math.PI / 2;
       scene.add(threeModel);
 
+      // Init OrbitControls first
+      const controls = new OrbitControls(camera, renderer.domElement);
+      
       // Init Gizmo with OrbitControls
       const gizmo = new ViewportGizmo(camera, renderer, getGizmoConfig());
-      gizmo.attachControls(new OrbitControls(camera, renderer.domElement));
+      gizmo.attachControls(controls);
 
       // Optional. Set the target
-      gizmo.target.set(0, 3, 0);
+      gizmo.target.set(3, 0, 0);
       camera.lookAt(gizmo.target);
+
+      // Controls must be updated after the camera transform - https://threejs.org/docs/#examples/en/controls/OrbitControls.update
+      controls.update();
 
       function animation(time) {
         threeModelAnimation();
@@ -127,6 +124,7 @@
           };
           return {
             type,
+            radius: 0.3,
             corners: cornerConfig,
             edges: edgeConfig,
             right: faceConfig,
