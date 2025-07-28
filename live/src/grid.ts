@@ -30,7 +30,7 @@ export function grid() {
     0.1,
     100
   );
-  camera.position.set(0, 5, 8);
+  camera.position.set(0, 3, 8);
   const scene = new Scene();
 
   renderer = new WebGLRenderer({ antialias: true });
