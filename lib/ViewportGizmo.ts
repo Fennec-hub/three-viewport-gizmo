@@ -494,17 +494,17 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
 
     if (this._quaternionStart.angleTo(this._quaternionEnd) < GIZMO_EPSILON) {
       if (this._controls) {
+        // Normalize the camera position to a vector of magnitude 1.
         const normalizedCameraPosition = this.camera.position.clone().sub(this.target).normalize();
-        const needsZUpRotation = Object3D.DEFAULT_UP.z === 1 && Math.abs(normalizedCameraPosition.z) > 0.99;
-        const needsXUpRotation = Object3D.DEFAULT_UP.x === 1 && Math.abs(normalizedCameraPosition.x) > 0.99;
-
-        if (needsZUpRotation) {
-          // After the camera is rotated to the Top/Bottom face with Z-up, the Y vector is -0.0 which causes the camera to rotate
-          // around the Z-axis by 90 degrees. We need to manually set the position vector with Y vector of a true negative epsilon to prevent this.
+        // After concluding the animation, we need to manually set the camera position to
+        // prevent the camera from rotating around the Z-axis for Z-up and X-up systems.
+        if (Object3D.DEFAULT_UP.z === 1 && Math.abs(normalizedCameraPosition.z) > 0.99) {
+          // With Z-up, the Y vector is -0.0 which causes the camera to rotate around the Z-axis by 90 degrees.
+          // We need to manually set the position vector with Y vector of a true negative epsilon to prevent this.
           this.camera.position.set(0, -GIZMO_EPSILON, this.camera.position.z);
-        } else if (needsXUpRotation) {
-          // After the camera is rotated to the Top/Bottom face with X-up, the Y vector is +0.0 which causes the camera to rotate
-          // around the X-axis by 90 degrees. We need to manually set the position vector with X vector of a true positive epsilon to prevent this.
+        } else if (Object3D.DEFAULT_UP.x === 1 && Math.abs(normalizedCameraPosition.x) > 0.99) {
+          // With X-up, the Y vector is +0.0 which causes the camera to rotate around the X-axis by 90 degrees.
+          // We need to manually set the position vector with X vector of a true positive epsilon to prevent this.
           this.camera.position.set(this.camera.position.x, GIZMO_EPSILON, 0);
         }
         this._controls.update();
