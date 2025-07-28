@@ -46,6 +46,8 @@ const _spherical = /*@__PURE__*/ new Spherical();
 const _vec2 = /*@__PURE__*/ new Vector2();
 const _vec3 = /*@__PURE__*/ new Vector3();
 const _vec4 = /*@__PURE__*/ new Vector4();
+const _positiveZQuaternion = /*@__PURE__*/ new Quaternion().setFromAxisAngle(new Vector3(0, 0, 1), Math.PI / 2);
+const _negativeZQuaternion = /*@__PURE__*/ new Quaternion().setFromAxisAngle(new Vector3(0, 0, 1), -Math.PI / 2);
 
 /**
  * ViewportGizmo is a 3D camera orientation controller that provides a visual interface
@@ -491,9 +493,25 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
     requestAnimationFrame(() => this.dispatchEvent({ type: "change" }));
 
     if (this._quaternionStart.angleTo(this._quaternionEnd) < GIZMO_EPSILON) {
-      if (this._controls) this._controls.enabled = true;
+      if (this._controls) {
+        const normalizedCameraPosition = this.camera.position.clone().sub(this.target).normalize();
+        const needsZUpRotation = Object3D.DEFAULT_UP.z === 1 && Math.abs(normalizedCameraPosition.z) > 0.99;
+        const needsXUpRotation = Object3D.DEFAULT_UP.x === 1 && Math.abs(normalizedCameraPosition.x) > 0.99;
+
+        if (needsZUpRotation) {
+          // After the camera is rotated to the Top/Bottom face with Z-up, the Y vector is -0.0 which causes the camera to rotate
+          // around the Z-axis by 90 degrees. We need to manually set the position vector with Y vector of a true negative epsilon to prevent this.
+          this.camera.position.set(0, -GIZMO_EPSILON, this.camera.position.z);
+        } else if (needsXUpRotation) {
+          // After the camera is rotated to the Top/Bottom face with X-up, the Y vector is +0.0 which causes the camera to rotate
+          // around the X-axis by 90 degrees. We need to manually set the position vector with X vector of a true positive epsilon to prevent this.
+          this.camera.position.set(this.camera.position.x, GIZMO_EPSILON, 0);
+        }
+        this._controls.update();
+        this._controls.enabled = true;
+      }
+
       this.animating = false;
-      this.up.copy(Object3D.DEFAULT_UP); // Reset the up vector to the default after applying coordinate system changes
       this.dispatchEvent({ type: "end" });
     }
   }
@@ -508,34 +526,32 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
     const camera = this.camera;
     const focusPoint = this.target;
 
-    // Apply proper camera rotation to ensure text is upright when looking along the up axis
-    const defaultUp = Object3D.DEFAULT_UP;
-    let forwardAxis = this.up;
-
-    // Determine the correct "forward" direction for the top view based on coordinate system
-    if (Math.abs(position.z) >= 1 && defaultUp.z === 1) {
-      // Z-up: use positive Y as forward 
-      forwardAxis.set(0, 1, 0);
-    } else if (Math.abs(position.x) >= 1 && defaultUp.x === 1) {
-      // X-up: use negative Y as forward?
-      // TODO: determine what the correct forward axis should be for X-up
-      // forwardAxis.set(0, -1, 0);
-    }
-
     _vec3.copy(position).multiplyScalar(this._distance);
 
-    _matrix.setPosition(_vec3).lookAt(_vec3, this.position, forwardAxis);
+    _matrix.setPosition(_vec3).lookAt(_vec3, this.position, this.up);
     this._targetQuaternion.setFromRotationMatrix(_matrix);
 
     _vec3.add(focusPoint);
 
-    _matrix.lookAt(_vec3, focusPoint, forwardAxis);
+    _matrix.lookAt(_vec3, focusPoint, this.up);
     this._quaternionEnd.setFromRotationMatrix(_matrix);
 
     _matrix
       .setPosition(camera.position)
-      .lookAt(camera.position, focusPoint, forwardAxis);
+      .lookAt(camera.position, focusPoint, this.up);
     this._quaternionStart.setFromRotationMatrix(_matrix);
+
+    // For Z-up and X-up systems, when rotating to the top or bottom, we need to apply
+    // a final rotational twist to correctly align the gizmo's "Top" or "Bottom" face.
+    if (Object3D.DEFAULT_UP.z === 1 && Math.abs(position.z) > 0.99) {
+      const zSign = Math.sign(position.z);
+      this._targetQuaternion.multiply(zSign === 1 ? _negativeZQuaternion : _positiveZQuaternion);
+      this._quaternionEnd.multiply(zSign === 1 ? _negativeZQuaternion : _positiveZQuaternion);
+    } else if (Object3D.DEFAULT_UP.x === 1 && Math.abs(position.x) > 0.99) {
+      const xSign = Math.sign(position.x);
+      this._targetQuaternion.multiply(xSign === 1 ? _negativeZQuaternion : _positiveZQuaternion);
+      this._quaternionEnd.multiply(xSign === 1 ? _negativeZQuaternion : _positiveZQuaternion);
+    }
 
     this.animating = true;
     this._clock.start();
