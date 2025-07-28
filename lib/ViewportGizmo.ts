@@ -498,6 +498,7 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
         const normalizedCameraPosition = this.camera.position.clone().sub(this.target).normalize();
         // After concluding the animation, we need to manually set the camera position to
         // prevent the camera from rotating around the Z-axis for Z-up and X-up systems.
+        // These explicit checks are necessary due to the JavaScript quirk of having both +0.0 and -0.0.
         if (Object3D.DEFAULT_UP.z === 1 && Math.abs(normalizedCameraPosition.z) > 0.99) {
           // With Z-up, the Y vector is -0.0 which causes the camera to rotate around the Z-axis by 90 degrees.
           // We need to manually set the position vector with Y vector of a true negative epsilon to prevent this.
