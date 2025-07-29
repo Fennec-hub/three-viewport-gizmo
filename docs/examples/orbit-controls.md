@@ -38,7 +38,7 @@ window.onresize = () => {
 ```
 
 </div>
-<div v-else>
+<div v-else-if="type === `cube`">
 
 ```js {9,10,16,23}
 import * as THREE from "three";
@@ -50,6 +50,36 @@ import { ViewportGizmo } from "three-viewport-gizmo";
 const controls = new OrbitControls(camera, renderer.domElement);
 
 const gizmo = new ViewportGizmo(camera, renderer, { type: "cube" });
+gizmo.attachControls(controls);
+
+// Render
+function animation(time) {
+  //... Scene's animations and render
+
+  gizmo.render();
+}
+
+// Resize
+window.onresize = () => {
+  //... Scene's resize logic
+
+  gizmo.update();
+};
+```
+
+</div>
+<div v-else-if="type === `rounded-cube`">
+
+```js {9,10,16,23}
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { ViewportGizmo } from "three-viewport-gizmo";
+
+//... Initialize your Scene
+
+const controls = new OrbitControls(camera, renderer.domElement);
+
+const gizmo = new ViewportGizmo(camera, renderer, { type: "rounded-cube" });
 gizmo.attachControls(controls);
 
 // Render

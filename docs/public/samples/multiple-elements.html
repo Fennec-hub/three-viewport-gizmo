@@ -53,7 +53,7 @@
         "imports": {
           "three": "https://unpkg.com/three@0.173.0/build/three.module.js",
           "three/addons/": "https://unpkg.com/three@0.173.0/examples/jsm/",
-          "three-viewport-gizmo": "https://unpkg.com/three-viewport-gizmo@2.2.0/dist/three-viewport-gizmo.js"
+          "three-viewport-gizmo": "https://cdn.jsdelivr.net/gh/taucad/three-viewport-gizmo/dist/three-viewport-gizmo.js"
         }
       }
     </script>
@@ -70,7 +70,7 @@
         0.1,
         100
       );
-      camera.position.set(0, 5, 8);
+      camera.position.set(0, 3, 8);
 
       const renderer = new THREE.WebGLRenderer({ antialias: true });
       renderer.setSize(window.innerWidth, window.innerHeight);
@@ -217,7 +217,7 @@
       }
 
       function getGizmoConfig(container, placement) {
-        // Gizmo URL type `?type=sphere|cube`
+        // Gizmo URL type `?type=sphere|cube|rounded-cube`
         const urlParams = new URLSearchParams(window.location.search);
         const type = urlParams.get("type") || "sphere";
 
@@ -226,6 +226,43 @@
             container,
             placement,
           };
+
+        if (type === "rounded-cube") {
+          const faceConfig = {
+            color: 0x444444,
+            labelColor: 0xffffff,
+            hover: {
+              color: 0x4bac84,
+            },
+          };
+          const edgeConfig = {
+            color: 0x555555,
+            opacity: 1,
+            hover: {
+              color: 0x4bac84,
+            },
+          };
+          const cornerConfig = {
+            ...faceConfig,
+            color: 0x444444,
+            hover: {
+              color: 0x4bac84,
+            },
+          };
+          return {
+            type,
+            corners: cornerConfig,
+            edges: edgeConfig,
+            right: faceConfig,
+            top: faceConfig,
+            front: faceConfig,
+            left: faceConfig,
+            bottom: faceConfig,
+            back: faceConfig,
+            container,
+            placement,
+          }
+        }
 
         const darkColors = {
           color: 0x333333,

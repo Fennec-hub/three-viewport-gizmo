@@ -26,7 +26,7 @@
         "imports": {
           "three": "https://unpkg.com/three@0.173.0/build/three.module.js",
           "three/addons/": "https://unpkg.com/three@0.173.0/examples/jsm/",
-          "three-viewport-gizmo": "https://unpkg.com/three-viewport-gizmo@2.2.0/dist/three-viewport-gizmo.js"
+          "three-viewport-gizmo": "https://cdn.jsdelivr.net/gh/taucad/three-viewport-gizmo/dist/three-viewport-gizmo.js"
         }
       }
     </script>
@@ -46,7 +46,7 @@
         0.1,
         100
       );
-      camera.position.set(0, 8, 5);
+      camera.position.set(0, -8, 3);
 
       const scene = new THREE.Scene();
 
@@ -56,18 +56,23 @@
       document.body.appendChild(renderer.domElement);
 
       const [threeModel, threeModelAnimation] = loadThreeModel(scene, renderer);
-      // Adjust rotation for the z-up
+      // Adjust rotations for the Z-up coordinate system
       threeModel.rotation.x = Math.PI / 2;
-      threeModel.rotation.y = Math.PI;
       scene.add(threeModel);
 
+      // Init OrbitControls first
+      const controls = new OrbitControls(camera, renderer.domElement);
+      
       // Init Gizmo with OrbitControls
       const gizmo = new ViewportGizmo(camera, renderer, getGizmoConfig());
-      gizmo.attachControls(new OrbitControls(camera, renderer.domElement));
+      gizmo.attachControls(controls);
 
       // Optional. Set the target
       gizmo.target.set(0, 0, 3);
       camera.lookAt(gizmo.target);
+      
+      // Controls must be updated after the camera transform - https://threejs.org/docs/#examples/en/controls/OrbitControls.update
+      controls.update();
 
       function animation(time) {
         threeModelAnimation();
@@ -88,11 +93,46 @@
       };
 
       function getGizmoConfig() {
-        // Gizmo URL type `?type=sphere|cube`
+        // Gizmo URL type `?type=sphere|cube|rounded-cube`
         const urlParams = new URLSearchParams(window.location.search);
         const type = urlParams.get("type") || "sphere";
 
         if (type === "sphere") return {};
+
+        if (type === "rounded-cube") {
+          const faceConfig = {
+            color: 0x444444,
+            labelColor: 0xffffff,
+            hover: {
+              color: 0x4bac84,
+            },
+          };
+          const edgeConfig = {
+            color: 0x555555,
+            opacity: 1,
+            hover: {
+              color: 0x4bac84,
+            },
+          };
+          const cornerConfig = {
+            ...faceConfig,
+            color: 0x444444,
+            hover: {
+              color: 0x4bac84,
+            },
+          };
+          return {
+            type,
+            corners: cornerConfig,
+            edges: edgeConfig,
+            right: faceConfig,
+            top: faceConfig,
+            front: faceConfig,
+            left: faceConfig,
+            bottom: faceConfig,
+            back: faceConfig,
+          }
+        }
 
         const darkColors = {
           color: 0x333333,

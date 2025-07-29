@@ -5,6 +5,7 @@ import {
   Mesh,
   MeshBasicMaterial,
   MeshBasicMaterialParameters,
+  Object3D,
   Sprite,
   SpriteMaterial,
   Vector3,
@@ -47,7 +48,21 @@ export const axesFaces = (
     face.position[direction] =
       (isPositive ? 1 : -1) * (isSphere ? GIZMO_SPHERE_AXES_DISTANCE : 1);
 
-    if (!isSphere) face.lookAt(target.copy(face.position).multiplyScalar(1.7));
+    if (!isSphere) {
+      face.lookAt(target.copy(face.position).multiplyScalar(1.7));
+      const zUp = Object3D.DEFAULT_UP.z === 1;
+      const xUp = Object3D.DEFAULT_UP.x === 1;
+      if (zUp || xUp) {
+        // z-up and x-up systems: Special rotation handling for Top and Bottom faces to rotate text for readability.
+        if ((axis === "z" && zUp) || (axis === "x" && xUp)) {
+          // Top face: rotate 90 degrees counter-clockwise around positive-Z-axis to make "top" text readable left-to-right (from front)
+          face.rotateZ(-Math.PI / 2);
+        } else if ((axis === "nz" && zUp) || (axis === "nx" && xUp)) {
+          // Bottom face: rotate 90 degrees clockwise around positive-Z-axis to make "bottom" text readable left-to-right (from front)
+          face.rotateZ(Math.PI / 2);
+        }
+      }
+    }
 
     face.scale.setScalar(scale);
     face.renderOrder = 1;

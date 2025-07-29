@@ -10,7 +10,7 @@ const camera = new THREE.PerspectiveCamera(
   0.1,
   100
 );
-camera.position.set(0, 5, 8);
+camera.position.set(0, 3, 8);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x333333);

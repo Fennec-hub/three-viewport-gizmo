@@ -22,11 +22,22 @@ const gizmo = new ViewportGizmo(camera, renderer, {
 
 </div>
 
-<div v-else>
+<div v-else-if="type === `cube`">
 
 ```javascript
 const gizmo = new ViewportGizmo(camera, renderer, {
   type: "cube",
+  className: "responsive-gizmo",
+});
+```
+
+</div>
+
+<div v-else-if="type === `rounded-cube`">
+
+```javascript
+const gizmo = new ViewportGizmo(camera, renderer, {
+  type: "rounded-cube",
   className: "responsive-gizmo",
 });
 ```

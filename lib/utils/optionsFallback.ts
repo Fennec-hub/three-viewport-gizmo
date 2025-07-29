@@ -20,6 +20,33 @@ import {
 import { deepClone } from "./deepClone";
 import { Object3D } from "three";
 
+const FACE_LABELS_FROM_UP_DIRECTION = {
+  yUp: {
+    x: GIZMO_FACE_RIGHT,
+    y: GIZMO_FACE_TOP,
+    z: GIZMO_FACE_FRONT,
+    nx: GIZMO_FACE_LEFT,
+    ny: GIZMO_FACE_BOTTOM,
+    nz: GIZMO_FACE_BACK,
+  },
+  zUp: {
+    x: GIZMO_FACE_RIGHT,
+    y: GIZMO_FACE_BACK,
+    z: GIZMO_FACE_TOP,
+    nx: GIZMO_FACE_LEFT,
+    ny: GIZMO_FACE_FRONT,
+    nz: GIZMO_FACE_BOTTOM,
+  },
+  xUp: {
+    x: GIZMO_FACE_TOP,
+    y: GIZMO_FACE_FRONT,
+    z: GIZMO_FACE_RIGHT,
+    nx: GIZMO_FACE_BOTTOM,
+    ny: GIZMO_FACE_BACK,
+    nz: GIZMO_FACE_LEFT,
+  },
+} as const;
+
 export const optionsFallback = (
   options: GizmoOptions
 ): GizmoOptionsFallback => {
@@ -31,6 +58,10 @@ export const optionsFallback = (
   const defaultUp = Object3D.DEFAULT_UP;
   const zUp = defaultUp.z === 1;
   const xUp = defaultUp.x === 1;
+  
+  // Determine up direction for face label mapping
+  const upDirection = zUp ? 'zUp' : xUp ? 'xUp' : 'yUp';
+  const faceLabels = FACE_LABELS_FROM_UP_DIRECTION[upDirection];
 
   const { container } = options;
   options.container = undefined;
@@ -84,7 +115,7 @@ export const optionsFallback = (
     placement: "top-right",
     resolution,
     lineWidth: 4,
-    radius: isSphere ? 1 : 0.2,
+    radius: isSphere ? 1 : isRoundedCube ? 0.3 : 0.2,
     smoothness: 18,
     animated: true,
     speed: 1,
@@ -137,43 +168,31 @@ export const optionsFallback = (
       ...deepClone(axesFallback),
       ...(isSphere
         ? { label: "X", color: 0xff3653, line: true }
-        : { label: xUp ? GIZMO_FACE_TOP : GIZMO_FACE_RIGHT }),
+        : { label: faceLabels.x }),
     },
     y: {
       ...deepClone(axesFallback),
       ...(isSphere
         ? { label: "Y", color: 0x8adb00, line: true }
-        : { label: zUp || xUp ? GIZMO_FACE_FRONT : GIZMO_FACE_TOP }),
+        : { label: faceLabels.y }),
     },
     z: {
       ...deepClone(axesFallback),
       ...(isSphere
         ? { label: "Z", color: 0x2c8fff, line: true }
-        : {
-            label: zUp
-              ? GIZMO_FACE_TOP
-              : xUp
-              ? GIZMO_FACE_RIGHT
-              : GIZMO_FACE_FRONT,
-          }),
+        : { label: faceLabels.z }),
     },
     nx: {
       ...deepClone(negativeAxesFallback),
-      label: isSphere ? "" : xUp ? GIZMO_FACE_BOTTOM : GIZMO_FACE_LEFT,
+      label: isSphere ? "" : faceLabels.nx,
     },
     ny: {
       ...deepClone(negativeAxesFallback),
-      label: isSphere ? "" : zUp || xUp ? GIZMO_FACE_BACK : GIZMO_FACE_BOTTOM,
+      label: isSphere ? "" : faceLabels.ny,
     },
     nz: {
       ...deepClone(negativeAxesFallback),
-      label: isSphere
-        ? ""
-        : zUp
-        ? GIZMO_FACE_BOTTOM
-        : xUp
-        ? GIZMO_FACE_LEFT
-        : GIZMO_FACE_BACK,
+      label: isSphere ? "" : faceLabels.nz,
     },
   };
 
