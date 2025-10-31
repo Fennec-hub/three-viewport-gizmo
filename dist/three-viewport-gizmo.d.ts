@@ -5,6 +5,7 @@ import { Object3DEventMap } from 'three';
 import { OrbitControls } from 'three/examples/jsm/Addons.js';
 import { OrthographicCamera } from 'three';
 import { PerspectiveCamera } from 'three';
+import { TrackballControls } from 'three/examples/jsm/Addons.js';
 import { Vector3 } from 'three';
 import { WebGLRenderer } from 'three';
 import { WebGPURenderer } from 'three/webgpu';
@@ -267,6 +268,8 @@ declare type GizmoOptionsFallback = DeepRequired<GizmoOptions> & {
     isSphere: boolean;
 };
 
+declare type SupportedControls = OrbitControls | TrackballControls;
+
 /**
  * ViewportGizmo is a 3D camera orientation controller that provides a visual interface
  * for changing the camera's viewing angle. It creates a widget that shows the current
@@ -462,12 +465,12 @@ export declare class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
      */
     update(controls?: boolean): this;
     /**
-     * Connects OrbitControls with the gizmo, handling interaction states and updates.
+     * Connects OrbitControls or TrackballControls with the gizmo, handling interaction states and updates.
      * Automatically detaches any previously attached controls.
      *
-     * @param controls - The scene's {@link https://threejs.org/docs/#examples/en/controls/OrbitControls OrbitControls}
+     * @param controls - The scene's {@link https://threejs.org/docs/#examples/en/controls/OrbitControls OrbitControls} or TrackballControls
      */
-    attachControls(controls: OrbitControls): this;
+    attachControls(controls: SupportedControls): this;
     /** Removes all control event listeners and references. Safe to call multiple times. */
     detachControls(): this | undefined;
     /** Cleans up all resources including geometries, materials, textures, and event listeners. */

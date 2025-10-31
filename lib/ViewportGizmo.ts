@@ -32,7 +32,10 @@ import {
 } from "./types";
 import { GIZMO_EPSILON, GIZMO_TURN_RATE } from "./utils/constants";
 import { updateBackground } from "./utils/updateBackground";
-import type { OrbitControls } from "three/examples/jsm/Addons.js";
+import type {
+  OrbitControls,
+  TrackballControls,
+} from "three/examples/jsm/Addons.js";
 import { optionsFallback } from "./utils/optionsFallback";
 import { clamp } from "three/src/math/MathUtils.js";
 import { axesObjects } from "./utils/axesObjects";
@@ -46,8 +49,16 @@ const _spherical = /*@__PURE__*/ new Spherical();
 const _vec2 = /*@__PURE__*/ new Vector2();
 const _vec3 = /*@__PURE__*/ new Vector3();
 const _vec4 = /*@__PURE__*/ new Vector4();
-const _positiveZQuaternion = /*@__PURE__*/ new Quaternion().setFromAxisAngle(new Vector3(0, 0, 1), Math.PI / 2);
-const _negativeZQuaternion = /*@__PURE__*/ new Quaternion().setFromAxisAngle(new Vector3(0, 0, 1), -Math.PI / 2);
+const _positiveZQuaternion = /*@__PURE__*/ new Quaternion().setFromAxisAngle(
+  new Vector3(0, 0, 1),
+  Math.PI / 2
+);
+const _negativeZQuaternion = /*@__PURE__*/ new Quaternion().setFromAxisAngle(
+  new Vector3(0, 0, 1),
+  -Math.PI / 2
+);
+
+type SupportedControls = OrbitControls | TrackballControls;
 
 /**
  * ViewportGizmo is a 3D camera orientation controller that provides a visual interface
@@ -110,7 +121,7 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
   private _pointerStart = new Vector2();
   private _focus: GizmoAxisObject | null = null;
   private _placement!: GizmoOptionsFallback["placement"];
-  private _controls?: OrbitControls;
+  private _controls?: SupportedControls;
   private _controlsListeners?: {
     start: () => void;
     end: () => void;
@@ -372,12 +383,12 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
   }
 
   /**
-   * Connects OrbitControls with the gizmo, handling interaction states and updates.
+   * Connects OrbitControls or TrackballControls with the gizmo, handling interaction states and updates.
    * Automatically detaches any previously attached controls.
    *
-   * @param controls - The scene's {@link https://threejs.org/docs/#examples/en/controls/OrbitControls OrbitControls}
+   * @param controls - The scene's {@link https://threejs.org/docs/#examples/en/controls/OrbitControls OrbitControls} or TrackballControls
    */
-  attachControls(controls: OrbitControls) {
+  attachControls(controls: SupportedControls) {
     this.detachControls();
 
     this.target = controls.target;
@@ -495,15 +506,24 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
     if (this._quaternionStart.angleTo(this._quaternionEnd) < GIZMO_EPSILON) {
       if (this._controls) {
         // Normalize the camera position to a vector of magnitude 1.
-        const normalizedCameraPosition = this.camera.position.clone().sub(this.target).normalize();
+        const normalizedCameraPosition = this.camera.position
+          .clone()
+          .sub(this.target)
+          .normalize();
         // After concluding the animation, we need to manually set the camera position to
         // prevent the camera from rotating around the Z-axis for Z-up and X-up systems.
         // These explicit checks are necessary due to the JavaScript quirk of having both +0.0 and -0.0.
-        if (Object3D.DEFAULT_UP.z === 1 && Math.abs(normalizedCameraPosition.z) > 0.99) {
+        if (
+          Object3D.DEFAULT_UP.z === 1 &&
+          Math.abs(normalizedCameraPosition.z) > 0.99
+        ) {
           // With Z-up, the Y vector is -0.0 which causes the camera to rotate around the Z-axis by 90 degrees.
           // We need to manually set the position vector with Y vector of a true negative epsilon to prevent this.
           this.camera.position.set(0, -GIZMO_EPSILON, this.camera.position.z);
-        } else if (Object3D.DEFAULT_UP.x === 1 && Math.abs(normalizedCameraPosition.x) > 0.99) {
+        } else if (
+          Object3D.DEFAULT_UP.x === 1 &&
+          Math.abs(normalizedCameraPosition.x) > 0.99
+        ) {
           // With X-up, the Y vector is +0.0 which causes the camera to rotate around the X-axis by 90 degrees.
           // We need to manually set the position vector with X vector of a true positive epsilon to prevent this.
           this.camera.position.set(this.camera.position.x, GIZMO_EPSILON, 0);
@@ -546,12 +566,20 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
     // a final rotational twist to correctly align the gizmo's "Top" or "Bottom" face.
     if (Object3D.DEFAULT_UP.z === 1 && Math.abs(position.z) > 0.99) {
       const zSign = Math.sign(position.z);
-      this._targetQuaternion.multiply(zSign === 1 ? _negativeZQuaternion : _positiveZQuaternion);
-      this._quaternionEnd.multiply(zSign === 1 ? _negativeZQuaternion : _positiveZQuaternion);
+      this._targetQuaternion.multiply(
+        zSign === 1 ? _negativeZQuaternion : _positiveZQuaternion
+      );
+      this._quaternionEnd.multiply(
+        zSign === 1 ? _negativeZQuaternion : _positiveZQuaternion
+      );
     } else if (Object3D.DEFAULT_UP.x === 1 && Math.abs(position.x) > 0.99) {
       const xSign = Math.sign(position.x);
-      this._targetQuaternion.multiply(xSign === 1 ? _negativeZQuaternion : _positiveZQuaternion);
-      this._quaternionEnd.multiply(xSign === 1 ? _negativeZQuaternion : _positiveZQuaternion);
+      this._targetQuaternion.multiply(
+        xSign === 1 ? _negativeZQuaternion : _positiveZQuaternion
+      );
+      this._quaternionEnd.multiply(
+        xSign === 1 ? _negativeZQuaternion : _positiveZQuaternion
+      );
     }
 
     this.animating = true;

@@ -18,14 +18,14 @@ const te = (s, e) => {
   id: n,
   className: i
 }) => {
-  const o = document.createElement("div"), { top: a, left: c, right: l, bottom: u } = t;
+  const o = document.createElement("div"), { top: a, left: c, right: d, bottom: u } = t;
   return Object.assign(o.style, {
     id: n,
     position: "absolute",
     zIndex: "1000",
     height: `${e}px`,
     width: `${e}px`,
-    margin: `${a}px ${l}px ${u}px ${c}px`,
+    margin: `${a}px ${d}px ${u}px ${c}px`,
     borderRadius: "100%"
   }), te(o, s), n && (o.id = n), i && (o.className = i), o;
 }, Me = (s) => {
@@ -44,8 +44,8 @@ const Ue = [
 function Pt({ isSphere: s }, e, t) {
   s && (Dt.set(0, 0, 1).applyQuaternion(t.quaternion), Ue.forEach(([n, i, o]) => {
     const a = Dt[n];
-    let c = e[i], l = c.userData.opacity;
-    c.material.opacity = wt(a >= 0 ? l : l / 2, 0, 1), c = e[o], l = c.userData.opacity, c.material.opacity = wt(a >= 0 ? l / 2 : l, 0, 1);
+    let c = e[i], d = c.userData.opacity;
+    c.material.opacity = wt(a >= 0 ? d : d / 2, 0, 1), c = e[o], d = c.userData.opacity, c.material.opacity = wt(a >= 0 ? d / 2 : d, 0, 1);
   }));
 }
 const ze = (s, e, t = 10) => Math.abs(s.clientX - e.x) < t && Math.abs(s.clientY - e.y) < t, Rt = /* @__PURE__ */ new de(), Gt = /* @__PURE__ */ new K(), Ft = (s, e, t, n) => {
@@ -59,10 +59,10 @@ const ze = (s, e, t = 10) => Math.abs(s.clientX - e.x) < t && Math.abs(s.clientY
   );
   if (i.length > 0) {
     i.sort((u, r) => u.distance - r.distance);
-    const a = 0.2, c = i[0].distance, l = i.filter(
+    const a = 0.2, c = i[0].distance, d = i.filter(
       (u) => u.distance <= c + a
     );
-    l.length > 1 && (l.sort((u, r) => (r.object.userData.intersectionOrder || 0) - (u.object.userData.intersectionOrder || 0)), i.splice(0, l.length, ...l));
+    d.length > 1 && (d.sort((u, r) => (r.object.userData.intersectionOrder || 0) - (u.object.userData.intersectionOrder || 0)), i.splice(0, d.length, ...d));
   }
   const o = i.length ? i[0] : null;
   return !o || !o.object.visible ? null : o;
@@ -108,7 +108,7 @@ const ze = (s, e, t = 10) => Math.abs(s.clientX - e.x) < t && Math.abs(s.clientY
   Oe.forEach((p, w) => {
     s[p] && (s[h[w]] = s[p]);
   });
-  const d = {
+  const l = {
     enabled: !0,
     color: 16777215,
     opacity: 1,
@@ -192,15 +192,15 @@ const ze = (s, e, t = 10) => Math.abs(s.clientX - e.x) < t && Math.abs(s.clientY
       }
     },
     x: {
-      ...j(d),
+      ...j(l),
       ...t ? { label: "X", color: 16725587, line: !0 } : { label: u.x }
     },
     y: {
-      ...j(d),
+      ...j(l),
       ...t ? { label: "Y", color: 9100032, line: !0 } : { label: u.y }
     },
     z: {
-      ...j(d),
+      ...j(l),
       ...t ? { label: "Z", color: 2920447, line: !0 } : { label: u.z }
     },
     nx: {
@@ -241,9 +241,9 @@ function St(s, ...e) {
   return s;
 }
 const Pe = (s, e = 2) => {
-  const t = new Xt(), n = e * 2, { isSphere: i, resolution: o, radius: a, font: c, corners: l, edges: u } = s, r = $.map((m) => ({ ...s[m], radius: a }));
-  i && l.enabled && r.push(l), i && u.enabled && r.push(u);
-  const h = document.createElement("canvas"), d = h.getContext("2d");
+  const t = new Xt(), n = e * 2, { isSphere: i, resolution: o, radius: a, font: c, corners: d, edges: u } = s, r = $.map((m) => ({ ...s[m], radius: a }));
+  i && d.enabled && r.push(d), i && u.enabled && r.push(u);
+  const h = document.createElement("canvas"), l = h.getContext("2d");
   h.width = o * 2 + n * 2, h.height = o * r.length + n * r.length;
   const [f, v] = C(r, o, c);
   r.forEach(
@@ -295,19 +295,19 @@ const Pe = (s, e = 2) => {
     }
   }), b;
   function y(m, S, H, x, E, k, O, B, D) {
-    if (E = E * (x / 2), B != null && B !== "" && (F(), d.fillStyle = t.set(B).getStyle(), d.fill()), O && O.size) {
+    if (E = E * (x / 2), B != null && B !== "" && (F(), l.fillStyle = t.set(B).getStyle(), l.fill()), O && O.size) {
       const N = O.size * x / 2;
-      m += N, S += N, x -= O.size * x, E = Math.max(0, E - N), F(), d.strokeStyle = t.set(O.color).getStyle(), d.lineWidth = O.size * x, d.stroke();
+      m += N, S += N, x -= O.size * x, E = Math.max(0, E - N), F(), l.strokeStyle = t.set(O.color).getStyle(), l.lineWidth = O.size * x, l.stroke();
     }
     k && g(
-      d,
+      l,
       m + x / 2,
       S + (x + H) / 2,
       k,
       t.set(D).getStyle()
     );
     function F() {
-      d.beginPath(), d.moveTo(m + E, S), d.lineTo(m + x - E, S), d.arcTo(m + x, S, m + x, S + E, E), d.lineTo(m + x, S + x - E), d.arcTo(m + x, S + x, m + x - E, S + x, E), d.lineTo(m + E, S + x), d.arcTo(m, S + x, m, S + x - E, E), d.lineTo(m, S + E), d.arcTo(m, S, m + E, S, E), d.closePath();
+      l.beginPath(), l.moveTo(m + E, S), l.lineTo(m + x - E, S), l.arcTo(m + x, S, m + x, S + E, E), l.lineTo(m + x, S + x - E), l.arcTo(m + x, S + x, m + x - E, S + x, E), l.lineTo(m + E, S + x), l.arcTo(m, S + x, m, S + x - E, E), l.lineTo(m, S + E), l.arcTo(m, S, m + E, S, E), l.closePath();
     }
   }
   function C(m, S, H) {
@@ -319,8 +319,8 @@ const Pe = (s, e = 2) => {
     s.font.size > 0 && (D = s.font.size);
     let F = 0, N = 0;
     do {
-      d.font = `${O} ${D}px ${k}`;
-      const tt = d.measureText(E);
+      l.font = `${O} ${D}px ${k}`;
+      const tt = l.measureText(E);
       F = tt.width, N = tt.fontBoundingBoxDescent, D--;
     } while (F > B && D > 0);
     const Tt = B / N, oe = Math.min(B / F, Tt), re = Math.floor(D * oe);
@@ -337,7 +337,7 @@ const Pe = (s, e = 2) => {
   t.y = 1 - (e + 1) * i + n;
 };
 function Ut(s, e, t = 2, n = 2) {
-  const i = t / 2 - s, o = n / 2 - s, a = s / t, c = (t - s) / t, l = s / n, u = (n - s) / n, r = [i, o, 0, -i, o, 0, -i, -o, 0, i, -o, 0], h = [c, u, a, u, a, l, c, l], d = [
+  const i = t / 2 - s, o = n / 2 - s, a = s / t, c = (t - s) / t, d = s / n, u = (n - s) / n, r = [i, o, 0, -i, o, 0, -i, -o, 0, i, -o, 0], h = [c, u, a, u, a, d, c, d], l = [
     3 * (e + 1) + 3,
     3 * (e + 1) + 4,
     e + 4,
@@ -351,13 +351,13 @@ function Ut(s, e, t = 2, n = 2) {
     4,
     0
   ], f = [0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7, 8, 9, 10, 8, 10, 11].map(
-    (g) => d[g]
+    (g) => l[g]
   );
   let v, p, w, A, L, b, y, C;
   for (let g = 0; g < 4; g++) {
-    A = g < 1 || g > 2 ? i : -i, L = g < 2 ? o : -o, b = g < 1 || g > 2 ? c : a, y = g < 2 ? u : l;
+    A = g < 1 || g > 2 ? i : -i, L = g < 2 ? o : -o, b = g < 1 || g > 2 ? c : a, y = g < 2 ? u : d;
     for (let m = 0; m <= e; m++)
-      v = Math.PI / 2 * (g + m / e), p = Math.cos(v), w = Math.sin(v), r.push(A + s * p, L + s * w, 0), h.push(b + a * p, y + l * w), m < e && (C = (e + 1) * g + m + 4, f.push(g, C, C + 1));
+      v = Math.PI / 2 * (g + m / e), p = Math.cos(v), w = Math.sin(v), r.push(A + s * p, L + s * w, 0), h.push(b + a * p, y + d * w), m < e && (C = (e + 1) * g + m + 4, f.push(g, C, C + 1));
   }
   return new $t().setIndex(new at(new Uint32Array(f), 1)).setAttribute(
     "position",
@@ -365,16 +365,16 @@ function Ut(s, e, t = 2, n = 2) {
   ).setAttribute("uv", new at(new Float32Array(h), 2));
 }
 const Ge = (s, e) => {
-  const t = new M(), { isSphere: n, radius: i, smoothness: o, type: a } = s, l = a === "rounded-cube" ? 2 - s.edges.radius * 2 : 2, u = Ut(i, o, l, l);
+  const t = new M(), { isSphere: n, radius: i, smoothness: o, type: a } = s, d = a === "rounded-cube" ? 2 - s.edges.radius * 2 : 2, u = Ut(i, o, d, d);
   return $.map((r, h) => {
-    const d = h < 3, f = $[h], v = h ? e.clone() : e;
+    const l = h < 3, f = $[h], v = h ? e.clone() : e;
     Mt(v, h);
     const { enabled: p, scale: w, opacity: A, hover: L } = s[f], b = {
       map: v,
       opacity: A,
       transparent: !0
-    }, y = n ? new xt(new Et(b)) : new X(u, new gt(b)), C = d ? f : f[1];
-    if (y.position[C] = (d ? 1 : -1) * (n ? ne : 1), !n) {
+    }, y = n ? new xt(new Et(b)) : new X(u, new gt(b)), C = l ? f : f[1];
+    if (y.position[C] = (l ? 1 : -1) * (n ? ne : 1), !n) {
       y.lookAt(t.copy(y.position).multiplyScalar(1.7));
       const g = I.DEFAULT_UP.z === 1, m = I.DEFAULT_UP.x === 1;
       (g || m) && (f === "z" && g || f === "x" && m ? y.rotateZ(-Math.PI / 2) : (f === "nz" && g || f === "nx" && m) && y.rotateZ(Math.PI / 2));
@@ -388,7 +388,7 @@ const Ge = (s, e) => {
 }, Fe = (s, e) => {
   const { isSphere: t, corners: n, type: i } = s, o = i === "rounded-cube";
   if (!n.enabled) return [];
-  const { color: a, opacity: c, scale: l, radius: u, smoothness: r, hover: h } = n, d = t ? null : o ? new Qt(u, r * 2, r) : Ut(u, r), f = {
+  const { color: a, opacity: c, scale: d, radius: u, smoothness: r, hover: h } = n, l = t ? null : o ? new Qt(u, r * 2, r) : Ut(u, r), f = {
     transparent: !0,
     opacity: c
   }, v = o ? 1 - u : 0.85, p = [
@@ -423,11 +423,11 @@ const Ge = (s, e) => {
       Mt(C, 6), f.map = C;
     } else
       f.color = a;
-    const b = t ? new xt(new Et(f)) : new X(d, new gt(f)), y = L * 3;
-    return b.position.set(p[y], p[y + 1], p[y + 2]), t && b.position.normalize().multiplyScalar(1.7), b.scale.setScalar(l), b.lookAt(w.copy(b.position).multiplyScalar(2)), b.renderOrder = 1, b.userData = {
+    const b = t ? new xt(new Et(f)) : new X(l, new gt(f)), y = L * 3;
+    return b.position.set(p[y], p[y + 1], p[y + 2]), t && b.position.normalize().multiplyScalar(1.7), b.scale.setScalar(d), b.lookAt(w.copy(b.position).multiplyScalar(2)), b.renderOrder = 1, b.userData = {
       color: a,
       opacity: c,
-      scale: l,
+      scale: d,
       hover: h,
       intersectionOrder: 1
     }, b;
@@ -435,9 +435,9 @@ const Ge = (s, e) => {
 }, Ie = (s, e, t) => {
   const { isSphere: n, edges: i, type: o } = s, a = o === "rounded-cube";
   if (!i.enabled) return [];
-  const { color: c, opacity: l, scale: u, hover: r, radius: h, smoothness: d } = i, f = a ? 2 - h * 2 : 1.2, v = n ? null : a ? new fe(h, h, f, d * 4) : Ut(h, d, f, 0.25), p = {
+  const { color: c, opacity: d, scale: u, hover: r, radius: h, smoothness: l } = i, f = a ? 2 - h * 2 : 1.2, v = n ? null : a ? new fe(h, h, f, l * 4) : Ut(h, l, f, 0.25), p = {
     transparent: !0,
-    opacity: l
+    opacity: d
   }, w = a ? 1 - h : 0.925, A = [
     0,
     1,
@@ -485,26 +485,26 @@ const Ge = (s, e) => {
     const g = n ? new xt(new Et(p)) : new X(v, new gt(p)), m = C * 3;
     return g.position.set(A[m], A[m + 1], A[m + 2]), n && g.position.normalize().multiplyScalar(1.7), g.scale.setScalar(u), g.up.copy(b), g.lookAt(L.copy(g.position).multiplyScalar(2)), a ? (!n && !g.position.z && (g.rotation.z = Math.PI), !n && !g.position.x && (g.rotation.x = 0), !n && !g.position.x && (g.rotation.z = Math.PI / 2)) : !n && !g.position.y && (g.rotation.z = Math.PI / 2), g.renderOrder = 1, g.userData = {
       color: c,
-      opacity: l,
+      opacity: d,
       scale: u,
       hover: r
     }, g;
   });
 };
 function He(s, e = !1) {
-  const t = s[0].index !== null, n = new Set(Object.keys(s[0].attributes)), i = new Set(Object.keys(s[0].morphAttributes)), o = {}, a = {}, c = s[0].morphTargetsRelative, l = new $t();
+  const t = s[0].index !== null, n = new Set(Object.keys(s[0].attributes)), i = new Set(Object.keys(s[0].morphAttributes)), o = {}, a = {}, c = s[0].morphTargetsRelative, d = new $t();
   let u = 0;
   for (let r = 0; r < s.length; ++r) {
     const h = s[r];
-    let d = 0;
+    let l = 0;
     if (t !== (h.index !== null))
       return console.error("THREE.BufferGeometryUtils: .mergeGeometries() failed with geometry at index " + r + ". All geometries must have compatible attributes; make sure index attribute exists among all geometries, or in none of them."), null;
     for (const f in h.attributes) {
       if (!n.has(f))
         return console.error("THREE.BufferGeometryUtils: .mergeGeometries() failed with geometry at index " + r + '. All geometries must have compatible attributes; make sure "' + f + '" attribute exists among all geometries, or in none of them.'), null;
-      o[f] === void 0 && (o[f] = []), o[f].push(h.attributes[f]), d++;
+      o[f] === void 0 && (o[f] = []), o[f].push(h.attributes[f]), l++;
     }
-    if (d !== n.size)
+    if (l !== n.size)
       return console.error("THREE.BufferGeometryUtils: .mergeGeometries() failed with geometry at index " + r + ". Make sure all geometries have the same number of attributes."), null;
     if (c !== h.morphTargetsRelative)
       return console.error("THREE.BufferGeometryUtils: .mergeGeometries() failed with geometry at index " + r + ". .morphTargetsRelative must be consistent throughout all geometries."), null;
@@ -521,41 +521,41 @@ function He(s, e = !1) {
         f = h.attributes.position.count;
       else
         return console.error("THREE.BufferGeometryUtils: .mergeGeometries() failed with geometry at index " + r + ". The geometry must have either an index or a position attribute"), null;
-      l.addGroup(u, f, r), u += f;
+      d.addGroup(u, f, r), u += f;
     }
   }
   if (t) {
     let r = 0;
     const h = [];
-    for (let d = 0; d < s.length; ++d) {
-      const f = s[d].index;
+    for (let l = 0; l < s.length; ++l) {
+      const f = s[l].index;
       for (let v = 0; v < f.count; ++v)
         h.push(f.getX(v) + r);
-      r += s[d].attributes.position.count;
+      r += s[l].attributes.position.count;
     }
-    l.setIndex(h);
+    d.setIndex(h);
   }
   for (const r in o) {
     const h = Ht(o[r]);
     if (!h)
       return console.error("THREE.BufferGeometryUtils: .mergeGeometries() failed while trying to merge the " + r + " attribute."), null;
-    l.setAttribute(r, h);
+    d.setAttribute(r, h);
   }
   for (const r in a) {
     const h = a[r][0].length;
     if (h === 0) break;
-    l.morphAttributes = l.morphAttributes || {}, l.morphAttributes[r] = [];
-    for (let d = 0; d < h; ++d) {
+    d.morphAttributes = d.morphAttributes || {}, d.morphAttributes[r] = [];
+    for (let l = 0; l < h; ++l) {
       const f = [];
       for (let p = 0; p < a[r].length; ++p)
-        f.push(a[r][p][d]);
+        f.push(a[r][p][l]);
       const v = Ht(f);
       if (!v)
         return console.error("THREE.BufferGeometryUtils: .mergeGeometries() failed while trying to merge the " + r + " morphAttribute."), null;
-      l.morphAttributes[r].push(v);
+      d.morphAttributes[r].push(v);
     }
   }
-  return l;
+  return d;
 }
 function Ht(s) {
   let e, t, n, i = -1, o = 0;
@@ -572,19 +572,19 @@ function Ht(s) {
     o += r.count * t;
   }
   const a = new e(o), c = new at(a, t, n);
-  let l = 0;
+  let d = 0;
   for (let u = 0; u < s.length; ++u) {
     const r = s[u];
     if (r.isInterleavedBufferAttribute) {
-      const h = l / t;
-      for (let d = 0, f = r.count; d < f; d++)
+      const h = d / t;
+      for (let l = 0, f = r.count; l < f; l++)
         for (let v = 0; v < t; v++) {
-          const p = r.getComponent(d, v);
-          c.setComponent(d + h, v, p);
+          const p = r.getComponent(l, v);
+          c.setComponent(l + h, v, p);
         }
     } else
-      a.set(r.array, l);
-    l += r.count * t;
+      a.set(r.array, d);
+    d += r.count * t;
   }
   return i !== void 0 && (c.gpuType = i), c;
 }
@@ -594,7 +594,7 @@ const ke = (s, e) => {
     background: { enabled: n, color: i, opacity: o, hover: a }
   } = e;
   let c;
-  const l = new gt({
+  const d = new gt({
     color: i,
     side: pe,
     opacity: o,
@@ -605,16 +605,16 @@ const ke = (s, e) => {
   if (t)
     c = new X(
       new Qt(1.8, 64, 64),
-      l
+      d
     );
   else {
     let u;
     s.forEach((r) => {
       const h = r.scale.x;
       r.scale.setScalar(0.9), r.updateMatrix();
-      const d = r.geometry.clone();
-      d.applyMatrix4(r.matrix), u = u ? He([u, d]) : d, r.scale.setScalar(h);
-    }), c = new X(u, l);
+      const l = r.geometry.clone();
+      l.applyMatrix4(r.matrix), u = u ? He([u, l]) : l, r.scale.setScalar(h);
+    }), c = new X(u, d);
   }
   return c.userData = {
     color: i,
@@ -1160,7 +1160,7 @@ function Nt(s, e, t) {
 }
 function je(s, e) {
   const t = s.matrixWorld, n = s.geometry, i = n.attributes.instanceStart, o = n.attributes.instanceEnd, a = Math.min(n.instanceCount, i.count);
-  for (let c = 0, l = a; c < l; c++) {
+  for (let c = 0, d = a; c < d; c++) {
     T.start.fromBufferAttribute(i, c), T.end.fromBufferAttribute(o, c), T.applyMatrix4(t);
     const u = new M(), r = new M();
     G.distanceSqToSegment(T.start, T.end, r, u), r.distanceTo(u) < q * 0.5 && e.push({
@@ -1176,10 +1176,10 @@ function je(s, e) {
   }
 }
 function We(s, e, t) {
-  const n = e.projectionMatrix, o = s.material.resolution, a = s.matrixWorld, c = s.geometry, l = c.attributes.instanceStart, u = c.attributes.instanceEnd, r = Math.min(c.instanceCount, l.count), h = -e.near;
+  const n = e.projectionMatrix, o = s.material.resolution, a = s.matrixWorld, c = s.geometry, d = c.attributes.instanceStart, u = c.attributes.instanceEnd, r = Math.min(c.instanceCount, d.count), h = -e.near;
   G.at(1, P), P.w = 1, P.applyMatrix4(e.matrixWorldInverse), P.applyMatrix4(n), P.multiplyScalar(1 / P.w), P.x *= o.x / 2, P.y *= o.y / 2, P.z = 0, _t.copy(P), vt.multiplyMatrices(e.matrixWorldInverse, a);
-  for (let d = 0, f = r; d < f; d++) {
-    if (U.fromBufferAttribute(l, d), z.fromBufferAttribute(u, d), U.w = 1, z.w = 1, U.applyMatrix4(vt), z.applyMatrix4(vt), U.z > h && z.z > h)
+  for (let l = 0, f = r; l < f; l++) {
+    if (U.fromBufferAttribute(d, l), z.fromBufferAttribute(u, l), U.w = 1, z.w = 1, U.applyMatrix4(vt), z.applyMatrix4(vt), U.z > h && z.z > h)
       continue;
     if (U.z > h) {
       const b = U.z - z.z, y = (U.z - h) / b;
@@ -1193,7 +1193,7 @@ function We(s, e, t) {
     T.at(p, qt);
     const w = ve.lerp(U.z, z.z, p), A = w >= -1 && w <= 1, L = _t.distanceTo(qt) < q * 0.5;
     if (A && L) {
-      T.start.fromBufferAttribute(l, d), T.end.fromBufferAttribute(u, d), T.start.applyMatrix4(a), T.end.applyMatrix4(a);
+      T.start.fromBufferAttribute(d, l), T.end.fromBufferAttribute(u, l), T.start.applyMatrix4(a), T.end.applyMatrix4(a);
       const b = new M(), y = new M();
       G.distanceSqToSegment(T.start, T.end, y, b), t.push({
         point: y,
@@ -1201,7 +1201,7 @@ function We(s, e, t) {
         distance: G.origin.distanceTo(y),
         object: s,
         face: null,
-        faceIndex: d,
+        faceIndex: l,
         uv: null,
         uv1: null
       });
@@ -1215,7 +1215,7 @@ class qe extends X {
   // for backwards-compatibility, but could be a method of LineSegmentsGeometry...
   computeLineDistances() {
     const e = this.geometry, t = e.attributes.instanceStart, n = e.attributes.instanceEnd, i = new Float32Array(2 * t.count);
-    for (let a = 0, c = 0, l = t.count; a < l; a++, c += 2)
+    for (let a = 0, c = 0, d = t.count; a < d; a++, c += 2)
       jt.fromBufferAttribute(t, a), Wt.fromBufferAttribute(n, a), i[c] = c === 0 ? 0 : i[c - 1], i[c + 1] = i[c] + jt.distanceTo(Wt);
     const o = new bt(i, 2, 1);
     return e.setAttribute("instanceDistanceStart", new Z(o, 1, 0)), e.setAttribute("instanceDistanceEnd", new Z(o, 1, 1)), this;
@@ -1225,14 +1225,14 @@ class qe extends X {
     i === null && !n && console.error('LineSegments2: "Raycaster.camera" needs to be set in order to raycast against LineSegments2 while worldUnits is set to false.');
     const o = e.params.Line2 !== void 0 && e.params.Line2.threshold || 0;
     G = e.ray;
-    const a = this.matrixWorld, c = this.geometry, l = this.material;
-    q = l.linewidth + o, c.boundingSphere === null && c.computeBoundingSphere(), st.copy(c.boundingSphere).applyMatrix4(a);
+    const a = this.matrixWorld, c = this.geometry, d = this.material;
+    q = d.linewidth + o, c.boundingSphere === null && c.computeBoundingSphere(), st.copy(c.boundingSphere).applyMatrix4(a);
     let u;
     if (n)
       u = q * 0.5;
     else {
       const h = Math.max(i.near, st.distanceToPoint(G.origin));
-      u = Nt(i, h, l.resolution);
+      u = Nt(i, h, d.resolution);
     }
     if (st.radius += u, G.intersectsSphere(st) === !1)
       return;
@@ -1242,7 +1242,7 @@ class qe extends X {
       r = q * 0.5;
     else {
       const h = Math.max(i.near, it.distanceToPoint(G.origin));
-      r = Nt(i, h, l.resolution);
+      r = Nt(i, h, d.resolution);
     }
     it.expandByScalar(r), G.intersectsBox(it) !== !1 && (n ? je(this, t) : We(this, i, t));
   }
@@ -1285,10 +1285,10 @@ class Ne extends qe {
 }
 const Ve = (s) => {
   const e = new Xt(), t = [], n = [], { isSphere: i } = s;
-  if ($.forEach((c, l) => {
-    const { enabled: u, line: r, scale: h, color: d } = s[c];
+  if ($.forEach((c, d) => {
+    const { enabled: u, line: r, scale: h, color: l } = s[c];
     if (!u || !r) return;
-    const f = l < 3 ? 1 : -1, p = (i ? ne - h / 2 : 0.975) * f;
+    const f = d < 3 ? 1 : -1, p = (i ? ne - h / 2 : 0.975) * f;
     t.push(
       c.includes("x") ? p : 0,
       c.includes("y") ? p : 0,
@@ -1297,7 +1297,7 @@ const Ve = (s) => {
       0,
       0
     );
-    const w = e.set(d).toArray();
+    const w = e.set(l).toArray();
     n.push(...w, ...w);
   }), !t.length) return null;
   const o = new se().setPositions(t).setColors(n), a = new zt({
@@ -1314,7 +1314,13 @@ const Ve = (s) => {
 }, Y = (s, e = !0) => {
   const { material: t, userData: n } = s, { opacity: i, color: o, scale: a } = e ? n.hover : n;
   s.scale.setScalar(a), t.opacity = i, t.map ? Re(t.map, e) : t.color.set(o);
-}, V = /* @__PURE__ */ new Kt(), Vt = /* @__PURE__ */ new Ee(), Xe = /* @__PURE__ */ new K(), W = /* @__PURE__ */ new M(), Zt = /* @__PURE__ */ new Q(), ot = /* @__PURE__ */ new J().setFromAxisAngle(new M(0, 0, 1), Math.PI / 2), rt = /* @__PURE__ */ new J().setFromAxisAngle(new M(0, 0, 1), -Math.PI / 2);
+}, V = /* @__PURE__ */ new Kt(), Vt = /* @__PURE__ */ new Ee(), Xe = /* @__PURE__ */ new K(), W = /* @__PURE__ */ new M(), Zt = /* @__PURE__ */ new Q(), ot = /* @__PURE__ */ new J().setFromAxisAngle(
+  new M(0, 0, 1),
+  Math.PI / 2
+), rt = /* @__PURE__ */ new J().setFromAxisAngle(
+  new M(0, 0, 1),
+  -Math.PI / 2
+);
 class Ye extends I {
   /**
    * Creates a new ViewportGizmo instance.
@@ -1479,8 +1485,8 @@ class Ye extends I {
     this.dispose(), this.options = t, this._options = De(t), this._camera = this._options.isSphere ? new Se(-1.8, 1.8, 1.8, -1.8, 5, 10) : new xe(26, 1, 5, 10), this._camera.position.set(0, 0, 7);
     const [n, i, o] = Ze(this._options);
     i && this.add(i), o && this.add(o), this.add(...n), this._background = i, this._intersections = n;
-    const { container: a, animated: c, speed: l } = this._options;
-    return this.animated = c, this.speed = l, this._container = a ? Me(a) : document.body, this._domElement = Ae(this._options), this._domElement.onpointerdown = (u) => this._onPointerDown(u), this._domElement.onpointermove = (u) => this._onPointerMove(u), this._domElement.onpointerleave = () => this._onPointerLeave(), this._container.appendChild(this._domElement), this._controls && this.attachControls(this._controls), this.update(), this;
+    const { container: a, animated: c, speed: d } = this._options;
+    return this.animated = c, this.speed = d, this._container = a ? Me(a) : document.body, this._domElement = Ae(this._options), this._domElement.onpointerdown = (u) => this._onPointerDown(u), this._domElement.onpointermove = (u) => this._onPointerMove(u), this._domElement.onpointerleave = () => this._onPointerLeave(), this._container.appendChild(this._domElement), this._controls && this.attachControls(this._controls), this.update(), this;
   }
   /**
    * Renders the gizmo to the screen.
@@ -1531,10 +1537,10 @@ class Ye extends I {
     return t && this._controls && this._controls.update(), this.domUpdate().cameraUpdate();
   }
   /**
-   * Connects OrbitControls with the gizmo, handling interaction states and updates.
+   * Connects OrbitControls or TrackballControls with the gizmo, handling interaction states and updates.
    * Automatically detaches any previously attached controls.
    *
-   * @param controls - The scene's {@link https://threejs.org/docs/#examples/en/controls/OrbitControls OrbitControls}
+   * @param controls - The scene's {@link https://threejs.org/docs/#examples/en/controls/OrbitControls OrbitControls} or TrackballControls
    */
   attachControls(t) {
     return this.detachControls(), this.target = t.target, this._controlsListeners = {
@@ -1555,10 +1561,10 @@ class Ye extends I {
   dispose() {
     var t;
     this.detachControls(), this.children.forEach((n) => {
-      var o, a, c, l;
+      var o, a, c, d;
       this.remove(n);
       const i = n;
-      (o = i.material) == null || o.dispose(), (c = (a = i.material) == null ? void 0 : a.map) == null || c.dispose(), (l = i.geometry) == null || l.dispose();
+      (o = i.material) == null || o.dispose(), (c = (a = i.material) == null ? void 0 : a.map) == null || c.dispose(), (d = i.geometry) == null || d.dispose();
     }), (t = this._domElement) == null || t.remove();
   }
   /**
@@ -1585,8 +1591,8 @@ class Ye extends I {
     const o = this._clock.getDelta() * Te * this.speed;
     if (this._quaternionStart.rotateTowards(this._quaternionEnd, o), t.applyQuaternion(this._quaternionStart).multiplyScalar(this._distance).add(this.target), n.rotateTowards(this._targetQuaternion, o), this._updateOrientation(), requestAnimationFrame(() => this.dispatchEvent({ type: "change" })), this._quaternionStart.angleTo(this._quaternionEnd) < et) {
       if (this._controls) {
-        const a = this.camera.position.clone().sub(this.target).normalize(), c = I.DEFAULT_UP.z === 1 && Math.abs(a.z) > 0.99, l = I.DEFAULT_UP.x === 1 && Math.abs(a.x) > 0.99;
-        c ? this.camera.position.set(0, -1e-6, this.camera.position.z) : l && this.camera.position.set(this.camera.position.x, et, 0), this._controls.update(), this._controls.enabled = !0;
+        const a = this.camera.position.clone().sub(this.target).normalize();
+        I.DEFAULT_UP.z === 1 && Math.abs(a.z) > 0.99 ? this.camera.position.set(0, -1e-6, this.camera.position.z) : I.DEFAULT_UP.x === 1 && Math.abs(a.x) > 0.99 && this.camera.position.set(this.camera.position.x, et, 0), this._controls.update(), this._controls.enabled = !0;
       }
       this.animating = !1, this.dispatchEvent({ type: "end" });
     }
@@ -1601,10 +1607,18 @@ class Ye extends I {
     const n = this.camera, i = this.target;
     if (W.copy(t).multiplyScalar(this._distance), V.setPosition(W).lookAt(W, this.position, this.up), this._targetQuaternion.setFromRotationMatrix(V), W.add(i), V.lookAt(W, i, this.up), this._quaternionEnd.setFromRotationMatrix(V), V.setPosition(n.position).lookAt(n.position, i, this.up), this._quaternionStart.setFromRotationMatrix(V), I.DEFAULT_UP.z === 1 && Math.abs(t.z) > 0.99) {
       const o = Math.sign(t.z);
-      this._targetQuaternion.multiply(o === 1 ? rt : ot), this._quaternionEnd.multiply(o === 1 ? rt : ot);
+      this._targetQuaternion.multiply(
+        o === 1 ? rt : ot
+      ), this._quaternionEnd.multiply(
+        o === 1 ? rt : ot
+      );
     } else if (I.DEFAULT_UP.x === 1 && Math.abs(t.x) > 0.99) {
       const o = Math.sign(t.x);
-      this._targetQuaternion.multiply(o === 1 ? rt : ot), this._quaternionEnd.multiply(o === 1 ? rt : ot);
+      this._targetQuaternion.multiply(
+        o === 1 ? rt : ot
+      ), this._quaternionEnd.multiply(
+        o === 1 ? rt : ot
+      );
     }
     this.animating = !0, this._clock.start(), this.dispatchEvent({ type: "start" });
   }
@@ -1623,13 +1637,13 @@ class Ye extends I {
       }
       const r = Xe.set(u.clientX, u.clientY).sub(this._pointerStart).multiplyScalar(1 / this._domRect.width * Math.PI), h = this.coordinateConversion(
         W.subVectors(this.camera.position, this.target)
-      ), d = Vt.setFromVector3(h);
-      d.theta = c - r.x, d.phi = wt(
-        l - r.y,
+      ), l = Vt.setFromVector3(h);
+      l.theta = c - r.x, l.phi = wt(
+        d - r.y,
         et,
         Math.PI - et
       ), this.coordinateConversion(
-        this.camera.position.setFromSpherical(d),
+        this.camera.position.setFromSpherical(l),
         !0
       ).add(this.target), this.camera.lookAt(this.target), this.quaternion.copy(this.camera.quaternion).invert(), this._updateOrientation(!1), this.dispatchEvent({ type: "change" });
     }, i = () => {
@@ -1640,7 +1654,7 @@ class Ye extends I {
     t.preventDefault(), this._pointerStart.set(t.clientX, t.clientY);
     const o = this.coordinateConversion(
       W.subVectors(this.camera.position, this.target)
-    ), a = Vt.setFromVector3(o), c = a.theta, l = a.phi;
+    ), a = Vt.setFromVector3(o), c = a.theta, d = a.phi;
     this._distance = a.radius, document.addEventListener("pointermove", n, !1), document.addEventListener("pointerup", i, !1), this.dispatchEvent({ type: "start" });
   }
   /**
