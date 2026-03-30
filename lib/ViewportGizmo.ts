@@ -64,6 +64,12 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
   /** Whether the gizmo is currently active and responding to user input */
   enabled: boolean = true;
 
+  /**
+   * Whether drag interactions should update the controlled camera.
+   * Useful for temporarily disabling gizmo -> camera synchronization at runtime.
+   */
+  dragUpdatesCamera: boolean = true;
+
   /** The camera being controlled by this gizmo */
   camera: OrthographicCamera | PerspectiveCamera;
 
@@ -105,6 +111,9 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
   private _distance: number = 0;
   private _clock: Clock = new Clock();
   private _targetQuaternion = new Quaternion();
+  private _displayCameraQuaternion = new Quaternion();
+  private _lastCameraQuaternion = new Quaternion();
+  private _hasDecoupledOrientation: boolean = false;
   private _quaternionStart = new Quaternion();
   private _quaternionEnd = new Quaternion();
   private _pointerStart = new Vector2();
@@ -355,8 +364,38 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
    * @returns The gizmo instance for method chaining
    */
   cameraUpdate() {
-    this._updateOrientation();
+    const cameraChanged =
+      this.camera.quaternion.angleTo(this._lastCameraQuaternion) > GIZMO_EPSILON;
+
+    if (!this.dragUpdatesCamera) {
+      if (cameraChanged) this._hasDecoupledOrientation = false;
+
+      if (this._hasDecoupledOrientation && !this._dragging && !cameraChanged) {
+        this._updateOrientation(false);
+        return this;
+      }
+    }
+
+    const fromCamera = !(this._dragging && !this.dragUpdatesCamera);
+    this._updateOrientation(fromCamera);
+    this._lastCameraQuaternion.copy(this.camera.quaternion);
+
     return this;
+  }
+
+  /**
+   * Toggles whether drag interactions update the controlled camera.
+   *
+   * @param value - Optional explicit state. If omitted, the current state is inverted.
+   * @returns The updated state
+   */
+  toggleDragUpdatesCamera(value?: boolean) {
+    this.dragUpdatesCamera =
+      typeof value === "boolean" ? value : !this.dragUpdatesCamera;
+
+    if (this.dragUpdatesCamera) this._hasDecoupledOrientation = false;
+
+    return this.dragUpdatesCamera;
   }
 
   /**
@@ -444,7 +483,12 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
       this.updateMatrixWorld();
     }
 
-    updateAxis(this._options, this._intersections, this.camera);
+    this._displayCameraQuaternion.copy(this.quaternion).invert();
+    updateAxis(
+      this._options,
+      this._intersections,
+      this._displayCameraQuaternion
+    );
   }
 
   /**
@@ -592,14 +636,22 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
         Math.PI - GIZMO_EPSILON
       );
 
-      this.coordinateConversion(
-        this.camera.position.setFromSpherical(spherical),
-        true
-      ).add(this.target);
+      if (this.dragUpdatesCamera) {
+        this.coordinateConversion(
+          this.camera.position.setFromSpherical(spherical),
+          true
+        ).add(this.target);
 
-      this.camera.lookAt(this.target);
+        this.camera.lookAt(this.target);
 
-      this.quaternion.copy(this.camera.quaternion).invert();
+        this.quaternion.copy(this.camera.quaternion).invert();
+      } else {
+        this._hasDecoupledOrientation = true;
+        _vec3.setFromSpherical(spherical);
+        this.coordinateConversion(_vec3, true);
+        _matrix.setPosition(_vec3).lookAt(_vec3, this.position, this.up);
+        this.quaternion.setFromRotationMatrix(_matrix).invert();
+      }
 
       this._updateOrientation(false);
       this.dispatchEvent({ type: "change" });
@@ -739,6 +791,13 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
     if (this._focus) axisHover(this._focus, false);
 
     if ((this._focus = object)) axisHover(object, true);
-    else updateAxis(this._options, this._intersections, this.camera);
+    else {
+      this._displayCameraQuaternion.copy(this.quaternion).invert();
+      updateAxis(
+        this._options,
+        this._intersections,
+        this._displayCameraQuaternion
+      );
+    }
   }
 }

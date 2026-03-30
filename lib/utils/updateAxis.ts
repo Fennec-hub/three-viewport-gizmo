@@ -1,5 +1,5 @@
 import { GizmoAxisObject, GizmoOptionsFallback } from "@lib/types";
-import { Camera, Vector3 } from "three";
+import { Quaternion, Vector3 } from "three";
 import { clamp } from "three/src/math/MathUtils.js";
 
 const axisMap: [
@@ -16,11 +16,11 @@ const point = /*@__PURE__*/ new Vector3();
 export function updateAxis(
   { isSphere }: GizmoOptionsFallback,
   axes: GizmoAxisObject[],
-  camera: Camera
+  cameraQuaternion: Quaternion
 ): void {
   if (!isSphere) return;
 
-  point.set(0, 0, 1).applyQuaternion(camera.quaternion);
+  point.set(0, 0, 1).applyQuaternion(cameraQuaternion);
 
   axisMap.forEach(([axis, positiveIndex, negativeIndex]) => {
     const value = point[axis];
