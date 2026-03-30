@@ -68,6 +68,9 @@ export const axesFaces = (
     face.renderOrder = 1;
     face.visible = enabled;
     face.userData = {
+      gizmoElement: "axis",
+      axis,
+      interactive: enabled,
       scale,
       opacity,
       hover,

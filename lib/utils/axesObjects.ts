@@ -7,17 +7,16 @@ import { gizmoBackground } from "./gizmoBackground";
 import { axesLines } from "./axesLines";
 
 export const axesObjects = (options: GizmoOptionsFallback) => {
-  const { corners, edges } = options;
-
   const axes: GizmoAxisObject[] = [];
   const map = axesMap(options);
 
   const faces = axesFaces(options, map);
+  const cornersAxes = axesCorners(options, map);
+  const edgesAxes = axesEdges(options, map, options.corners.enabled ? 7 : 6);
 
   axes.push(...faces);
-  if (corners.enabled) axes.push(...axesCorners(options, map));
-  if (edges.enabled)
-    axes.push(...axesEdges(options, map, corners.enabled ? 7 : 6));
+  axes.push(...cornersAxes);
+  axes.push(...edgesAxes);
 
   const background = gizmoBackground(faces, options);
 

@@ -20,8 +20,6 @@ export const axesEdges = (
   const { isSphere, edges, type } = options;
   const isRoundedCube = type === "rounded-cube";
 
-  if (!edges.enabled) return [];
-
   const { color, opacity, scale, hover, radius, smoothness } = edges;
 
   const edgeLength = isRoundedCube ? (2 - radius * 2) : 1.2;
@@ -75,12 +73,15 @@ export const axesEdges = (
       }
 
       edge.renderOrder = 1;
+      edge.visible = edges.enabled;
 
       edge.userData = {
         color,
         opacity,
         scale,
         hover,
+        gizmoElement: "edge",
+        interactive: edges.enabled,
       };
 
       return edge;

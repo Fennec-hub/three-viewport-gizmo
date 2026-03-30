@@ -19,8 +19,6 @@ export const axesCorners = (
   const { isSphere, corners, type } = options;
   const isRoundedCube = type === "rounded-cube";
 
-  if (!corners.enabled) return [];
-
   const { color, opacity, scale, radius, smoothness, hover } = corners;
 
   const geometry = isSphere
@@ -64,6 +62,7 @@ export const axesCorners = (
       corner.scale.setScalar(scale);
       corner.lookAt(target.copy(corner.position).multiplyScalar(2));
       corner.renderOrder = 1;
+      corner.visible = corners.enabled;
 
       corner.userData = {
         color,
@@ -71,6 +70,8 @@ export const axesCorners = (
         scale,
         hover,
         intersectionOrder: 1,
+        gizmoElement: "corner",
+        interactive: corners.enabled,
       };
 
       return corner;

@@ -371,6 +371,77 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
     return this.domUpdate().cameraUpdate();
   }
 
+  /** Toggles corner indicators interactivity at runtime. */
+  setCornersEnabled(enabled: boolean) {
+    if (!this._intersections) return this;
+
+    this.options.corners = this.options.corners || {};
+    this.options.corners.enabled = enabled;
+    this._options.corners.enabled = enabled;
+
+    this._intersections.forEach((axis) => {
+      if (axis.userData?.gizmoElement === "corner")
+        axis.userData.interactive = enabled;
+    });
+
+    if (!enabled && this._focus?.userData?.gizmoElement === "corner") {
+      axisHover(this._focus, false);
+      this._focus = null;
+      this._domElement.style.cursor = "";
+    }
+
+    return this;
+  }
+
+  /** Toggles edge indicators interactivity at runtime. */
+  setEdgesEnabled(enabled: boolean) {
+    if (!this._intersections) return this;
+
+    this.options.edges = this.options.edges || {};
+    this.options.edges.enabled = enabled;
+    this._options.edges.enabled = enabled;
+
+    this._intersections.forEach((axis) => {
+      if (axis.userData?.gizmoElement === "edge")
+        axis.userData.interactive = enabled;
+    });
+
+    if (!enabled && this._focus?.userData?.gizmoElement === "edge") {
+      axisHover(this._focus, false);
+      this._focus = null;
+      this._domElement.style.cursor = "";
+    }
+
+    return this;
+  }
+
+  /** Toggles a specific axis/face indicator interactivity at runtime. */
+  setAxisEnabled(axis: "x" | "y" | "z" | "nx" | "ny" | "nz", enabled: boolean) {
+    if (!this._intersections) return this;
+
+    this.options[axis] = this.options[axis] || {};
+    this.options[axis]!.enabled = enabled;
+    this._options[axis].enabled = enabled;
+
+    this._intersections.forEach((item) => {
+      if (item.userData?.gizmoElement === "axis" && item.userData?.axis === axis) {
+        item.userData.interactive = enabled;
+      }
+    });
+
+    if (
+      !enabled &&
+      this._focus?.userData?.gizmoElement === "axis" &&
+      this._focus?.userData?.axis === axis
+    ) {
+      axisHover(this._focus, false);
+      this._focus = null;
+      this._domElement.style.cursor = "";
+    }
+
+    return this;
+  }
+
   /**
    * Connects OrbitControls with the gizmo, handling interaction states and updates.
    * Automatically detaches any previously attached controls.
@@ -701,7 +772,9 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
       e,
       this._domRect,
       this._camera,
-      this._intersections
+      this._intersections.filter(
+        (axis) => axis.visible && axis.userData?.interactive !== false
+      )
     );
 
     if (this._focus) {
@@ -727,7 +800,9 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
       e,
       this._domRect,
       this._camera,
-      this._intersections
+      this._intersections.filter(
+        (axis) => axis.visible && axis.userData?.interactive !== false
+      )
     );
 
     const object = intersection?.object || null;
