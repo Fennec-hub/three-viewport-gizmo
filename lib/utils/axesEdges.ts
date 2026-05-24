@@ -12,6 +12,21 @@ import {
 import { roundedRectangleGeometry } from "./roundedRectangleGeometry";
 import { setMapColumnOffset } from "./axesMap";
 
+const EDGE_VIEW_IDS = [
+  "front-top",
+  "front-bottom",
+  "front-right",
+  "front-left",
+  "back-top",
+  "back-bottom",
+  "back-right",
+  "back-left",
+  "right-top",
+  "left-top",
+  "right-bottom",
+  "left-bottom",
+] as const;
+
 export const axesEdges = (
   options: GizmoOptionsFallback,
   texture: CanvasTexture,
@@ -77,6 +92,8 @@ export const axesEdges = (
       edge.renderOrder = 1;
 
       edge.userData = {
+        kind: "edge",
+        viewId: EDGE_VIEW_IDS[i],
         color,
         opacity,
         scale,

@@ -1,13 +1,20 @@
+import { BufferGeometry } from 'three';
 import { ColorRepresentation } from 'three';
 import { DeepRequired } from 'utility-types';
+import { Mesh } from 'three';
+import { MeshBasicMaterial } from 'three';
 import { Object3D } from 'three';
 import { Object3DEventMap } from 'three';
 import { OrbitControls } from 'three/examples/jsm/Addons.js';
 import { OrthographicCamera } from 'three';
 import { PerspectiveCamera } from 'three';
+import { Sprite } from 'three';
 import { Vector3 } from 'three';
 import { WebGLRenderer } from 'three';
 import { WebGPURenderer } from 'three/webgpu';
+
+/** Axes Object */
+declare type GizmoAxisObject = Mesh<BufferGeometry, MeshBasicMaterial> | Sprite;
 
 /**
  * Configuration options for individual gizmo axes.
@@ -55,6 +62,35 @@ export declare type GizmoAxisOptions = {
     };
 };
 
+export declare type GizmoIntentClickEvent = {
+    kind: GizmoIntentKind;
+    viewId: GizmoViewId;
+    axisKey?: string;
+    position: [x: number, y: number, z: number];
+    object: GizmoAxisObject;
+    pointer: GizmoIntentPointer;
+};
+
+export declare type GizmoIntentDragEndEvent = {
+    wasDragging: boolean;
+};
+
+export declare type GizmoIntentDragEvent = {
+    pointerDelta: {
+        x: number;
+        y: number;
+    };
+    pointer: GizmoIntentPointer;
+    startPointer: GizmoIntentPointer;
+};
+
+declare type GizmoIntentKind = "face" | "edge" | "corner";
+
+declare type GizmoIntentPointer = {
+    clientX: number;
+    clientY: number;
+};
+
 /**
  * Configuration options for the ViewportGizmo.
  * All properties are optional and will fall back to default values if not specified.
@@ -85,6 +121,11 @@ export declare type GizmoOptions = {
     };
     /** Whether view changes should be animated. Default `true` */
     animated?: boolean;
+    /**
+     * When true, user clicks and drags emit intent events instead of mutating
+     * the camera. The host application owns camera movement.
+     */
+    controlled?: boolean;
     /** Animation speed multiplier. Higher values result in faster animations. Default `1` */
     speed?: number;
     /**
@@ -267,6 +308,8 @@ declare type GizmoOptionsFallback = DeepRequired<GizmoOptions> & {
     isSphere: boolean;
 };
 
+export declare type GizmoViewId = "front" | "back" | "left" | "right" | "top" | "bottom" | "front-top" | "front-bottom" | "front-left" | "front-right" | "back-top" | "back-bottom" | "back-left" | "back-right" | "left-top" | "left-bottom" | "right-top" | "right-bottom" | "front-top-left" | "front-top-right" | "front-bottom-left" | "front-bottom-right" | "back-top-left" | "back-top-right" | "back-bottom-left" | "back-bottom-right";
+
 /**
  * ViewportGizmo is a 3D camera orientation controller that provides a visual interface
  * for changing the camera's viewing angle. It creates a widget that shows the current
@@ -293,6 +336,8 @@ export declare class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
     animated: boolean;
     /** The speed of view change animations. Higher values result in faster animations */
     speed: number;
+    /** When true, input emits intent events and never mutates the host camera. */
+    controlled: boolean;
     /**
      * Indicates whether the gizmo is currently being animated or not,
      * Useful when interacting with other camera controllers
@@ -423,6 +468,8 @@ export declare class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
      * @param placement - The new placement position
      */
     set placement(placement: GizmoOptionsFallback["placement"]);
+    /** The DOM hit target for the gizmo. */
+    get domElement(): HTMLElement;
     /**
      * Regenerates the gizmo with the new options.
      *
@@ -492,6 +539,7 @@ export declare class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
      * @param position - The axis point position
      */
     private _setOrientation;
+    private _emitIntentClick;
     /**
      * Handles the pointer down event for starting drag operations.
      *
@@ -565,6 +613,16 @@ export declare interface ViewportGizmoEventMap extends Object3DEventMap {
      * - Any other camera orientation updates
      */
     change: {};
+    /** Fired in controlled mode when a face, edge, or corner is clicked. */
+    intentclick: GizmoIntentClickEvent;
+    /** Fired in controlled mode when gizmo dragging begins. */
+    intentdragstart: {
+        pointer: GizmoIntentPointer;
+    };
+    /** Fired in controlled mode while the gizmo is dragged. */
+    intentdrag: GizmoIntentDragEvent;
+    /** Fired in controlled mode when gizmo dragging ends. */
+    intentdragend: GizmoIntentDragEndEvent;
 }
 
 export { }

@@ -14,6 +14,15 @@ import { GIZMO_AXES, GIZMO_SPHERE_AXES_DISTANCE } from "./constants";
 
 import { setMapColumnOffset } from "./axesMap";
 
+const FACE_VIEW_IDS = {
+  x: "right",
+  y: "top",
+  z: "front",
+  nx: "left",
+  ny: "bottom",
+  nz: "back",
+} as const;
+
 export const axesFaces = (
   options: GizmoOptionsFallback,
   texture: CanvasTexture
@@ -68,6 +77,9 @@ export const axesFaces = (
     face.renderOrder = 1;
     face.visible = enabled;
     face.userData = {
+      kind: "face",
+      axisKey: axis,
+      viewId: FACE_VIEW_IDS[axis],
       scale,
       opacity,
       hover,

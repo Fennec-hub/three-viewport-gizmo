@@ -1,6 +1,6 @@
 {
   "name": "three-viewport-gizmo",
-  "description": "Three Viewport Gizmo is a highly customizable standalone interactive three.js view helper controls, allowing effortless integration with popular camera libraries.",
+  "description": "Kyumi fork of Three Viewport Gizmo for controlled CAD camera navigation.",
   "author": "Fennec",
   "license": "MIT",
   "files": [
@@ -14,12 +14,13 @@
       "require": "./dist/three-viewport-gizmo.umd.cjs"
     }
   },
-  "version": "2.2.0",
+  "version": "2.2.0-kyumi.0",
   "type": "module",
   "types": "./dist/three-viewport-gizmo.d.ts",
   "scripts": {
     "dev": "vite serve --config=vite.live.config.js",
     "build": "tsc && vite build ",
+    "build:watch": "vite build --watch",
     "build:live": "tsc && vite build --config=vite.live.config.js",
     "preview": "vite preview --config=vite.live.config.js",
     "docs:dev": "vitepress dev docs",
@@ -54,10 +55,10 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Fennec-hub/three-viewport-gizmo.git"
+    "url": "git+https://github.com/kyumi-ai/three-viewport-gizmo.git"
   },
   "bugs": {
-    "url": "https://github.com/Fennec-hub/three-viewport-gizmo/issues"
+    "url": "https://github.com/kyumi-ai/three-viewport-gizmo/issues"
   },
-  "homepage": "https://github.com/Fennec-hub/three-viewport-gizmo#readme"
+  "homepage": "https://github.com/kyumi-ai/three-viewport-gizmo#readme"
 }

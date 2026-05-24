@@ -118,6 +118,7 @@ export const optionsFallback = (
     radius: isSphere ? 1 : isRoundedCube ? 0.3 : 0.2,
     smoothness: 18,
     animated: true,
+    controlled: false,
     speed: 1,
     background: {
       enabled: true,

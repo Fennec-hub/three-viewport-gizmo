@@ -8,6 +8,40 @@ import {
   Sprite,
 } from "three";
 
+export type GizmoIntentKind = "face" | "edge" | "corner";
+
+export type GizmoViewId =
+  | "front" | "back" | "left" | "right" | "top" | "bottom"
+  | "front-top" | "front-bottom" | "front-left" | "front-right"
+  | "back-top" | "back-bottom" | "back-left" | "back-right"
+  | "left-top" | "left-bottom" | "right-top" | "right-bottom"
+  | "front-top-left" | "front-top-right" | "front-bottom-left" | "front-bottom-right"
+  | "back-top-left" | "back-top-right" | "back-bottom-left" | "back-bottom-right";
+
+export type GizmoIntentPointer = {
+  clientX: number;
+  clientY: number;
+};
+
+export type GizmoIntentClickEvent = {
+  kind: GizmoIntentKind;
+  viewId: GizmoViewId;
+  axisKey?: string;
+  position: [x: number, y: number, z: number];
+  object: GizmoAxisObject;
+  pointer: GizmoIntentPointer;
+};
+
+export type GizmoIntentDragEvent = {
+  pointerDelta: { x: number; y: number };
+  pointer: GizmoIntentPointer;
+  startPointer: GizmoIntentPointer;
+};
+
+export type GizmoIntentDragEndEvent = {
+  wasDragging: boolean;
+};
+
 /**
  * Configuration options for the ViewportGizmo.
  * All properties are optional and will fall back to default values if not specified.
@@ -55,6 +89,12 @@ export type GizmoOptions = {
 
   /** Whether view changes should be animated. Default `true` */
   animated?: boolean;
+
+  /**
+   * When true, user clicks and drags emit intent events instead of mutating
+   * the camera. The host application owns camera movement.
+   */
+  controlled?: boolean;
 
   /** Animation speed multiplier. Higher values result in faster animations. Default `1` */
   speed?: number;
@@ -362,6 +402,18 @@ export interface ViewportGizmoEventMap extends Object3DEventMap {
    * - Any other camera orientation updates
    */
   change: {};
+
+  /** Fired in controlled mode when a face, edge, or corner is clicked. */
+  intentclick: GizmoIntentClickEvent;
+
+  /** Fired in controlled mode when gizmo dragging begins. */
+  intentdragstart: { pointer: GizmoIntentPointer };
+
+  /** Fired in controlled mode while the gizmo is dragged. */
+  intentdrag: GizmoIntentDragEvent;
+
+  /** Fired in controlled mode when gizmo dragging ends. */
+  intentdragend: GizmoIntentDragEndEvent;
 }
 
 /** The {@link GizmoOptions } with all options set with their respective default and fallback */

@@ -29,6 +29,11 @@ import {
   GizmoOptionsFallback,
   GizmoAxisObject,
   GizmoViewportArray,
+  GizmoIntentKind,
+  GizmoViewId,
+  GizmoIntentClickEvent,
+  GizmoIntentDragEvent,
+  GizmoIntentDragEndEvent,
 } from "./types";
 import { GIZMO_EPSILON, GIZMO_TURN_RATE } from "./utils/constants";
 import { updateBackground } from "./utils/updateBackground";
@@ -39,7 +44,15 @@ import { axesObjects } from "./utils/axesObjects";
 import { axisHover } from "./utils/axisHover";
 import type { WebGPURenderer } from "three/webgpu";
 
-export type { GizmoOptions, ViewportGizmoEventMap, GizmoAxisOptions };
+export type {
+  GizmoOptions,
+  ViewportGizmoEventMap,
+  GizmoAxisOptions,
+  GizmoIntentClickEvent,
+  GizmoIntentDragEvent,
+  GizmoIntentDragEndEvent,
+  GizmoViewId,
+};
 
 const _matrix = /*@__PURE__*/ new Matrix4();
 const _spherical = /*@__PURE__*/ new Spherical();
@@ -81,6 +94,9 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
 
   /** The speed of view change animations. Higher values result in faster animations */
   speed: number = 1;
+
+  /** When true, input emits intent events and never mutates the host camera. */
+  controlled: boolean = false;
 
   /**
    * Indicates whether the gizmo is currently being animated or not,
@@ -237,6 +253,11 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
     this.domUpdate();
   }
 
+  /** The DOM hit target for the gizmo. */
+  get domElement(): HTMLElement {
+    return this._domElement;
+  }
+
   /**
    * Regenerates the gizmo with the new options.
    *
@@ -266,10 +287,11 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
     this._background = background;
     this._intersections = axes;
 
-    const { container, animated, speed } = this._options;
+    const { container, animated, speed, controlled } = this._options;
 
     this.animated = animated;
     this.speed = speed;
+    this.controlled = Boolean(controlled);
 
     this._container = container
       ? getDomElement(container as string)
@@ -559,6 +581,26 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
     this.dispatchEvent({ type: "start" });
   }
 
+  private _emitIntentClick(object: GizmoAxisObject, e: PointerEvent) {
+    const { kind, viewId, axisKey } = object.userData as {
+      kind?: GizmoIntentKind;
+      viewId?: GizmoViewId;
+      axisKey?: string;
+    };
+
+    if (!kind || !viewId) return;
+
+    this.dispatchEvent({
+      type: "intentclick",
+      kind,
+      viewId,
+      axisKey,
+      position: object.position.toArray() as [number, number, number],
+      object,
+      pointer: { clientX: e.clientX, clientY: e.clientY },
+    });
+  }
+
   /**
    * Handles the pointer down event for starting drag operations.
    *
@@ -568,10 +610,36 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
   private _onPointerDown(e: PointerEvent) {
     if (!this.enabled) return;
 
+    let lastPointer = new Vector2(e.clientX, e.clientY);
+
     const drag = (e: PointerEvent) => {
       if (!this._dragging) {
         if (isClick(e, this._pointerStart)) return;
         this._dragging = true;
+        if (this.controlled) {
+          this.dispatchEvent({
+            type: "intentdragstart",
+            pointer: { clientX: this._pointerStart.x, clientY: this._pointerStart.y },
+          });
+          this.dispatchEvent({ type: "start" });
+        }
+      }
+
+      if (this.controlled) {
+        const currentPointer = _vec2.set(e.clientX, e.clientY);
+        const dx = currentPointer.x - lastPointer.x;
+        const dy = currentPointer.y - lastPointer.y;
+        lastPointer = currentPointer.clone();
+
+        if (dx !== 0 || dy !== 0) {
+          this.dispatchEvent({
+            type: "intentdrag",
+            pointerDelta: { x: dx, y: dy },
+            pointer: { clientX: e.clientX, clientY: e.clientY },
+            startPointer: { clientX: this._pointerStart.x, clientY: this._pointerStart.y },
+          });
+        }
+        return;
       }
 
       const pointerAngle = _vec2
@@ -617,6 +685,9 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
       }
 
       this._dragging = false;
+      if (this.controlled) {
+        this.dispatchEvent({ type: "intentdragend", wasDragging: true });
+      }
       this.dispatchEvent({ type: "end" });
     };
 
@@ -624,6 +695,7 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
 
     e.preventDefault();
     this._pointerStart.set(e.clientX, e.clientY);
+    lastPointer = this._pointerStart.clone();
 
     const direction = this.coordinateConversion(
       _vec3.subVectors(this.camera.position, this.target)
@@ -637,7 +709,7 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
     document.addEventListener("pointermove", drag, false);
     document.addEventListener("pointerup", endDrag, false);
 
-    this.dispatchEvent({ type: "start" });
+    if (!this.controlled) this.dispatchEvent({ type: "start" });
   }
 
   /**
@@ -710,6 +782,11 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
     }
 
     if (!intersection) return;
+
+    if (this.controlled) {
+      this._emitIntentClick(intersection.object, e);
+      return;
+    }
 
     this._setOrientation(intersection.object.position);
 

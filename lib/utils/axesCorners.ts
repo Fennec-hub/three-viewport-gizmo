@@ -12,6 +12,17 @@ import {
 import { setMapColumnOffset } from "./axesMap";
 import { roundedRectangleGeometry } from "./roundedRectangleGeometry";
 
+const CORNER_VIEW_IDS = [
+  "front-top-right",
+  "front-top-left",
+  "front-bottom-right",
+  "front-bottom-left",
+  "back-top-right",
+  "back-top-left",
+  "back-bottom-right",
+  "back-bottom-left",
+] as const;
+
 export const axesCorners = (
   options: GizmoOptionsFallback,
   texture: CanvasTexture
@@ -66,6 +77,8 @@ export const axesCorners = (
       corner.renderOrder = 1;
 
       corner.userData = {
+        kind: "corner",
+        viewId: CORNER_VIEW_IDS[i],
         color,
         opacity,
         scale,
