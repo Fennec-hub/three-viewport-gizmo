@@ -1,11 +1,19 @@
 import { Color, Vector2 } from "three";
-import { Line2 } from "three/addons/lines/Line2.js";
+import type { WebGLRenderer } from "three";
+import type { WebGPURenderer } from "three/webgpu";
+import { Line2NodeMaterial } from "three/webgpu";
+import { Line2 as Line2Gl } from "three/addons/lines/Line2.js";
+import { Line2 as Line2Gpu } from "three/addons/lines/webgpu/Line2.js";
 import { LineGeometry } from "three/addons/lines/LineGeometry.js";
 import { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { GizmoOptionsFallback } from "../types";
 import { GIZMO_AXES, GIZMO_SPHERE_AXES_DISTANCE } from "./constants";
 
-export const axesLines = (options: GizmoOptionsFallback) => {
+/** Fat-line helpers differ between WebGL `LineMaterial` (GLSL) and WebGPU `Line2NodeMaterial` (TSL). */
+export const axesLines = (
+  options: GizmoOptionsFallback,
+  renderer: WebGLRenderer | WebGPURenderer
+) => {
   const colorManager = new Color();
   const positions: number[] = [];
   const colors: number[] = [];
@@ -37,11 +45,23 @@ export const axesLines = (options: GizmoOptionsFallback) => {
 
   const geometry = new LineGeometry().setPositions(positions).setColors(colors);
 
+  const isTopLeftOrigin =
+    (renderer as { isWebGPURenderer?: boolean }).isWebGPURenderer === true;
+
+  if (isTopLeftOrigin) {
+    const material = new Line2NodeMaterial({
+      linewidth: options.lineWidth,
+      vertexColors: true,
+      worldUnits: false,
+    });
+    return new Line2Gpu(geometry, material).computeLineDistances();
+  }
+
   const material = new LineMaterial({
     linewidth: options.lineWidth,
     vertexColors: true,
     resolution: new Vector2(window.innerWidth, window.innerHeight),
   });
 
-  return new Line2(geometry, material).computeLineDistances();
+  return new Line2Gl(geometry, material).computeLineDistances();
 };

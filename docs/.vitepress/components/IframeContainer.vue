@@ -23,7 +23,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 
 const { url, aspectRatio = '16/9' } = defineProps<{
   url: string,
@@ -33,14 +33,38 @@ const { url, aspectRatio = '16/9' } = defineProps<{
 const iframeRef = ref<HTMLIFrameElement>();
 const isFullScreen = ref(false)
 
+/** Bump when docs `?renderer=` changes (toggle or nav) — `history.replaceState` does not reload. */
+const rendererEpoch = ref(0)
+
+function buildSamplesUrl(): string {
+  if (typeof window === 'undefined') return ''
+
+  const origin = window.location.origin
+  const combined = `${origin}/three-viewport-gizmo/samples/${url}`
+  if (!url.startsWith('webgpu.html')) {
+    return combined
+  }
+  const renderer = new URLSearchParams(window.location.search).get('renderer') === 'webgpu' ? 'webgpu' : 'webgl'
+  const sep = url.includes('?') ? '&' : '?'
+  return `${combined}${sep}renderer=${renderer}`
+}
+
 const sourceURL = computed(() => `https://github.com/Fennec-hub/three-viewport-gizmo/blob/main/docs/public/samples/${url}`)
-const fullUrl = computed(() => `${window.location.origin}/three-viewport-gizmo/samples/${url}`);
+
+const fullUrl = computed(() => {
+  void rendererEpoch.value
+  return buildSamplesUrl()
+})
 
 // Convert aspect ratio to a percentage for padding-bottom
 const aspectRatioPadding = computed(() => {
   const [width, height] = aspectRatio.split('/').map(Number);
   return `${(height / width) * 100}%`;
 });
+
+const bumpIframeUrl = (): void => {
+  rendererEpoch.value += 1
+}
 
 // Handle fullscreen changes
 const onFullScreenChange = () => {
@@ -49,24 +73,26 @@ const onFullScreenChange = () => {
 
 onMounted(() => {
   document.addEventListener('fullscreenchange', onFullScreenChange)
+  window.addEventListener('popstate', bumpIframeUrl)
+  window.addEventListener('vp-renderer-change', bumpIframeUrl)
 })
 
 onUnmounted(() => {
   document.removeEventListener('fullscreenchange', onFullScreenChange)
+  window.removeEventListener('popstate', bumpIframeUrl)
+  window.removeEventListener('vp-renderer-change', bumpIframeUrl)
 })
 
 // Toggle fullscreen
-const toggleFullScreen = async () => {
+const toggleFullScreen = async (): Promise<void> => {
   if (!document.fullscreenElement) {
     try {
       await iframeRef.value!.requestFullscreen()
     } catch (err) {
       console.error('Error attempting to enable fullscreen:', err)
     }
-  } else {
-    if (document.exitFullscreen) {
-      document.exitFullscreen()
-    }
+  } else if (document.exitFullscreen) {
+    await document.exitFullscreen()
   }
 }
 </script>

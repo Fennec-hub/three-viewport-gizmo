@@ -1,0 +1,38 @@
+{
+  "$schema": "./node_modules/nx/schemas/project-schema.json",
+  "name": "three-viewport-gizmo",
+  "root": ".",
+  "projectType": "library",
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run build"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm test"
+      }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run typecheck"
+      }
+    },
+    "docs": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run docs:build"
+      }
+    },
+    "quality": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run quality"
+      }
+    }
+  }
+}

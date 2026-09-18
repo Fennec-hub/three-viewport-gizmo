@@ -145,6 +145,7 @@ type GizmoOptions = {
   animated?: boolean;
   speed?: number;
   resolution?: number;
+  up?: "x" | "y" | "z";
   lineWidth?: number;
   id?: string;
   className?: string;
@@ -297,6 +298,10 @@ Defines comprehensive configuration options for the `ViewportGizmo`. Each option
 - **`resolution`** — `number`
 
   Adjusts the texture resolution. Defaults to `64` for sphere, `128` for cube.
+
+- **`up`** — `"x" | "y" | "z"`
+
+  The world up axis the faces, drags and face clicks are oriented around. Defaults to the axis set in `Object3D.DEFAULT_UP` and keeps following it: a gizmo without an explicit `up` regenerates itself on its next `update()` or `render()` after the global moves to another axis. Pass it explicitly when views with different up axes share one process.
 
 - **`lineWidth`** — `number`
 

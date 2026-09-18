@@ -209,8 +209,21 @@ export const axesMap = (options: GizmoOptionsFallback, offset: number = 2) => {
   }
 };
 
-export const setMapHoverOffset = (map: Texture, hover: boolean) =>
-  (map.offset.x = (hover ? 0.5 : 0) + map.userData.offsetX);
+/**
+ * Clone the shared atlas (`axesMap`), lock the UV row (`columnIndex`) and idle vs hover atlas column once.
+ * Do not mutate `material.map.offset` at pointer time — WebGPU binds the UV transform uniform at compile time.
+ */
+export const cloneAxisMap = (
+  texture: CanvasTexture,
+  columnIndex: number,
+  hovered: boolean
+): CanvasTexture => {
+  const cloned = texture.clone();
+  setMapColumnOffset(cloned, columnIndex);
+  const { offsetX } = cloned.userData as { offsetX: number };
+  cloned.offset.setX((hovered ? 0.5 : 0) + offsetX);
+  return cloned;
+};
 
 export const setMapColumnOffset = (map: Texture, col: number) => {
   const {

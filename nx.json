@@ -1,0 +1,43 @@
+{
+  "$schema": "./node_modules/nx/schemas/nx-schema.json",
+  "defaultBase": "main",
+  "release": {
+    "projects": ["three-viewport-gizmo"],
+    "projectsRelationship": "fixed",
+    "version": {
+      "specifierSource": "version-plans",
+      "adjustSemverBumpsForZeroMajorVersion": false
+    },
+    "versionPlans": {
+      "ignorePatternsForPlanCheck": [
+        "**/*.test.*",
+        ".github/**",
+        "docs/**",
+        "nx.json",
+        "tests/**",
+        "scripts/**",
+        "readme.md"
+      ]
+    },
+    "changelog": {
+      "projectChangelogs": {
+        "file": "CHANGELOG.md",
+        "renderOptions": {
+          "authors": true,
+          "commitReferences": true,
+          "versionTitleDate": true
+        }
+      }
+    },
+    "releaseTag": {
+      "pattern": "v{version}"
+    },
+    "git": {
+      "commit": false,
+      "push": false,
+      "stageChanges": false,
+      "tag": false
+    }
+  },
+  "analytics": false
+}

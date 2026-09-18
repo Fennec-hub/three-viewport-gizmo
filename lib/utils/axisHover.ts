@@ -1,14 +1,10 @@
-import { GizmoAxisObject } from "@lib/types";
-import { setMapHoverOffset } from "./axesMap";
+import type { GizmoAxisObject } from "../types.js";
 
 export const axisHover = (axis: GizmoAxisObject, hovered: boolean = true) => {
-  const { material, userData } = axis;
+  const { userData } = axis;
+  const { idleMaterial, hoverMaterial } = userData;
 
-  const { opacity, color, scale } = hovered ? userData.hover : userData;
+  axis.scale.setScalar((hovered ? userData.hover : userData).scale as number);
 
-  axis.scale.setScalar(scale);
-  material.opacity = opacity;
-
-  if (material.map) setMapHoverOffset(material.map, hovered);
-  else material.color.set(color);
+  axis.material = hovered ? hoverMaterial! : idleMaterial!;
 };

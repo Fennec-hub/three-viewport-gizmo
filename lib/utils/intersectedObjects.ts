@@ -1,4 +1,4 @@
-import { GizmoAxisObject } from "@lib/types";
+import { GizmoAxisObject, GizmoAxisObjectUserData } from "@lib/types";
 import {
   Vector2,
   Raycaster,
@@ -50,7 +50,9 @@ export const intersectedObjects = (
     // If we have multiple hits at similar distance, sort them by intersectionOrder
     if (nearHits.length > 1) {
       nearHits.sort((a, b) => {
-        return (b.object.userData.intersectionOrder || 0) - (a.object.userData.intersectionOrder || 0);
+        const orderA = (a.object.userData as GizmoAxisObjectUserData).intersectionOrder ?? 0;
+        const orderB = (b.object.userData as GizmoAxisObjectUserData).intersectionOrder ?? 0;
+        return orderB - orderA;
       });
 
       // Put the highest intersectionOrder object that's within the threshold at the beginning

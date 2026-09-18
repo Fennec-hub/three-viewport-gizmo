@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hover events - Three Viewport Gizmo Example</title>
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="../assets/three-viewport-gizmo.svg"
+    />
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: #333;
+        font-family: Arial;
+        font-size: 14px;
+        color: #aaa;
+      }
+      #gizmo-event-info {
+        position: fixed;
+        top: 8px;
+        left: 8px;
+        margin: 0;
+        padding: 8px 10px;
+        max-width: min(480px, 92vw);
+        white-space: pre-wrap;
+        background: rgba(0, 0, 0, 0.78);
+        color: #ddd;
+        font:
+          12px/1.45 ui-monospace,
+          monospace;
+        z-index: 100;
+        pointer-events: none;
+        border-radius: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <pre id="gizmo-event-info">Loading…</pre>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.173.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.173.0/examples/jsm/",
+          "three/webgpu": "https://unpkg.com/three@0.173.0/build/three.webgpu.js",
+          "three-viewport-gizmo": "/three-viewport-gizmo/dist/three-viewport-gizmo.js"
+        }
+      }
+    </script>
+
+    <script type="module">
+      import * as THREE from "three";
+      import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+      import { ViewportGizmo } from "three-viewport-gizmo";
+      import { loadThreeModel } from "./common/threeModel.js";
+
+      const info = document.getElementById("gizmo-event-info");
+      let lastHover = "(none yet)";
+      let lastChange = "(none yet)";
+
+      function redrawPanels() {
+        info.textContent =
+          `=== hoverchange (latest) ===\n${lastHover}\n\n=== change (latest) ===\n${lastChange}`;
+      }
+
+      function formatHoverPayload(event) {
+        if (event.kind === null && event.object === null) {
+          return "(pointer left — kind/axes/face/direction null)";
+        }
+        return [
+          `object: ${event.object ? event.object.type : "null"}`,
+          `kind: ${event.kind}`,
+          `axes: ${JSON.stringify(event.axes)}`,
+          `face: ${event.face ?? "—"}`,
+          `direction: ${JSON.stringify(event.direction?.toArray() ?? null)}`,
+        ].join("\n");
+      }
+
+      function formatChangePayload(event) {
+        const lines = [
+          `kind: ${event.kind}`,
+          `axes: ${JSON.stringify(event.axes)}`,
+          `face: ${event.face ?? "—"}`,
+          `direction: ${JSON.stringify(event.direction?.toArray() ?? null)}`,
+        ];
+        if (
+          event.kind === null &&
+          event.axes === null &&
+          event.face === null &&
+          event.direction === null
+        ) {
+          lines.push("(null identity — drag in progress or animation frame)");
+        }
+        return lines.join("\n");
+      }
+
+      // Init Scene
+      const camera = new THREE.PerspectiveCamera(
+        70,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        100,
+      );
+      camera.position.set(0, 3, 8);
+
+      const scene = new THREE.Scene();
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setAnimationLoop(animation);
+      document.body.appendChild(renderer.domElement);
+
+      const [threeModel, threeModelAnimation] = loadThreeModel(scene, renderer);
+      scene.add(threeModel);
+
+      // Init Gizmo with OrbitControls
+      const gizmo = new ViewportGizmo(camera, renderer, getGizmoConfig());
+      gizmo.attachControls(new OrbitControls(camera, renderer.domElement));
+
+      gizmo.target.set(0, 3, 0);
+      camera.lookAt(gizmo.target);
+
+      gizmo.addEventListener("hoverchange", (event) => {
+        console.log("[viewport-gizmo] hoverchange", {
+          object: event.object,
+          kind: event.kind,
+          axes: event.axes,
+          face: event.face,
+          direction: event.direction?.toArray() ?? null,
+        });
+        lastHover = formatHoverPayload(event);
+        redrawPanels();
+      });
+
+      gizmo.addEventListener("change", (event) => {
+        console.log("[viewport-gizmo] change", {
+          kind: event.kind,
+          axes: event.axes,
+          face: event.face,
+          direction: event.direction?.toArray() ?? null,
+        });
+        lastChange = formatChangePayload(event);
+        redrawPanels();
+      });
+
+      redrawPanels();
+
+      function animation(time) {
+        threeModelAnimation();
+        renderer.toneMapping = THREE.CineonToneMapping;
+        renderer.render(scene, camera);
+
+        renderer.toneMapping = THREE.NoToneMapping;
+        gizmo.render();
+      }
+
+      window.onresize = () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+
+        gizmo.update();
+      };
+
+      function getGizmoConfig() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const type = urlParams.get("type") || "rounded-cube";
+
+        if (type === "sphere") return {};
+
+        if (type === "rounded-cube") {
+          const faceConfig = {
+            color: 0x444444,
+            labelColor: 0xffffff,
+            hover: {
+              color: 0x4bac84,
+            },
+          };
+          const edgeConfig = {
+            color: 0x555555,
+            opacity: 1,
+            hover: {
+              color: 0x4bac84,
+            },
+          };
+          const cornerConfig = {
+            ...faceConfig,
+            color: 0x444444,
+            hover: {
+              color: 0x4bac84,
+            },
+          };
+          return {
+            type,
+            corners: cornerConfig,
+            edges: edgeConfig,
+            right: faceConfig,
+            top: faceConfig,
+            front: faceConfig,
+            left: faceConfig,
+            bottom: faceConfig,
+            back: faceConfig,
+          };
+        }
+
+        const darkColors = {
+          color: 0x333333,
+          labelColor: 0xdddddd,
+          hover: {
+            color: 0x4bac84,
+            labelColor: 0xffffff,
+          },
+        };
+
+        const darkBackground = {
+          color: 0x444444,
+          hover: { color: 0x444444 },
+        };
+
+        const darkCubeConfig = {
+          type,
+          background: darkBackground,
+          corners: darkColors,
+          edges: darkColors,
+          right: darkColors,
+          top: darkColors,
+          front: darkColors,
+        };
+
+        return darkCubeConfig;
+      }
+    </script>
+  </body>
+</html>

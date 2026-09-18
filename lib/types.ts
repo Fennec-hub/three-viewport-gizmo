@@ -6,12 +6,24 @@ import {
   MeshBasicMaterial,
   Object3DEventMap,
   Sprite,
+  SpriteMaterial,
+  Vector3,
 } from "three";
+import { GIZMO_AXES, GIZMO_FACES } from "./utils/constants.js";
+
+export type GizmoAxisKind = "face" | "edge" | "corner";
+
+export type GizmoAxisName = (typeof GIZMO_AXES)[number];
+
+export type GizmoFaceName = (typeof GIZMO_FACES)[number];
 
 /**
  * Configuration options for the ViewportGizmo.
  * All properties are optional and will fall back to default values if not specified.
  */
+/** A world up axis. */
+export type GizmoUpAxis = "x" | "y" | "z";
+
 export type GizmoOptions = {
   /** Parent element for the gizmo. Can be an HTMLElement or a CSS selector string */
   container?: HTMLElement | string;
@@ -64,6 +76,13 @@ export type GizmoOptions = {
    * Default `64` for a `sphere` type, and `128` for the cube.
    **/
   resolution?: number;
+
+  /**
+   * The world up axis this gizmo orients its faces, drags and face clicks around.
+   * Defaults to the axis set in `Object3D.DEFAULT_UP` and follows later changes to it on the
+   * next `update()` or `render()`; pass it explicitly when views with different up axes share a process.
+   */
+  up?: GizmoUpAxis;
 
   /** The width of the axes lines material in pixels.   LineMaterial2 */
   lineWidth?: number;
@@ -332,6 +351,21 @@ export type GizmoAxisOptions = {
   };
 };
 
+/** Optional userData fields on gizmo axis meshes/sprites; see {@link import("./utils/intersectedObjects.js").intersectedObjects} for `intersectionOrder`. */
+export interface GizmoAxisObjectUserData extends Record<string, unknown> {
+  intersectionOrder?: number;
+  kind?: GizmoAxisKind;
+  axes?: readonly GizmoAxisName[];
+  face?: GizmoFaceName;
+  /** Present on hoverable axis meshes/sprites from axesFaces/axesCorners/axesEdges */
+  idleMaterial?: MeshBasicMaterial | SpriteMaterial;
+  /** Paired hover material — selected at runtime instead of mutating atlas UV offsets (WebGPU). */
+  hoverMaterial?: MeshBasicMaterial | SpriteMaterial;
+}
+
+/** Axes Object */
+export type GizmoAxisObject = Mesh<BufferGeometry, MeshBasicMaterial> | Sprite;
+
 /**
  * Map of custom events emitted by the ViewportGizmo.
  * Extends Three.js Object3D events with gizmo-specific interaction events.
@@ -360,17 +394,34 @@ export interface ViewportGizmoEventMap extends Object3DEventMap {
    * - Active drag operations updating the view
    * - View transition animations in progress
    * - Any other camera orientation updates
+   *
+   * On click-to-orient, `kind` / `axes` / `face` / `direction` identify the hit target.
+   * On drag or animation frames they are `null`.
    */
-  change: {};
+  change: {
+    kind: GizmoAxisKind | null;
+    axes: readonly GizmoAxisName[] | null;
+    face: GizmoFaceName | null;
+    direction: Vector3 | null;
+  };
+
+  /**
+   * Fired when hovered axis/face/edge/corner changes.
+   * Payload `object` is the newly hovered mesh/sprite, or `null` after pointer leaves.
+   */
+  hoverchange: {
+    object: GizmoAxisObject | null;
+    kind: GizmoAxisKind | null;
+    axes: readonly GizmoAxisName[] | null;
+    face: GizmoFaceName | null;
+    direction: Vector3 | null;
+  };
 }
 
 /** The {@link GizmoOptions } with all options set with their respective default and fallback */
 export type GizmoOptionsFallback = DeepRequired<GizmoOptions> & {
   isSphere: boolean;
 };
-
-/** Axes Object */
-export type GizmoAxisObject = Mesh<BufferGeometry, MeshBasicMaterial> | Sprite;
 
 /** Object containing the viewport bounding box  */
 export type GizmoViewportArray = [

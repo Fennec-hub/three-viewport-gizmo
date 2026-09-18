@@ -1,5 +1,5 @@
 <script setup lang="ts">
-const type = new URLSearchParams(window.location.search).get("type") || "sphere";
+const type = typeof window === "undefined" ? "sphere" : new URLSearchParams(window.location.search).get("type") || "sphere";
 </script>
 
 # Multiple Elements

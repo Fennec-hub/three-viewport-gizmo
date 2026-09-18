@@ -9,8 +9,12 @@ import {
   SpriteMaterial,
   Vector3,
 } from "three";
-import { setMapColumnOffset } from "./axesMap";
+import { cloneAxisMap } from "./axesMap";
 import { roundedRectangleGeometry } from "./roundedRectangleGeometry";
+import { GIZMO_AXES } from "./constants";
+
+/** Row index into the atlas for sphere corners (after the six +/- axis rows). */
+const SPHERE_CORNER_ATLAS_ROW = GIZMO_AXES.length;
 
 export const axesCorners = (
   options: GizmoOptionsFallback,
@@ -29,11 +33,6 @@ export const axesCorners = (
       new SphereGeometry(radius, smoothness * 2, smoothness)
       : roundedRectangleGeometry(radius, smoothness);
 
-  const materialConfig: MeshBasicMaterialParameters = {
-    transparent: true,
-    opacity,
-  };
-
   const positionOffsetRatio = isRoundedCube ? (1 - radius) : 0.85;
   const positions = [
     1, 1, 1, -1, 1, 1, 1, -1, 1, -1, -1, 1, 1, 1, -1, -1, 1, -1, 1, -1, -1, -1,
@@ -44,17 +43,40 @@ export const axesCorners = (
   return Array(positions.length / 3)
     .fill(0)
     .map<GizmoAxisObject>((_, i) => {
+      let idleMaterial: MeshBasicMaterial | SpriteMaterial;
+      let hoverMaterial: MeshBasicMaterial | SpriteMaterial;
+
       if (isSphere) {
-        const map = texture.clone();
-        setMapColumnOffset(map, 6);
-        materialConfig.map = map;
+        const idleMap = cloneAxisMap(texture, SPHERE_CORNER_ATLAS_ROW, false);
+        const hoverMap = cloneAxisMap(texture, SPHERE_CORNER_ATLAS_ROW, true);
+        const idleParams: MeshBasicMaterialParameters = {
+          map: idleMap,
+          opacity,
+          transparent: true,
+        };
+        const hoverParams: MeshBasicMaterialParameters = {
+          map: hoverMap,
+          opacity: hover.opacity,
+          transparent: true,
+        };
+        idleMaterial = new SpriteMaterial(idleParams);
+        hoverMaterial = new SpriteMaterial(hoverParams);
       } else {
-        materialConfig.color = color;
+        idleMaterial = new MeshBasicMaterial({
+          transparent: true,
+          opacity,
+          color,
+        });
+        hoverMaterial = new MeshBasicMaterial({
+          transparent: true,
+          opacity: hover.opacity,
+          color: hover.color ?? color,
+        });
       }
 
       const corner = isSphere
-        ? new Sprite(new SpriteMaterial(materialConfig))
-        : new Mesh(geometry!, new MeshBasicMaterial(materialConfig));
+        ? new Sprite(idleMaterial as SpriteMaterial)
+        : new Mesh(geometry!, idleMaterial as MeshBasicMaterial);
 
       const i3 = i * 3;
       corner.position.set(positions[i3], positions[i3 + 1], positions[i3 + 2]);
@@ -62,8 +84,15 @@ export const axesCorners = (
       if (isSphere) corner.position.normalize().multiplyScalar(1.7);
 
       corner.scale.setScalar(scale);
+      corner.up.set(0, 0, 0)[options.up] = 1;
       corner.lookAt(target.copy(corner.position).multiplyScalar(2));
       corner.renderOrder = 1;
+
+      const axes = [
+        corner.position.x > 0 ? "x" : "nx",
+        corner.position.y > 0 ? "y" : "ny",
+        corner.position.z > 0 ? "z" : "nz",
+      ];
 
       corner.userData = {
         color,
@@ -71,6 +100,10 @@ export const axesCorners = (
         scale,
         hover,
         intersectionOrder: 1,
+        kind: "corner",
+        axes,
+        idleMaterial,
+        hoverMaterial,
       };
 
       return corner;

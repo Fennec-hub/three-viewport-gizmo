@@ -1,13 +1,29 @@
+import { BufferGeometry } from 'three';
 import { ColorRepresentation } from 'three';
 import { DeepRequired } from 'utility-types';
+import { Mesh } from 'three';
+import { MeshBasicMaterial } from 'three';
 import { Object3D } from 'three';
 import { Object3DEventMap } from 'three';
-import { OrbitControls } from 'three/examples/jsm/Addons.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { OrthographicCamera } from 'three';
 import { PerspectiveCamera } from 'three';
+import { Sprite } from 'three';
 import { Vector3 } from 'three';
 import { WebGLRenderer } from 'three';
 import { WebGPURenderer } from 'three/webgpu';
+
+declare const GIZMO_AXES: readonly ["x", "y", "z", "nx", "ny", "nz"];
+
+/** Lowercase option keys — literal tuple (do not derive via `.map`; TS widens that to `string[]`). */
+declare const GIZMO_FACES: readonly ["right", "top", "front", "left", "bottom", "back"];
+
+declare type GizmoAxisKind = "face" | "edge" | "corner";
+
+declare type GizmoAxisName = (typeof GIZMO_AXES)[number];
+
+/** Axes Object */
+declare type GizmoAxisObject = Mesh<BufferGeometry, MeshBasicMaterial> | Sprite;
 
 /**
  * Configuration options for individual gizmo axes.
@@ -55,10 +71,8 @@ export declare type GizmoAxisOptions = {
     };
 };
 
-/**
- * Configuration options for the ViewportGizmo.
- * All properties are optional and will fall back to default values if not specified.
- */
+declare type GizmoFaceName = (typeof GIZMO_FACES)[number];
+
 export declare type GizmoOptions = {
     /** Parent element for the gizmo. Can be an HTMLElement or a CSS selector string */
     container?: HTMLElement | string;
@@ -92,6 +106,12 @@ export declare type GizmoOptions = {
      * Default `64` for a `sphere` type, and `128` for the cube.
      **/
     resolution?: number;
+    /**
+     * The world up axis this gizmo orients its faces, drags and face clicks around.
+     * Defaults to the axis set in `Object3D.DEFAULT_UP` and follows later changes to it on the
+     * next `update()` or `render()`; pass it explicitly when views with different up axes share a process.
+     */
+    up?: GizmoUpAxis;
     /** The width of the axes lines material in pixels.   LineMaterial2 */
     lineWidth?: number;
     /** HTML `id` attribute for the gizmo container */
@@ -268,6 +288,13 @@ declare type GizmoOptionsFallback = DeepRequired<GizmoOptions> & {
 };
 
 /**
+ * Configuration options for the ViewportGizmo.
+ * All properties are optional and will fall back to default values if not specified.
+ */
+/** A world up axis. */
+declare type GizmoUpAxis = "x" | "y" | "z";
+
+/**
  * ViewportGizmo is a 3D camera orientation controller that provides a visual interface
  * for changing the camera's viewing angle. It creates a widget that shows the current
  * camera orientation and allows direct manipulation of the view through clicking or dragging.
@@ -313,8 +340,8 @@ export declare class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
     private _domRect;
     private _dragging;
     private _distance;
-    private _clock;
-    private _targetQuaternion;
+    /** Seconds; `null` until first `_animate` tick after `_setOrientation` (first frame uses delta 0). */
+    private _lastAnimateTimeSeconds;
     private _quaternionStart;
     private _quaternionEnd;
     private _pointerStart;
@@ -433,6 +460,15 @@ export declare class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
      */
     set(options?: GizmoOptions): this;
     /**
+     * Keeps a gizmo built without an explicit `up` option on the process-wide
+     * `Object3D.DEFAULT_UP`: when that global moves to another axis, the gizmo
+     * regenerates through {@link set} so faces, drags and clicks follow it.
+     *
+     * @private
+     * @returns Whether the gizmo was regenerated
+     */
+    private _syncDefaultUp;
+    /**
      * Renders the gizmo to the screen.
      * This method handles viewport and scissor management to ensure the gizmo
      * renders correctly without affecting the main scene rendering.
@@ -500,7 +536,7 @@ export declare class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
      */
     private _onPointerDown;
     /**
-     * Converts the input-coordinates from the standard Y-axis up to what is set in Object3D.DEFAULT_UP.
+     * Converts the input-coordinates from the standard Y-axis up to this gizmo's `up` axis.
      *
      * @private
      * @param target      - The target Vector3 to be converted
@@ -563,8 +599,27 @@ export declare interface ViewportGizmoEventMap extends Object3DEventMap {
      * - Active drag operations updating the view
      * - View transition animations in progress
      * - Any other camera orientation updates
+     *
+     * On click-to-orient, `kind` / `axes` / `face` / `direction` identify the hit target.
+     * On drag or animation frames they are `null`.
      */
-    change: {};
+    change: {
+        kind: GizmoAxisKind | null;
+        axes: readonly GizmoAxisName[] | null;
+        face: GizmoFaceName | null;
+        direction: Vector3 | null;
+    };
+    /**
+     * Fired when hovered axis/face/edge/corner changes.
+     * Payload `object` is the newly hovered mesh/sprite, or `null` after pointer leaves.
+     */
+    hoverchange: {
+        object: GizmoAxisObject | null;
+        kind: GizmoAxisKind | null;
+        axes: readonly GizmoAxisName[] | null;
+        face: GizmoFaceName | null;
+        direction: Vector3 | null;
+    };
 }
 
 export { }

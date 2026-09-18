@@ -58,6 +58,20 @@ window.onresize = () => {
 };
 ```
 
+## WebGPU (`WebGPURenderer`)
+
+`ViewportGizmo` accepts the same `renderer` argument you already pass everywhere: either the legacy **`WebGLRenderer`** or **`WebGPURenderer`** (`import * as THREE from "three/webgpu"`). Detection uses the renderer’s `isWebGPURenderer` flag from three.js itself (no caller configuration).
+
+Important details:
+
+1. **`WebGPURenderer` must finish async init** before clearing or relying on pixels; call **`await renderer.init()`** once after constructing the renderer. See [`live/src/WebGPU.ts`](./live/src/WebGPU.ts).
+
+2. **Viewport layout** uses the correct `setViewport` y-origin for WebGPU versus WebGL internally (see [#48](https://github.com/Fennec-hub/three-viewport-gizmo/issues/48)).
+
+3. **Shared renderer caveat** — using the same `WebGPURenderer` instance for both the main scene and a sub-rect gizmo pass can interact badly with three.js’s internal offscreen framebuffer + composite quad in some setups. Prefer a **dedicated smaller canvas/renderer** only for the gizmo (the pattern documented on the deployed docs site).
+
+For a minimal WebGL/WebGPU playground, see the **[WebGPU example](https://fennec-hub.github.io/three-viewport-gizmo/examples/webgpu)** (header toggle adjusts the sample iframe query string).
+
 ## Acknowledgments
 
 - Thanks to the [Three.js](https://threejs.org/) community for their amazing work.

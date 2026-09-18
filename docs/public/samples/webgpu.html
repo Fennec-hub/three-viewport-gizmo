@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WebGPU / WebGL sample - Three Viewport Gizmo</title>
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="../assets/three-viewport-gizmo.svg"
+    />
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: #333;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        color: #aaa;
+      }
+    </style>
+  </head>
+  <body>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.173.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.173.0/examples/jsm/",
+          "three/webgpu": "https://unpkg.com/three@0.173.0/build/three.webgpu.js",
+          "three-viewport-gizmo": "https://cdn.jsdelivr.net/gh/taucad/three-viewport-gizmo/dist/three-viewport-gizmo.js"
+        }
+      }
+    </script>
+
+    <script type="module">
+      const urlParams = new URLSearchParams(window.location.search);
+      const useWebgpu = urlParams.get("renderer") === "webgpu";
+      const gizmoType = urlParams.get("type") || "sphere";
+
+      const THREE_module = await (useWebgpu
+        ? import("three/webgpu")
+        : import("three"));
+
+      const THREE = THREE_module;
+
+      const { OrbitControls } = await import(
+        "three/addons/controls/OrbitControls.js"
+      );
+      const { ViewportGizmo } = await import("three-viewport-gizmo");
+
+      function getGizmoConfig(type) {
+        if (type === "sphere") {
+          return {};
+        }
+
+        if (type === "rounded-cube") {
+          const faceConfig = {
+            color: 0x444444,
+            labelColor: 0xffffff,
+            hover: {
+              color: 0x4bac84,
+            },
+          };
+          const edgeConfig = {
+            color: 0x555555,
+            opacity: 1,
+            hover: {
+              color: 0x4bac84,
+            },
+          };
+          const cornerConfig = {
+            ...faceConfig,
+            color: 0x444444,
+            hover: {
+              color: 0x4bac84,
+            },
+          };
+          return {
+            type,
+            corners: cornerConfig,
+            edges: edgeConfig,
+            right: faceConfig,
+            top: faceConfig,
+            front: faceConfig,
+            left: faceConfig,
+            bottom: faceConfig,
+            back: faceConfig,
+          };
+        }
+
+        const darkColors = {
+          color: 0x333333,
+          labelColor: 0xdddddd,
+          hover: {
+            color: 0x4bac84,
+            labelColor: 0xffffff,
+          },
+        };
+
+        const darkBackground = {
+          color: 0x444444,
+          hover: { color: 0x444444 },
+        };
+
+        return {
+          type,
+          background: darkBackground,
+          corners: darkColors,
+          edges: darkColors,
+          right: darkColors,
+          top: darkColors,
+          front: darkColors,
+        };
+      }
+
+      const camera = new THREE.PerspectiveCamera(
+        70,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        100
+      );
+      camera.position.set(0, 3, 8);
+
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x333333);
+
+      const gridHelper = new THREE.GridHelper(10, 10, 0x111111, 0x111111);
+      gridHelper.rotation.x = Math.PI / 2;
+      scene.add(gridHelper);
+
+      const cube = new THREE.Mesh(
+        new THREE.BoxGeometry(),
+        new THREE.MeshNormalMaterial()
+      );
+      cube.position.z = 0.5;
+      scene.add(cube);
+
+      const RendererClass = useWebgpu
+        ? THREE.WebGPURenderer
+        : THREE.WebGLRenderer;
+
+      const renderer = new RendererClass({ antialias: true });
+
+      if (useWebgpu) {
+        await renderer.init();
+      }
+
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setAnimationLoop(animation);
+      document.body.appendChild(renderer.domElement);
+
+      const gizmo = new ViewportGizmo(camera, renderer, getGizmoConfig(gizmoType));
+      gizmo.attachControls(new OrbitControls(camera, renderer.domElement));
+
+      function animation() {
+        renderer.render(scene, camera);
+        const supportsTone = "toneMapping" in renderer;
+        const previousTone = supportsTone ? renderer.toneMapping : undefined;
+        if (supportsTone) {
+          renderer.toneMapping = THREE.NoToneMapping;
+        }
+        gizmo.render();
+        if (supportsTone) {
+          renderer.toneMapping = previousTone;
+        }
+      }
+
+      window.onresize = () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        gizmo.update();
+      };
+
+      gizmo.update();
+    </script>
+  </body>
+</html>

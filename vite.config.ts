@@ -9,9 +9,17 @@ export default defineConfig({
       name: "ThreeViewportGizmo",
     },
     rollupOptions: {
-      external: ["three"],
+      // Externalize every `three` subpath (`three`, `three/webgpu`, `three/addons/...`,
+      // `three/src/...`, etc.) so the consumer's module graph supplies them. Inlining
+      // them produced cross-graph `Line2NodeMaterial` / `Line2` instances that
+      // `WebGPURenderer` (importmapped from a different copy of three) refused to
+      // render and that confused WebGL's `LineMaterial` resolver -- see ../docs/webgpu.md.
+      external: (id) => id === "three" || id.startsWith("three/"),
       output: {
-        globals: { three: "THREE" },
+        // UMD users only see the bare `three` global; subpath imports (notably
+        // `three/webgpu`) are unsupported in UMD and Rollup will warn -- ESM
+        // (importmap / bundler) is the supported path for WebGPU.
+        globals: (id) => (id === "three" ? "THREE" : "THREE"),
       },
     },
     sourcemap: true,

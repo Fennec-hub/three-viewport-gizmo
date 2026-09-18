@@ -1,5 +1,5 @@
 <script setup lang="ts">
-const type = new URLSearchParams(window.location.search).get("type") || "sphere";
+const type = typeof window === "undefined" ? "sphere" : new URLSearchParams(window.location.search).get("type") || "sphere";
 </script>
 
 # Z-up Coordinate System
@@ -8,7 +8,7 @@ const type = new URLSearchParams(window.location.search).get("type") || "sphere"
 
 This example demonstrates how to use ViewportGizmo in a Three.js scene with a Z-up coordinate system. This coordinate system is commonly used in CAD applications, where the Z-axis represents the vertical direction.
 
-The Gizmo is designed to work out of the box with the Z-up, right-handed coordinate system without requiring additional configuration.
+A new Three.js process is Y-up (`Object3D.DEFAULT_UP` is `(0, 1, 0)`). For a Z-up gizmo either set `Object3D.DEFAULT_UP.set(0, 0, 1)` before creating it — the gizmo reads the axis from that global and regenerates on its next update or render if the global changes later — or pass the axis per gizmo: `new ViewportGizmo(camera, renderer, { up: "z" })`. Pass it per gizmo when several views with different up axes share one process.
 
 The default directions are as follows:
 - Up: `Z+`

@@ -1,4 +1,4 @@
-import { GizmoOptionsFallback } from "@lib/types";
+import type { GizmoAxisName, GizmoAxisObject, GizmoOptionsFallback } from "@lib/types";
 import {
   CanvasTexture,
   Mesh,
@@ -10,7 +10,13 @@ import {
   CylinderGeometry,
 } from "three";
 import { roundedRectangleGeometry } from "./roundedRectangleGeometry";
-import { setMapColumnOffset } from "./axesMap";
+import { cloneAxisMap } from "./axesMap";
+
+const signToAxis = (
+  value: number,
+  positive: GizmoAxisName,
+  negative: GizmoAxisName
+): GizmoAxisName | null => (value === 0 ? null : value > 0 ? positive : negative);
 
 export const axesEdges = (
   options: GizmoOptionsFallback,
@@ -31,11 +37,6 @@ export const axesEdges = (
       new CylinderGeometry(radius, radius, edgeLength, smoothness * 4)
       : roundedRectangleGeometry(radius, smoothness, edgeLength, 0.25);
 
-  const materialConfig: MeshBasicMaterialParameters = {
-    transparent: true,
-    opacity,
-  };
-
   const positionOffsetRatio = isRoundedCube ? (1 - radius) : 0.925;
   const positions = [
     0, 1, 1, 0, -1, 1, 1, 0, 1, -1, 0, 1, 0, 1, -1, 0, -1, -1, 1, 0, -1, -1, 0,
@@ -46,18 +47,41 @@ export const axesEdges = (
   const defaultUp = new Vector3(0, 1, 0);
   return Array(positions.length / 3)
     .fill(0)
-    .map<Mesh<any, MeshBasicMaterial> | Sprite>((_, i) => {
+    .map<GizmoAxisObject>((_, i) => {
+      let idleMaterial: MeshBasicMaterial | SpriteMaterial;
+      let hoverMaterial: MeshBasicMaterial | SpriteMaterial;
+
       if (isSphere) {
-        const map = texture.clone();
-        setMapColumnOffset(map, textureColumn);
-        materialConfig.map = map;
+        const idleMap = cloneAxisMap(texture, textureColumn, false);
+        const hoverMap = cloneAxisMap(texture, textureColumn, true);
+        const idleParams: MeshBasicMaterialParameters = {
+          map: idleMap,
+          opacity,
+          transparent: true,
+        };
+        const hoverParams: MeshBasicMaterialParameters = {
+          map: hoverMap,
+          opacity: hover.opacity,
+          transparent: true,
+        };
+        idleMaterial = new SpriteMaterial(idleParams);
+        hoverMaterial = new SpriteMaterial(hoverParams);
       } else {
-        materialConfig.color = color;
+        idleMaterial = new MeshBasicMaterial({
+          transparent: true,
+          opacity,
+          color,
+        });
+        hoverMaterial = new MeshBasicMaterial({
+          transparent: true,
+          opacity: hover.opacity,
+          color: hover.color ?? color,
+        });
       }
 
       const edge = isSphere
-        ? new Sprite(new SpriteMaterial(materialConfig))
-        : new Mesh(geometry!, new MeshBasicMaterial(materialConfig));
+        ? new Sprite(idleMaterial as SpriteMaterial)
+        : new Mesh(geometry!, idleMaterial as MeshBasicMaterial);
 
       const i3 = i * 3;
       edge.position.set(positions[i3], positions[i3 + 1], positions[i3 + 2]);
@@ -76,11 +100,20 @@ export const axesEdges = (
 
       edge.renderOrder = 1;
 
+      const a = signToAxis(edge.position.x, "x", "nx");
+      const b = signToAxis(edge.position.y, "y", "ny");
+      const c = signToAxis(edge.position.z, "z", "nz");
+      const axesList = [a, b, c].filter((x): x is GizmoAxisName => x !== null);
+
       edge.userData = {
         color,
         opacity,
         scale,
         hover,
+        kind: "edge",
+        axes: axesList,
+        idleMaterial,
+        hoverMaterial,
       };
 
       return edge;

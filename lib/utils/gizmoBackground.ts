@@ -6,7 +6,7 @@ import {
   MeshBasicMaterial,
   SphereGeometry,
 } from "three";
-import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 
 export const gizmoBackground = (
   faces: GizmoAxisObject[],

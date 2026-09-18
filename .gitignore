@@ -4,6 +4,7 @@ logs
 npm-debug.log*
 
 node_modules
+.nx/workspace-data
 *.local
 docs/.vitepress/dist
 docs/.vitepress/cache

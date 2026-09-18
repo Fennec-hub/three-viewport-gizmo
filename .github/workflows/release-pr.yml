@@ -1,0 +1,109 @@
+# Maintains one bot-owned release pull request. Merging it is the release act;
+# ci.yml alone owns npm publication, verification, tagging, and GitHub Releases.
+name: Release PR
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: release-pr
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment:
+      name: release-pr
+      deployment: false
+    steps:
+      - name: Mint tau-release-bot token
+        id: bot
+        uses: actions/create-github-app-token@064492a9a1762067169d50c792a7dc02bc3d1254 # v2.0.0
+        with:
+          app-id: ${{ secrets.RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+          permission-pull-requests: write
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          ref: main
+          persist-credentials: true
+          token: ${{ steps.bot.outputs.token }}
+      - name: Check pending Version Plans
+        id: plans
+        env:
+          GH_TOKEN: ${{ steps.bot.outputs.token }}
+        run: |
+          set -euo pipefail
+          if compgen -G '.nx/version-plans/*.md' > /dev/null; then
+            echo "pending=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "pending=false" >> "$GITHUB_OUTPUT"
+          pr_number=$(gh pr list --base main --head release/next --state open --json number --jq '.[0].number // empty')
+          if [[ -n "$pr_number" ]]; then
+            gh pr close "$pr_number" --comment "No Version Plans are pending on main, so there is nothing to release." --delete-branch
+          else
+            git push origin --delete release/next 2>/dev/null || true
+          fi
+      - name: Setup repository
+        if: steps.plans.outputs.pending == 'true'
+        uses: ./.github/actions/setup
+        with:
+          node-version: '26.7.0'
+      - name: Generate the release commit
+        id: generate
+        if: steps.plans.outputs.pending == 'true'
+        run: |
+          set -euo pipefail
+          previous_version=$(node -p "require('./package.json').version")
+          npm run release:prepare -- --from-plans
+          git rm --quiet --force '.nx/version-plans/*.md'
+          git add CHANGELOG.md package.json package-lock.json
+          staged=$(git diff --cached --name-only)
+          allowed='^(CHANGELOG\.md|package\.json|package-lock\.json|\.nx/version-plans/.+\.md)$'
+          unexpected=$(grep -Ev "$allowed" <<< "$staged" || true)
+          if [[ -n "$unexpected" ]]; then
+            echo "::error::Release generation changed unexpected files: $unexpected"
+            exit 1
+          fi
+          version=$(node -p "require('./package.json').version")
+          git config user.name "tau-release-bot[bot]"
+          git config user.email "tau-release-bot[bot]@users.noreply.github.com"
+          git commit --quiet -m "chore(release): three-viewport-gizmo v$version"
+          git push --force origin HEAD:refs/heads/release/next
+          {
+            echo "version=$version"
+            echo "previous_version=$previous_version"
+          } >> "$GITHUB_OUTPUT"
+      - name: Upsert the release pull request
+        if: steps.plans.outputs.pending == 'true'
+        env:
+          GH_TOKEN: ${{ steps.bot.outputs.token }}
+          TITLE: 'chore(release): three-viewport-gizmo v${{ steps.generate.outputs.version }}'
+          VERSION: ${{ steps.generate.outputs.version }}
+          PREVIOUS_VERSION: ${{ steps.generate.outputs.previous_version }}
+        run: |
+          set -euo pipefail
+          body=$(cat <<BODYEOF
+          Releases **@taulabs/three-viewport-gizmo v${VERSION}** from ${PREVIOUS_VERSION}, as dictated by the pending Nx Version Plan.
+
+          - This pull request is bot-managed. Do not push to release/next or enable auto-merge.
+          - **Merging this pull request publishes the tested candidate to npm.** Keep the title unchanged and use squash merge.
+          BODYEOF
+          )
+          pr_number=$(gh pr list --base main --head release/next --state open --json number --jq '.[0].number // empty')
+          if [[ -z "$pr_number" ]]; then
+            gh pr create --base main --head release/next --title "$TITLE" --body "$body"
+          else
+            gh pr edit "$pr_number" --title "$TITLE" --body "$body"
+          fi

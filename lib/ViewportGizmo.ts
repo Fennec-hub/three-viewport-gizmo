@@ -1,6 +1,6 @@
 import {
   Camera,
-  Clock,
+  MathUtils,
   Matrix4,
   Mesh,
   MeshBasicMaterial,
@@ -16,6 +16,8 @@ import {
   type WebGLRenderer,
 } from "three";
 
+const { clamp } = MathUtils;
+
 import { gizmoDomElement, setDomPlacement } from "./utils/gizmoDomElement";
 import { getDomElement } from "./utils/getDomElement";
 import { updateAxis } from "./utils/updateAxis";
@@ -29,25 +31,50 @@ import {
   GizmoOptionsFallback,
   GizmoAxisObject,
   GizmoViewportArray,
+  GizmoAxisKind,
+  GizmoAxisName,
+  GizmoFaceName,
+  GizmoAxisObjectUserData,
 } from "./types";
-import { GIZMO_EPSILON, GIZMO_TURN_RATE } from "./utils/constants";
+import {
+  GIZMO_EPSILON,
+  GIZMO_POLE_EPSILON,
+  GIZMO_TURN_RATE,
+} from "./utils/constants";
 import { updateBackground } from "./utils/updateBackground";
-import type { OrbitControls } from "three/examples/jsm/Addons.js";
-import { optionsFallback } from "./utils/optionsFallback";
-import { clamp } from "three/src/math/MathUtils.js";
+import type { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { optionsFallback, upAxisFromVector } from "./utils/optionsFallback";
 import { axesObjects } from "./utils/axesObjects";
 import { axisHover } from "./utils/axisHover";
 import type { WebGPURenderer } from "three/webgpu";
 
 export type { GizmoOptions, ViewportGizmoEventMap, GizmoAxisOptions };
 
+const _identityVec = /*@__PURE__*/ new Vector3();
+
+function objectIdentity(object: GizmoAxisObject | null): {
+  kind: GizmoAxisKind | null;
+  axes: readonly GizmoAxisName[] | null;
+  face: GizmoFaceName | null;
+  direction: Vector3 | null;
+} {
+  if (!object) return { kind: null, axes: null, face: null, direction: null };
+
+  const userData: GizmoAxisObjectUserData = object.userData;
+
+  return {
+    kind: userData.kind ?? null,
+    axes: userData.axes ?? null,
+    face: userData.face ?? null,
+    direction: _identityVec.copy(object.position).normalize().clone(),
+  };
+}
+
 const _matrix = /*@__PURE__*/ new Matrix4();
 const _spherical = /*@__PURE__*/ new Spherical();
 const _vec2 = /*@__PURE__*/ new Vector2();
 const _vec3 = /*@__PURE__*/ new Vector3();
 const _vec4 = /*@__PURE__*/ new Vector4();
-const _positiveZQuaternion = /*@__PURE__*/ new Quaternion().setFromAxisAngle(new Vector3(0, 0, 1), Math.PI / 2);
-const _negativeZQuaternion = /*@__PURE__*/ new Quaternion().setFromAxisAngle(new Vector3(0, 0, 1), -Math.PI / 2);
 
 /**
  * ViewportGizmo is a 3D camera orientation controller that provides a visual interface
@@ -103,8 +130,8 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
   private _domRect!: DOMRect;
   private _dragging: boolean = false;
   private _distance: number = 0;
-  private _clock: Clock = new Clock();
-  private _targetQuaternion = new Quaternion();
+  /** Seconds; `null` until first `_animate` tick after `_setOrientation` (first frame uses delta 0). */
+  private _lastAnimateTimeSeconds: number | null = null;
   private _quaternionStart = new Quaternion();
   private _quaternionEnd = new Quaternion();
   private _pointerStart = new Vector2();
@@ -246,10 +273,12 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
    * - Can be computationally expensive, so use sparingly
    */
   set(options: GizmoOptions = {}) {
+    const controls = this._controls;
     this.dispose();
 
     this.options = options;
     this._options = optionsFallback(options);
+    this.up.set(0, 0, 0)[this._options.up] = 1;
 
     this._camera = this._options.isSphere
       ? new OrthographicCamera(-1.8, 1.8, 1.8, -1.8, 5, 10)
@@ -257,7 +286,7 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
 
     this._camera.position.set(0, 0, 7);
 
-    const [axes, background, lines] = axesObjects(this._options);
+    const [axes, background, lines] = axesObjects(this._options, this.renderer);
 
     if (background) this.add(background);
     if (lines) this.add(lines);
@@ -282,11 +311,27 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
 
     this._container.appendChild(this._domElement);
 
-    if (this._controls) this.attachControls(this._controls);
+    if (controls) this.attachControls(controls);
 
     this.update();
 
     return this;
+  }
+
+  /**
+   * Keeps a gizmo built without an explicit `up` option on the process-wide
+   * `Object3D.DEFAULT_UP`: when that global moves to another axis, the gizmo
+   * regenerates through {@link set} so faces, drags and clicks follow it.
+   *
+   * @private
+   * @returns Whether the gizmo was regenerated
+   */
+  private _syncDefaultUp(): boolean {
+    if (this.options.up !== undefined) return false;
+    if (upAxisFromVector(Object3D.DEFAULT_UP) === this._options.up) return false;
+
+    this.set(this.options);
+    return true;
   }
 
   /**
@@ -297,24 +342,40 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
    * @returns The gizmo instance for method chaining
    */
   render() {
+    this._syncDefaultUp();
     if (this.animating) this._animate();
 
     const { renderer, _viewport } = this;
 
     const _prevScissorTest = renderer.getScissorTest();
     const _prevAutoClear = renderer.autoClear;
+    const _prevAutoClearColor = renderer.autoClearColor;
+    const _prevAutoClearDepth = renderer.autoClearDepth;
+    const _prevAutoClearStencil = renderer.autoClearStencil;
 
-    renderer.autoClear = false;
+    // Clear depth inline with the gizmo render pass instead of via renderer.clear().
+    // On the WebGPU common Renderer, renderer.clear() triggers an extra _renderOutput
+    // quad pass over the current sub-rect viewport (Renderer.js Renderer.clear), which
+    // rewrites the swap chain with a tone-mapped/linearToSRGB sample of the FB MSAA-
+    // resolved texture and produces a translucent halo. autoClear*-driven clearing
+    // happens inside the single subsequent render pass on both backends.
+    renderer.autoClear = true;
+    renderer.autoClearColor = false;
+    renderer.autoClearDepth = true;
+    renderer.autoClearStencil = false;
+
     renderer.setViewport(..._viewport);
     if (_prevScissorTest) renderer.setScissor(..._viewport);
 
-    renderer.clear(false, true, false);
     renderer.render(this._scene, this._camera);
 
     renderer.setViewport(...this._originalViewport);
     if (_prevScissorTest) renderer.setScissor(...this._originalScissor);
 
     renderer.autoClear = _prevAutoClear;
+    renderer.autoClearColor = _prevAutoClearColor;
+    renderer.autoClearDepth = _prevAutoClearDepth;
+    renderer.autoClearStencil = _prevAutoClearStencil;
 
     return this;
   }
@@ -332,12 +393,22 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
     const domRect = this._domRect;
     const containerRect = renderer.domElement.getBoundingClientRect();
 
+    // `WebGPURenderer` (and the WebGPU-fallback `WebGLBackend`) interpret
+    // `setViewport` y as top-left origin (native WebGPU). Legacy `WebGLRenderer`
+    // uses bottom-left (passed through to `gl.viewport`). See issue #48.
+    const isTopLeftOrigin =
+      (renderer as { isWebGPURenderer?: boolean }).isWebGPURenderer === true;
+    const yFromCanvasTop = domRect.top - containerRect.top;
+    const y = isTopLeftOrigin
+      ? yFromCanvasTop
+      : renderer.domElement.clientHeight -
+        (yFromCanvasTop + domRect.height);
+
     this._viewport.splice(
       0,
       4,
       domRect.left - containerRect.left,
-      renderer.domElement.clientHeight -
-        (domRect.top - containerRect.top + domRect.height),
+      y,
       domRect.width,
       domRect.height
     );
@@ -367,6 +438,7 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
    * @returns The gizmo instance for method chaining
    */
   update(controls: boolean = true) {
+    if (this._syncDefaultUp()) return this;
     if (controls && this._controls) this._controls.update();
     return this.domUpdate().cameraUpdate();
   }
@@ -423,10 +495,38 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
 
     this.children.forEach((child) => {
       this.remove(child);
-      const mesh = child as Mesh<any, MeshBasicMaterial>;
-      mesh.material?.dispose();
-      mesh.material?.map?.dispose();
-      mesh.geometry?.dispose();
+      const ud = child.userData as Partial<GizmoAxisObjectUserData>;
+
+      if (ud.idleMaterial && ud.hoverMaterial) {
+        ud.idleMaterial.map?.dispose();
+        ud.idleMaterial.dispose();
+
+        if (ud.hoverMaterial !== ud.idleMaterial) {
+          ud.hoverMaterial.map?.dispose();
+          ud.hoverMaterial.dispose();
+        }
+      } else {
+        const meshlike = child as Mesh & {
+          material?: MeshBasicMaterial | MeshBasicMaterial[] | unknown;
+          geometry?: { dispose: () => void };
+        };
+
+        const { material } = meshlike;
+        if (Array.isArray(material)) {
+          for (const mat of material) {
+            const m = mat as MeshBasicMaterial;
+            m.map?.dispose();
+            m.dispose();
+          }
+        } else if (material && typeof material === "object" && "dispose" in material) {
+          const mb = material as MeshBasicMaterial;
+          mb.map?.dispose();
+          mb.dispose();
+        }
+      }
+
+      const meshlike = child as Mesh & { geometry?: { dispose: () => void } };
+      meshlike.geometry?.dispose();
     });
 
     this._domElement?.remove();
@@ -453,68 +553,41 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
    * @private
    */
   private _animate() {
-    const { position, quaternion } = this.camera;
+    let finished = !this.animated;
 
-    position.set(0, 0, 1);
+    if (this.animated) {
+      if (this._controls) this._controls.enabled = false;
 
-    if (!this.animated) {
-      position
-        .applyQuaternion(this._quaternionEnd)
-        .multiplyScalar(this._distance)
-        .add(this.target);
+      const nowSeconds = performance.now() / 1000;
+      const delta =
+        this._lastAnimateTimeSeconds === null
+          ? 0
+          : nowSeconds - this._lastAnimateTimeSeconds;
+      this._lastAnimateTimeSeconds = nowSeconds;
 
-      quaternion.copy(this._targetQuaternion);
-
-      this._updateOrientation();
-
-      this.animating = false;
-      this.dispatchEvent({ type: "change" });
-      this.dispatchEvent({ type: "end" });
-      return;
+      const step = delta * GIZMO_TURN_RATE * this.speed;
+      this._quaternionStart.rotateTowards(this._quaternionEnd, step);
+      finished =
+        this._quaternionStart.angleTo(this._quaternionEnd) < GIZMO_EPSILON;
     }
 
-    if (this._controls) this._controls.enabled = false;
+    if (finished) this._quaternionStart.copy(this._quaternionEnd);
 
-    const delta = this._clock.getDelta();
-
-    const step = delta * GIZMO_TURN_RATE * this.speed;
-
-    this._quaternionStart.rotateTowards(this._quaternionEnd, step);
-
-    position
+    this.camera.position
+      .set(0, 0, 1)
       .applyQuaternion(this._quaternionStart)
       .multiplyScalar(this._distance)
       .add(this.target);
-
-    quaternion.rotateTowards(this._targetQuaternion, step);
-
+    this.camera.quaternion.copy(this._quaternionStart);
     this._updateOrientation();
-    // FIXME - Need fix?
-    requestAnimationFrame(() => this.dispatchEvent({ type: "change" }));
+    this.dispatchEvent({ type: "change", ...objectIdentity(null) });
 
-    if (this._quaternionStart.angleTo(this._quaternionEnd) < GIZMO_EPSILON) {
-      if (this._controls) {
-        // Normalize the camera position to a vector of magnitude 1.
-        const normalizedCameraPosition = this.camera.position.clone().sub(this.target).normalize();
-        // After concluding the animation, we need to manually set the camera position to
-        // prevent the camera from rotating around the Z-axis for Z-up and X-up systems.
-        // These explicit checks are necessary due to the JavaScript quirk of having both +0.0 and -0.0.
-        if (Object3D.DEFAULT_UP.z === 1 && Math.abs(normalizedCameraPosition.z) > 0.99) {
-          // With Z-up, the Y vector is -0.0 which causes the camera to rotate around the Z-axis by 90 degrees.
-          // We need to manually set the position vector with Y vector of a true negative epsilon to prevent this.
-          this.camera.position.set(0, -GIZMO_EPSILON, this.camera.position.z);
-        } else if (Object3D.DEFAULT_UP.x === 1 && Math.abs(normalizedCameraPosition.x) > 0.99) {
-          // With X-up, the Y vector is +0.0 which causes the camera to rotate around the X-axis by 90 degrees.
-          // We need to manually set the position vector with X vector of a true positive epsilon to prevent this.
-          this.camera.position.set(this.camera.position.x, GIZMO_EPSILON, 0);
-        }
-        this._controls.update();
-        this._controls.enabled = true;
-      }
+    if (!finished) return;
 
-      this.animating = false;
-      this.dispatchEvent({ type: "end" });
-    }
+    this._controls?.update();
+    this.animating = false;
+    this._lastAnimateTimeSeconds = null;
+    this.dispatchEvent({ type: "end" });
   }
 
   /**
@@ -527,36 +600,30 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
     const camera = this.camera;
     const focusPoint = this.target;
 
-    _vec3.copy(position).multiplyScalar(this._distance);
+    _vec3.copy(position);
 
-    _matrix.setPosition(_vec3).lookAt(_vec3, this.position, this.up);
-    this._targetQuaternion.setFromRotationMatrix(_matrix);
+    const { up } = this._options;
 
-    _vec3.add(focusPoint);
+    if (up === "z" && Math.abs(position.z) > 0.99) {
+      _vec3.y = -GIZMO_POLE_EPSILON;
+    } else if (up === "x" && Math.abs(position.x) > 0.99) {
+      _vec3.y = GIZMO_POLE_EPSILON;
+    }
+
+    _vec3.normalize().multiplyScalar(this._distance).add(focusPoint);
 
     _matrix.lookAt(_vec3, focusPoint, this.up);
     this._quaternionEnd.setFromRotationMatrix(_matrix);
 
-    _matrix
-      .setPosition(camera.position)
-      .lookAt(camera.position, focusPoint, this.up);
-    this._quaternionStart.setFromRotationMatrix(_matrix);
-
-    // For Z-up and X-up systems, when rotating to the top or bottom, we need to apply
-    // a final rotational twist to correctly align the gizmo's "Top" or "Bottom" face.
-    if (Object3D.DEFAULT_UP.z === 1 && Math.abs(position.z) > 0.99) {
-      const zSign = Math.sign(position.z);
-      this._targetQuaternion.multiply(zSign === 1 ? _negativeZQuaternion : _positiveZQuaternion);
-      this._quaternionEnd.multiply(zSign === 1 ? _negativeZQuaternion : _positiveZQuaternion);
-    } else if (Object3D.DEFAULT_UP.x === 1 && Math.abs(position.x) > 0.99) {
-      const xSign = Math.sign(position.x);
-      this._targetQuaternion.multiply(xSign === 1 ? _negativeZQuaternion : _positiveZQuaternion);
-      this._quaternionEnd.multiply(xSign === 1 ? _negativeZQuaternion : _positiveZQuaternion);
-    }
+    // Use the camera's actual quaternion instead of recomputing it via Matrix4.lookAt.
+    // At the world up axis (camera.position parallel to this.up), Three.js lookAt perturbs
+    // the eye→target vector in a direction that can disagree with the quaternion OrbitControls
+    // settled on for the same position. That makes _quaternionStart and _quaternionEnd differ
+    // by ~90° around up even when the camera is already on the requested face (e.g. Z-up Bottom).
+    this._quaternionStart.copy(camera.quaternion);
 
     this.animating = true;
-    this._clock.start();
-    this.dispatchEvent({ type: "start" });
+    this._lastAnimateTimeSeconds = null;
   }
 
   /**
@@ -602,7 +669,7 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
       this.quaternion.copy(this.camera.quaternion).invert();
 
       this._updateOrientation(false);
-      this.dispatchEvent({ type: "change" });
+      this.dispatchEvent({ type: "change", ...objectIdentity(null) });
     };
 
     const endDrag = () => {
@@ -641,7 +708,7 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
   }
 
   /**
-   * Converts the input-coordinates from the standard Y-axis up to what is set in Object3D.DEFAULT_UP.
+   * Converts the input-coordinates from the standard Y-axis up to this gizmo's `up` axis.
    *
    * @private
    * @param target      - The target Vector3 to be converted
@@ -651,12 +718,12 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
   private coordinateConversion(target: Vector3, isSpherical = false) {
     const { x, y, z } = target;
 
-    const defaultUp = Object3D.DEFAULT_UP;
+    const { up } = this._options;
 
-    if (defaultUp.x === 1)
+    if (up === "x")
       return isSpherical ? target.set(y, z, x) : target.set(z, x, y);
 
-    if (defaultUp.z === 1)
+    if (up === "z")
       return isSpherical ? target.set(z, x, y) : target.set(y, z, x);
 
     return target;
@@ -685,9 +752,21 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
     if (!this.enabled || this._dragging) return;
 
     if (this._background) updateBackground(this._background, false);
-    if (this._focus) axisHover(this._focus, false);
+
+    const hadFocus = this._focus !== null;
+    if (this._focus) {
+      axisHover(this._focus, false);
+      this._focus = null;
+    }
 
     this._domElement.style.cursor = "";
+
+    if (hadFocus)
+      this.dispatchEvent({
+        type: "hoverchange",
+        object: null,
+        ...objectIdentity(null),
+      });
   }
 
   /**
@@ -709,11 +788,17 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
       this._focus = null;
     }
 
-    if (!intersection) return;
+    if (!intersection) {
+      this.dispatchEvent({ type: "end" });
+      return;
+    }
 
     this._setOrientation(intersection.object.position);
 
-    this.dispatchEvent({ type: "change" });
+    this.dispatchEvent({
+      type: "change",
+      ...objectIdentity(intersection.object),
+    });
   }
 
   /**
@@ -740,5 +825,7 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
 
     if ((this._focus = object)) axisHover(object, true);
     else updateAxis(this._options, this._intersections, this.camera);
+
+    this.dispatchEvent({ type: "hoverchange", object, ...objectIdentity(object) });
   }
 }
