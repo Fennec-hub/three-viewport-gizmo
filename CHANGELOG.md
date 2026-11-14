@@ -1,3 +1,13 @@
+## 2.3.0 (2026-11-14)
+
+### 🚀 Features
+
+- View changes now turn through an upright orbit path with no roll or final snap, on every up axis, and drags use the same path; adds `lookFrom()` for programmatic view changes, and fixes `dispose()` leaving half its children and its document pointer listeners behind. ([#23](https://github.com/taucad/three-viewport-gizmo/pull/23))
+
+### ❤️ Thank You
+
+- Richard Fontein @rifont
+
 ## 2.2.4 (2026-09-18)
 
 ### 🩹 Fixes

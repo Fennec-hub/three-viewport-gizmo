@@ -14,7 +14,7 @@
       "require": "./dist/three-viewport-gizmo.umd.cjs"
     }
   },
-  "version": "2.2.4",
+  "version": "2.3.0",
   "type": "module",
   "packageManager": "npm@12.0.2",
   "publishConfig": {
