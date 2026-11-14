@@ -6,8 +6,9 @@ npm-debug.log*
 node_modules
 .nx/workspace-data
 *.local
-docs/.vitepress/dist
-docs/.vitepress/cache
+site/.next
+site/out
+site/next-env.d.ts
 
 # Editor directories and files
 .vscode/*
@@ -19,3 +20,4 @@ docs/.vitepress/cache
 *.njsproj
 *.sln
 *.sw?
+site/tsconfig.tsbuildinfo

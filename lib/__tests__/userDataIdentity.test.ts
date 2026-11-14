@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { CanvasTexture, Object3D } from "three";
-import { optionsFallback } from "../utils/optionsFallback.js";
-import { axesFaces } from "../utils/axesFaces.js";
-import { axesCorners } from "../utils/axesCorners.js";
-import { axesEdges } from "../utils/axesEdges.js";
+import { optionsFallback } from "../options/optionsFallback.js";
+import { axesFaces } from "../scene/axesFaces.js";
+import { axesCorners } from "../scene/axesCorners.js";
+import { axesEdges } from "../scene/axesEdges.js";
 import { GIZMO_AXES, GIZMO_FACES } from "../utils/constants.js";
 import { resetDefaultUp } from "./test-utils.js";
 

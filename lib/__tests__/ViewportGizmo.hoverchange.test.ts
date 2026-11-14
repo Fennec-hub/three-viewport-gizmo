@@ -5,7 +5,7 @@ import type { GizmoAxisObject } from "../types.js";
 import { createGizmo, getInternals, resetDefaultUp } from "./test-utils.js";
 
 const intersectedObjects = vi.fn();
-vi.mock("../utils/intersectedObjects.js", () => ({
+vi.mock("../interaction/intersectedObjects.js", () => ({
   intersectedObjects: (...args: unknown[]) => intersectedObjects(...args),
 }));
 
@@ -18,7 +18,6 @@ describe("hoverchange", () => {
   it("fires on focus transitions and debounces the same object", () => {
     const gizmo = createGizmo({ cameraPosition: new Vector3(5, 5, 5) });
     const internals = getInternals(gizmo);
-    internals._distance = gizmo.camera.position.length();
 
     const a = internals._intersections[0]!;
     const b = internals._intersections[1]!;
@@ -106,7 +105,6 @@ describe("hoverchange", () => {
   it("includes corner identity on hover (face null)", () => {
     const gizmo = createGizmo({ cameraPosition: new Vector3(5, 5, 5) });
     const internals = getInternals(gizmo);
-    internals._distance = gizmo.camera.position.length();
 
     const corner = internals._intersections[6]!;
     expect(corner.userData.kind).toBe("corner");

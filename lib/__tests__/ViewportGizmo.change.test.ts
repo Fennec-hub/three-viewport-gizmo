@@ -2,10 +2,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Intersection } from "three";
 import { Vector3 } from "three";
 import type { GizmoAxisObject } from "../types.js";
-import { createGizmo, getInternals, resetDefaultUp } from "./test-utils.js";
+import { createGizmo, getInternals, resetDefaultUp, runFlight } from "./test-utils.js";
 
 const intersectedObjects = vi.fn();
-vi.mock("../utils/intersectedObjects.js", () => ({
+vi.mock("../interaction/intersectedObjects.js", () => ({
   intersectedObjects: (...args: unknown[]) => intersectedObjects(...args),
 }));
 
@@ -18,7 +18,6 @@ describe("_handleClick change payload", () => {
   it("dispatches enriched change for a face hit", () => {
     const gizmo = createGizmo({ cameraPosition: new Vector3(5, 5, 5) });
     const internals = getInternals(gizmo);
-    internals._distance = gizmo.camera.position.length();
 
     const face = internals._intersections[0]!;
     intersectedObjects.mockReturnValue({
@@ -66,8 +65,8 @@ describe("_handleClick change payload", () => {
     } as unknown as PointerEvent);
     document.dispatchEvent(new MouseEvent("pointerup", { clientX: 20, clientY: 20 }));
 
-    internals._quaternionStart.copy(internals._quaternionEnd);
-    internals._animate();
+    runFlight(gizmo);
+    expect(gizmo.animating).toBe(false);
     queuedFrames.splice(0).forEach((callback) => callback(0));
 
     expect(events.filter((event) => event === "start")).toHaveLength(1);

@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest";
 import type { MeshBasicMaterial } from "three";
 import type { GizmoAxisName, GizmoAxisObject } from "../types.js";
-import { axisHover } from "../utils/axisHover.js";
-import { axesObjects } from "../utils/axesObjects.js";
-import { optionsFallback } from "../utils/optionsFallback.js";
+import { axisHover } from "../interaction/axisHover.js";
+import { axesObjects } from "../scene/axesObjects.js";
+import { optionsFallback } from "../options/optionsFallback.js";
 import { createStubRenderer, resetDefaultUp } from "./test-utils.js";
 
 afterEach(() => {

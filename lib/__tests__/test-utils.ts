@@ -1,30 +1,18 @@
+import { vi } from "vitest";
 import type { GizmoOptions, GizmoOptionsFallback, GizmoAxisObject } from "../types.js";
 import { ViewportGizmo } from "../ViewportGizmo.js";
 import type { WebGLRenderer } from "three";
 import type { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import {
-  Object3D,
-  PerspectiveCamera,
-  Quaternion,
-  Vector3,
-  Vector4,
-} from "three";
+import { Object3D, PerspectiveCamera, Vector3, Vector4 } from "three";
 export type ViewportGizmoInternals = {
-  _quaternionStart: Quaternion;
-  _quaternionEnd: Quaternion;
   _focus: GizmoAxisObject | null;
   _intersections: GizmoAxisObject[];
-  _distance: number;
-  _lastAnimateTimeSeconds: number | null;
-  _setOrientation: (position: Vector3) => void;
   _handleHover: (e: PointerEvent) => void;
   _handleClick: (e: PointerEvent) => void;
   _onPointerDown: (e: PointerEvent) => void;
   _onPointerLeave: () => void;
-  _animate: () => void;
   _options: GizmoOptionsFallback;
   _controls?: OrbitControls;
-  coordinateConversion: (target: Vector3, isSpherical?: boolean) => Vector3;
 };
 
 export function getInternals(gizmo: ViewportGizmo): ViewportGizmoInternals {
@@ -98,4 +86,30 @@ export function createGizmo({
 
 export function resetDefaultUp(): void {
   Object3D.DEFAULT_UP.set(0, 1, 0);
+}
+
+/** One frame of an animated view change, at 60 frames per second. */
+export const FRAME_MS = 1000 / 60;
+
+/**
+ * Renders `gizmo` once per frame, `FRAME_MS` apart on a mocked `performance.now`
+ * that starts at `startMs`, until its view change ends.
+ *
+ * @returns The number of frames rendered
+ */
+export function runFlight(
+  gizmo: ViewportGizmo,
+  onFrame?: (frame: number) => void,
+  startMs = 0
+): number {
+  let now = startMs;
+  const spy = vi.spyOn(performance, "now").mockImplementation(() => now);
+  let frame = 0;
+  for (; gizmo.animating && frame < 600; frame++) {
+    gizmo.render();
+    onFrame?.(frame);
+    now += FRAME_MS;
+  }
+  spy.mockRestore();
+  return frame;
 }

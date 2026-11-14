@@ -14,12 +14,7 @@ import {
   Vector3,
   Vector4,
 } from "three";
-import {
-  createGizmo,
-  createStubRenderer,
-  getInternals,
-  resetDefaultUp,
-} from "./test-utils.js";
+import { createGizmo, createStubRenderer, resetDefaultUp, runFlight } from "./test-utils.js";
 
 CameraControls.install({
   THREE: {
@@ -37,14 +32,6 @@ CameraControls.install({
 
 const TARGET = new Vector3(3, -4, 2);
 
-const finishAnimation = (gizmo: ReturnType<typeof createGizmo>) => {
-  const internals = getInternals(gizmo);
-  vi.spyOn(performance, "now").mockReturnValueOnce(0).mockReturnValueOnce(1000);
-  internals._animate();
-  internals._animate();
-  expect(gizmo.animating).toBe(false);
-};
-
 afterEach(() => {
   resetDefaultUp();
   vi.restoreAllMocks();
@@ -56,7 +43,7 @@ describe("cardinal orientation settle", () => {
     ["Z-up Bottom", new Vector3(0, 0, 1), new Vector3(0, 0, -1), new Vector3(1, 0, 0)],
     ["X-up Right", new Vector3(1, 0, 0), new Vector3(1, 0, 0), new Vector3(0, 0, 1)],
     ["X-up Left", new Vector3(1, 0, 0), new Vector3(-1, 0, 0), new Vector3(0, 0, 1)],
-  ])("keeps %s stable when CameraControls accepts the final position", (_, up, direction, expectedRight) => {
+  ])("keeps %s stable on every frame when CameraControls accepts the position", (_, up, direction, expectedRight) => {
     Object3D.DEFAULT_UP.copy(up);
     const cameraPosition = TARGET.clone().add(new Vector3(7, 8, 9));
     const gizmo = createGizmo({ defaultUp: up, cameraPosition });
@@ -68,19 +55,24 @@ describe("cardinal orientation settle", () => {
     void controls.setLookAt(...gizmo.camera.position.toArray(), ...TARGET.toArray(), false);
     controls.update(0);
 
-    const internals = getInternals(gizmo);
-    internals._distance = gizmo.camera.position.distanceTo(TARGET);
-    internals._setOrientation(direction);
-    finishAnimation(gizmo);
+    gizmo.lookFrom(direction);
+    let worstAngle = 0;
+    let worstDistance = 0;
+    const frames = runFlight(gizmo, () => {
+      const quaternion = gizmo.camera.quaternion.clone();
+      const distance = gizmo.camera.position.distanceTo(TARGET);
 
-    const finalQuaternion = gizmo.camera.quaternion.clone();
-    const finalDistance = gizmo.camera.position.distanceTo(TARGET);
+      void controls.setPosition(...gizmo.camera.position.toArray(), false);
+      controls.update(0);
 
-    void controls.setPosition(...gizmo.camera.position.toArray(), false);
-    controls.update(0);
+      worstAngle = Math.max(worstAngle, quaternion.angleTo(gizmo.camera.quaternion));
+      worstDistance = Math.max(worstDistance, Math.abs(gizmo.camera.position.distanceTo(TARGET) - distance));
+    });
 
-    expect(finalQuaternion.angleTo(gizmo.camera.quaternion)).toBeLessThan(1e-6);
-    expect(gizmo.camera.position.distanceTo(TARGET)).toBeCloseTo(finalDistance, 10);
+    expect(gizmo.animating).toBe(false);
+    expect(frames).toBeGreaterThan(2);
+    expect(worstAngle).toBeLessThan(1e-6);
+    expect(worstDistance).toBeLessThan(1e-9);
     expect(
       new Vector3(1, 0, 0)
         .applyQuaternion(gizmo.camera.quaternion)
@@ -91,7 +83,7 @@ describe("cardinal orientation settle", () => {
     gizmo.dispose();
   });
 
-  it("preserves a non-origin target when attached OrbitControls settles Z-up Top", () => {
+  it("preserves a non-origin target when attached OrbitControls settles Z-up Top on every frame", () => {
     Object3D.DEFAULT_UP.set(0, 0, 1);
     const cameraPosition = TARGET.clone().add(new Vector3(7, 8, 9));
     const camera = new PerspectiveCamera(50, 1, 0.1, 1000);
@@ -107,15 +99,25 @@ describe("cardinal orientation settle", () => {
       defaultUp: new Vector3(0, 0, 1),
       cameraPosition,
     });
-    gizmo.camera.copy(camera);
+    // The controls must drive the gizmo's own camera for the settle check to mean anything.
+    gizmo.camera = camera;
     gizmo.attachControls(controls);
 
     const distance = camera.position.distanceTo(TARGET);
-    const internals = getInternals(gizmo);
-    internals._distance = distance;
-    internals._setOrientation(new Vector3(0, 0, 1));
-    finishAnimation(gizmo);
+    gizmo.lookFrom(new Vector3(0, 0, 1));
+    let worstAngle = 0;
+    let worstMove = 0;
+    runFlight(gizmo, () => {
+      const quaternion = gizmo.camera.quaternion.clone();
+      const position = gizmo.camera.position.clone();
+      controls.update();
+      worstAngle = Math.max(worstAngle, quaternion.angleTo(gizmo.camera.quaternion));
+      worstMove = Math.max(worstMove, position.distanceTo(gizmo.camera.position));
+    });
 
+    expect(gizmo.animating).toBe(false);
+    expect(worstAngle).toBeLessThan(1e-6);
+    expect(worstMove).toBeLessThan(1e-9);
     expect(gizmo.camera.position.distanceTo(TARGET)).toBeCloseTo(distance, 10);
     expect(gizmo.camera.position.x).toBeCloseTo(TARGET.x, 3);
     expect(gizmo.camera.position.y).toBeLessThan(TARGET.y);

@@ -13,6 +13,7 @@
         "**/*.test.*",
         ".github/**",
         "docs/**",
+        "site/**",
         "nx.json",
         "tests/**",
         "scripts/**",

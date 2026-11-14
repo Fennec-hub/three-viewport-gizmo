@@ -31,9 +31,45 @@ describe("up option", () => {
     expect(faceLabel(gizmo, "ny")).toBe("Front");
     expect(faceLabel(gizmo, "x")).toBe("Right");
     expect(gizmo.up.toArray()).toEqual([0, 0, 1]);
+  });
 
-    const converted = getInternals(gizmo).coordinateConversion(new Vector3(1, 2, 3));
-    expect(converted.toArray()).toEqual([2, 3, 1]);
+  it.each(["x", "y", "z"] as const)("drags a %s-up gizmo as an upright orbit about its up axis", (up) => {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const gizmo = createGizmo({
+      cameraPosition: new Vector3(4, 5, 6),
+      gizmoOptions: { type: "cube", up, container },
+    });
+    const element = container.firstElementChild as HTMLElement;
+    element.getBoundingClientRect = () => DOMRect.fromRect({ x: 0, y: 0, width: 128, height: 128 });
+    gizmo.update();
+
+    const u = new Vector3();
+    u[up] = 1;
+    const height = gizmo.camera.position.dot(u);
+    const radius = gizmo.camera.position.length();
+    const events: string[] = [];
+    for (const type of ["start", "change", "end"] as const) {
+      gizmo.addEventListener(type, () => events.push(type));
+    }
+
+    // jsdom does not route dispatched pointer events to `onpointerdown`; call the handler.
+    element.onpointerdown!(new MouseEvent("pointerdown", { clientX: 20, clientY: 20 }) as PointerEvent);
+    const azimuthBefore = gizmo.camera.position.clone().projectOnPlane(u);
+    // A drag turns π radians per gizmo width: 32 px of 128 px is π/4, toward negative azimuth.
+    document.dispatchEvent(new MouseEvent("pointermove", { clientX: 52, clientY: 20 }));
+    document.dispatchEvent(new MouseEvent("pointerup", { clientX: 52, clientY: 20 }));
+
+    expect(events).toEqual(["start", "change", "end"]);
+    expect(gizmo.camera.position.dot(u)).toBeCloseTo(height, 9);
+    expect(gizmo.camera.position.length()).toBeCloseTo(radius, 9);
+    const azimuthAfter = gizmo.camera.position.clone().projectOnPlane(u);
+    expect(azimuthAfter.angleTo(azimuthBefore)).toBeCloseTo(Math.PI / 4, 9);
+    expect(azimuthBefore.clone().cross(azimuthAfter).dot(u)).toBeLessThan(0);
+    expect(new Vector3(1, 0, 0).applyQuaternion(gizmo.camera.quaternion).dot(u)).toBeCloseTo(0, 12);
+
+    gizmo.dispose();
+    container.remove();
   });
 
   it("orients every face exactly as the legacy DEFAULT_UP path did", () => {
