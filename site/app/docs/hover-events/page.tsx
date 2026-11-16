@@ -1,41 +1,37 @@
 import type { Metadata } from "next";
-import { Code } from "@site/components/Code";
+import Link from "next/link";
+import { Sample } from "@site/components/Sample";
 import { HoverEventsExample } from "@site/components/examples";
-import { PACKAGE } from "@site/components/site";
 
-export const metadata: Metadata = { title: "Hover events" };
+export const metadata: Metadata = {
+  title: "Hover events",
+  description: "React to the face, edge or corner under the pointer, to presses and to turns with typed payloads.",
+};
 
 export default function HoverEventsGuide() {
   return (
     <>
       <h1>Hover events</h1>
       <p>
-        <code>hoverchange</code> fires when the pointer moves onto a different face, edge or corner,
-        and <code>change</code> fires when the view changes. Both carry the hit&apos;s identity:{" "}
-        <code>kind</code> (<code>face</code>, <code>edge</code> or <code>corner</code>),{" "}
-        <code>axes</code>, <code>face</code> (faces only) and <code>direction</code>, a unit{" "}
-        <code>Vector3</code>.
+        Show what the pointer is over, or what a click is turning to, from the gizmo&apos;s typed
+        events. Every payload carries a target as data: its <code>name</code> (such as{" "}
+        <code>top-front</code>), <code>kind</code> (<code>face</code>, <code>edge</code> or{" "}
+        <code>corner</code>), drawn <code>label</code> and unit <code>direction</code>.
       </p>
+
+      <h2>Prerequisites</h2>
       <p>
-        On <code>hoverchange</code>, <code>object</code> is the hovered mesh or sprite, or{" "}
-        <code>null</code> when the pointer leaves; the identity fields are then <code>null</code>.
-        On <code>change</code>, a click dispatches the identity once; drag and animation frames
-        carry <code>null</code>.
+        The <Link href="/docs/quickstart/">Quickstart</Link>.
       </p>
-      <Code>{`
-import { ViewportGizmo } from "${PACKAGE}";
 
-const gizmo = new ViewportGizmo(camera, renderer, { type: "rounded-cube" });
-gizmo.attachControls(controls);
-
-gizmo.addEventListener("hoverchange", ({ object, kind, axes, face, direction }) => {
-  console.log("hoverchange", { object, kind, axes, face, direction: direction?.toArray() });
-});
-
-gizmo.addEventListener("change", ({ kind, axes, face, direction }) => {
-  console.log("change", { kind, axes, face, direction: direction?.toArray() });
-});
-`}</Code>
+      <h2>Steps</h2>
+      <h3>1. Listen for hover, press and change</h3>
+      <p>
+        The field is <code>hovered</code> or <code>pressed</code>, never <code>target</code>:
+        three.js&apos;s <code>EventDispatcher</code> writes the gizmo itself to{" "}
+        <code>event.target</code>.
+      </p>
+      <Sample file="hover-events.ts" />
       <figure>
         <HoverEventsExample />
         <figcaption>
@@ -43,6 +39,34 @@ gizmo.addEventListener("change", ({ kind, axes, face, direction }) => {
           payloads.
         </figcaption>
       </figure>
+
+      <h2>Variations</h2>
+      <ul>
+        <li>
+          <code>hoverchange</code> also fires when the view turns under a still pointer, and never
+          for touch.
+        </li>
+        <li>
+          <code>change</code> fires for every flight frame and drag step. Its <code>heading</code> is
+          where a flight is going (<code>null</code> for a drag) and <code>pose</code> is the view
+          now.
+        </li>
+        <li>
+          <code>attargetchange</code> says which target the view rests on, or <code>null</code>{" "}
+          between targets. <code>gizmo.hovered</code> and <code>gizmo.atTarget</code> read the same
+          state at any time.
+        </li>
+      </ul>
+
+      <h2>Related</h2>
+      <ul>
+        <li>
+          <Link href="/docs/styling/">Styling and state</Link>: <code>data-hovered</code> for CSS.
+        </li>
+        <li>
+          <Link href="/docs/api/#events">API reference: events</Link>
+        </li>
+      </ul>
     </>
   );
 }

@@ -1,0 +1,193 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>S2 labels</title>
+  </head>
+  <body>
+    <script type="module">
+      // Browser cases for lib/scene/labels.ts (S2): `?backend=webgpu|webgl`. Renders the scene alone into a render
+      // target of the gizmo's device pixels and reads it back.
+      // ponytail: drives lib/scene directly until K5 wires buildScene into the class.
+      import * as THREE from "three/webgpu";
+      import { resolveOptions } from "/lib/options/resolve.ts";
+      import { buildScene, disposeScene } from "/lib/scene/build.ts";
+      import { hoverScene } from "/lib/scene/update.ts";
+      import { textureBytes } from "/lib/scene/labels.ts";
+
+      const q = new URLSearchParams(location.search);
+      const backend = q.get("backend") ?? "webgpu";
+      const CSS = 128;
+
+      const renderer =
+        backend === "webgl" ? new (await import("three")).WebGLRenderer() : new THREE.WebGPURenderer({ forceWebGL: false });
+      if (renderer.init) await renderer.init();
+
+      const resolve = (options) => resolveOptions(options, { up: new THREE.Vector3(0, 1, 0) });
+      // The provider reads the device pixel ratio at build; a case pins it to compare sizes.
+      const withDpr = (dpr, build) => {
+        const real = Object.getOwnPropertyDescriptor(window, "devicePixelRatio");
+        Object.defineProperty(window, "devicePixelRatio", { value: dpr, configurable: true });
+        try {
+          return build();
+        } finally {
+          if (real) Object.defineProperty(window, "devicePixelRatio", real);
+          else delete window.devicePixelRatio;
+        }
+      };
+
+      /** Renders `options` at `dpr` from `euler`, returning RGBA bytes of a `CSS * dpr` square and the scene. */
+      const shoot = async (options, { dpr = 2, buildDpr = dpr, euler = [0, 0, 0], hoverAll = false } = {}) => {
+        const side = CSS * dpr;
+        const target = backend === "webgl" ? new (await import("three")).WebGLRenderTarget(side, side) : new THREE.RenderTarget(side, side);
+        const camera =
+          options.type === "cube" || options.type === "rounded-cube"
+            ? new THREE.PerspectiveCamera(26, 1, 5, 10)
+            : new THREE.OrthographicCamera(-1.8, 1.8, 1.8, -1.8, 5, 10);
+        camera.position.set(0, 0, 7);
+        const world = new THREE.Scene();
+        const root = new THREE.Object3D();
+        root.quaternion.setFromEuler(new THREE.Euler(...euler)).invert();
+        world.add(root);
+        const scene = withDpr(buildDpr, () => buildScene(resolve(options)));
+        root.add(scene.group);
+        const draw = async () => {
+          renderer.setRenderTarget(target);
+          renderer.setClearColor(0x000000, 0);
+          renderer.clear();
+          renderer.render(world, camera);
+          renderer.setRenderTarget(null);
+          if (backend !== "webgl") return renderer.readRenderTargetPixelsAsync(target, 0, 0, side, side);
+          const buffer = new Uint8Array(side * side * 4);
+          await renderer.readRenderTargetPixelsAsync(target, 0, 0, side, side, buffer);
+          return buffer;
+        };
+        if (hoverAll) {
+          for (const { target: t } of scene.targets) {
+            hoverScene(scene, t.name);
+            await draw();
+          }
+          hoverScene(scene, null);
+        }
+        const pixels = await draw();
+        return { pixels, scene, target, draw };
+      };
+
+      /** Mean absolute RGB difference over pixels lit in either image, 0 to 255. */
+      const diff = (a, b) => {
+        let sum = 0;
+        let count = 0;
+        for (let i = 0; i < a.length; i += 4) {
+          if (a[i + 3] === 0 && b[i + 3] === 0) continue;
+          sum += Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]);
+          count += 3;
+        }
+        return count ? sum / count : 0;
+      };
+      const textures = (scene) => {
+        const found = new Set();
+        scene.group.traverse((o) => o.material?.map && found.add(o.material.map));
+        for (const t of scene.targets) for (const m of [t.idle, t.hover]) m.map && found.add(m.map);
+        return [...found];
+      };
+
+      /** P3: the WebGPU cube's label textures after hovering every target. */
+      const memory = async (type = "cube", dpr = 2) => {
+        const before = renderer.info.memory.textures;
+        const { scene, target } = await shoot({ type }, { dpr, hoverAll: true });
+        const all = textures(scene);
+        // S7: the one shared 1×1 white map of the plain targets, lines and background; the rest are labels.
+        const whites = all.filter((t) => t.isDataTexture);
+        const maps = all.filter((t) => !t.isDataTexture);
+        const users = new Set();
+        scene.group.traverse((o) => o.material?.map === whites[0] && users.add(o.material));
+        for (const t of scene.targets) for (const m of [t.idle, t.hover]) m.map === whites[0] && users.add(m);
+        const result = {
+          backend: renderer.backend?.isWebGPUBackend ? "webgpu" : "webgl",
+          textures: maps.length,
+          sides: [...new Set(maps.map((t) => t.image.width))],
+          bytes: maps.reduce((sum, t) => sum + textureBytes(t.image.width), 0),
+          white: whites.map((t) => ({ width: t.image.width, height: t.image.height, bytes: t.image.data.byteLength, users: users.size })),
+          // The renderer's own count, less the render target's texture.
+          rendererTextures: renderer.info.memory.textures - before - 1,
+        };
+        disposeScene(scene);
+        target.dispose();
+        return result;
+      };
+
+      /** D13: at device pixel ratio 2, the default labels against labels at 1024 texels and against 16-texel ones. */
+      const sharp = async (type) => {
+        const shot = async (options, buildDpr) => {
+          const { pixels, scene, target } = await shoot({ type, ...options }, { dpr: 2, buildDpr });
+          disposeScene(scene);
+          target.dispose();
+          return pixels;
+        };
+        const reference = await shot({ resolution: 1024 }, 2);
+        const defaults = await shot({}, 2);
+        const blurry = await shot({ resolution: 16 }, 0.25);
+        return { toReference: diff(defaults, reference), blurryToReference: diff(blurry, reference) };
+      };
+
+      /** R25: a face added after construction redraws the labels with no set(). */
+      const lateFont = async () => {
+        const options = { type: "cube", font: { family: "S2LateFont, serif" } };
+        const { scene, draw, target } = await shoot(options, { dpr: 2 });
+        // A host has drawn more than one frame by then. three r184's WebGPU backend drops a texture update made between
+        // the first and second frame that sample it.
+        const before = await draw();
+        let frames = 0;
+        scene.labels.onRedraw = () => frames++;
+        const canvas = scene.labels.texture("z", "idle").image;
+        const ink = canvas.toDataURL();
+        // A file the gate's server holds, not a local() font: CI runners have no Courier. A url() source (not an
+        // ArrayBuffer, which is parsed before it joins the set) loads through document.fonts, so `loadingdone` fires.
+        const face = new FontFace("S2LateFont", "url(/tests/browser/fixtures/geist-latin.woff2)", { weight: "100 900" });
+        document.fonts.add(face);
+        await face.load();
+        await new Promise((r) => setTimeout(r, 50)); // `loadingdone` follows the load's promise
+        const after = await draw();
+        disposeScene(scene);
+        target.dispose();
+        document.fonts.delete(face);
+        return { changed: diff(before, after) > 0, redrawn: canvas.toDataURL() !== ink, frames };
+      };
+
+      /**
+       * S5: the rounded cube's face labels bleed to their edges. With every piece one colour and no text, any pixel in
+       * the silhouette off that colour is a sliver in a corner notch or a line along a face boundary.
+       */
+      const seams = async () => {
+        const color = 0x8899aa;
+        const face = { color, label: "", hover: { color } };
+        const options = {
+          type: "rounded-cube",
+          background: { enabled: false },
+          edges: { color, opacity: 1 },
+          corners: { color, opacity: 1 },
+          ...Object.fromEntries(["x", "y", "z", "nx", "ny", "nz"].map((end) => [end, face])),
+        };
+        const views = [[0, 0, 0], [0.5, -0.7, 0], [Math.PI / 4, 0, 0], [0, Math.PI / 4, 0], [0.62, Math.PI / 4, 0], [-0.4, 2.2, 0.3]];
+        const { r, g, b } = new THREE.Color(color);
+        const want = [r, g, b].map((c) => Math.round(c * 255));
+        let off = 0;
+        let lit = 0;
+        for (const euler of views) {
+          const { pixels, scene, target } = await shoot(options, { dpr: 2, euler });
+          for (let i = 0; i < pixels.length; i += 4) {
+            if (pixels[i + 3] === 0) continue;
+            lit++;
+            if (Math.max(...want.map((c, k) => Math.abs(pixels[i + k] - c))) > 2 || pixels[i + 3] < 255) off++;
+          }
+          disposeScene(scene);
+          target.dispose();
+        }
+        return { lit, off };
+      };
+
+      window.T = { memory, sharp, lateFont, seams };
+      window.READY = true;
+    </script>
+  </body>
+</html>

@@ -21,24 +21,28 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPixelatedPass } from "three/addons/postprocessing/RenderPixelatedPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
-import { ViewportGizmo } from "@lib/ViewportGizmo";
+import { ViewportGizmo } from "@lib/index";
 import { Stage } from "./Stage";
-import type { UpAxis } from "./frames";
+import { AXES, type UpAxis } from "./frames";
 
 export function OrbitControlsEventsExample() {
   return (
     <Stage
       label="OrbitControls wired to the gizmo through events"
-      config={{ controller: "none", gizmo: { type: "cube" } }}
+      config={{ controller: "none", gizmo: { type: "cube", roll: false } }}
       setup={({ camera, renderer, gizmo, target }) => {
         if (!gizmo) return;
         const controls = new OrbitControls(camera, renderer.domElement);
-        // The gizmo and the controls share one target.
-        gizmo.target = controls.target.copy(target);
+        // The gizmo keeps its own copy of the controls' target.
+        controls.target.copy(target);
+        gizmo.target.copy(target);
         controls.update();
         gizmo.addEventListener("start", () => (controls.enabled = false));
         gizmo.addEventListener("end", () => (controls.enabled = true));
-        controls.addEventListener("change", () => gizmo.update(false));
+        controls.addEventListener("change", () => {
+          gizmo.target.copy(controls.target);
+          gizmo.update();
+        });
         return { dispose: () => controls.dispose() };
       }}
     />
@@ -56,12 +60,13 @@ export function HoverEventsExample() {
         label="Rounded-cube gizmo reporting hover and change events"
         config={{ controller: "orbit", gizmo: { type: "rounded-cube" } }}
         setup={({ gizmo }) => {
-          gizmo?.addEventListener("hoverchange", ({ kind, axes, face, direction }) =>
-            setHover({ kind, axes, face, direction: direction?.toArray().map(round) ?? null })
+          gizmo?.addEventListener("hoverchange", ({ hovered }) =>
+            setHover(hovered && { name: hovered.name, kind: hovered.kind, direction: hovered.direction.toArray().map(round) })
           );
-          gizmo?.addEventListener("change", ({ kind, axes, face, direction }) => {
-            // Drag and animation frames carry no identity; keep the last click.
-            if (kind) setChange({ kind, axes, face, direction: direction?.toArray().map(round) ?? null });
+          gizmo?.addEventListener("change", ({ cause, heading }) => {
+            // Drag frames head nowhere; keep the last turn to a target.
+            const target = heading?.target;
+            if (target) setChange({ cause, name: target.name, kind: target.kind, direction: target.direction.toArray().map(round) });
           });
         }}
       />
@@ -178,21 +183,38 @@ export function PostProcessingExample() {
 }
 
 export function UpAxisExample() {
-  const [up, setUp] = useState<UpAxis>("z");
+  const [up, setUp] = useState<UpAxis>("+z");
+  const name = (axis: UpAxis) => `${axis[0] === "-" ? "−" : "+"}${axis[1].toUpperCase()}`;
   return (
     <>
       <fieldset style={{ marginBottom: "0.75rem" }}>
         <legend>Up axis</legend>
         <div className="segmented">
-          {(["x", "y", "z"] as const).map((axis) => (
+          {AXES.map((axis) => (
             <label key={axis}>
               <input type="radio" name="up-axis" checked={up === axis} onChange={() => setUp(axis)} />
-              <span>{axis.toUpperCase()}-up</span>
+              <span>{name(axis)} up</span>
             </label>
           ))}
         </div>
       </fieldset>
-      <Stage label={`${up.toUpperCase()}-up scene with a cube gizmo`} config={{ up, controller: "orbit", gizmo: { type: "cube" } }} />
+      <Stage label={`${name(up)} up scene with a cube gizmo`} config={{ up, controller: "orbit", gizmo: { type: "cube" } }} />
+    </>
+  );
+}
+
+export function RoundedCubeTriadExample() {
+  const [triad, setTriad] = useState(true);
+  return (
+    <>
+      <label style={{ display: "block", marginBottom: "0.75rem" }}>
+        <input type="checkbox" checked={triad} onChange={(event) => setTriad(event.target.checked)} /> Axis triad
+      </label>
+      <Stage
+        label="Rounded-cube gizmo with the axis triad"
+        config={{ controller: "orbit", gizmo: { type: "rounded-cube" } }}
+        options={{ triad: { enabled: triad } }}
+      />
     </>
   );
 }

@@ -19,6 +19,8 @@ jobs:
     outputs:
       kind: ${{ steps.release.outputs.kind }}
       npm-publish: ${{ steps.release.outputs.npm_publish }}
+      npm-tag: ${{ steps.release.outputs.npm_tag }}
+      prerelease: ${{ steps.release.outputs.prerelease }}
       version: ${{ steps.release.outputs.version }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -94,6 +96,78 @@ jobs:
             npx nx release plan:check --base=HEAD~1 --head=HEAD
           fi
 
+  browser-gate:
+    # D16: Linux with Chromium's SwiftShader adapter gives WebGL (ANGLE) and WebGPU (Dawn on
+    # SwiftShader Vulkan) and reproduces P Finding 1, so both halves of the gate run on every pull request.
+    needs: preflight
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      GIZMO_GPU: swiftshader
+      PERF_N: '100'
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          node-version: '26.7.0'
+      - run: npx playwright install --with-deps chromium
+      # The screenshot matrix runs against the built docs site's Matrix page (site/out).
+      - run: npx nx run three-viewport-gizmo:docs
+      - run: npx nx run three-viewport-gizmo:test-browser
+      - if: success() || failure()
+        run: npx nx run three-viewport-gizmo:perf
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: browser-gate
+          path: |
+            test-results
+            perf/out/*.json
+            tests/browser/__screenshots__
+          if-no-files-found: ignore
+          retention-days: 14
+
+  peer-three:
+    # R16 peer floor: the lowest three that passes, 0.168 (the first that can roll with OrbitControls) and the latest.
+    # Unit tests, a consumer type check of the built .d.ts and a WebGL browser smoke; the full gate runs on the
+    # lockfile's three, which is the latest.
+    needs: preflight
+    strategy:
+      fail-fast: false
+      matrix:
+        three: ['0.167.0', '0.168.0', '0.187.0']
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GIZMO_GPU: swiftshader
+      GIZMO_BACKENDS: webgl
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          node-version: '26.7.0'
+      - run: npm run build
+      - name: Install three ${{ matrix.three }}
+        env:
+          THREE: ${{ matrix.three }}
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts "three@$THREE" "@types/three@$THREE"
+          test "$(node -p "require('./node_modules/three/package.json').version")" = "$THREE"
+      - run: npx vitest run
+      - name: Type-check a consumer against the built package
+        run: npx tsc -p tests/peer
+      - run: npx playwright install --with-deps chromium
+      # WebGPURenderer draws the gizmo from three 0.171, so the floor's smoke is WebGL only.
+      - name: WebGL browser smoke
+        run: >-
+          npx playwright test -c tests/browser --grep-invert webgpu
+          tests/browser/input.spec.ts tests/browser/baseline.spec.ts tests/browser/gate.spec.ts lib/__tests__/browser/frame.spec.ts
+
   candidate:
     needs: [preflight, quality]
     runs-on: ubuntu-24.04
@@ -105,6 +179,12 @@ jobs:
         with:
           node-version: '26.7.0'
       - run: npm run build
+      - name: Check the package (publint, attw)
+        # fflate 0.8.3 crashes attw 0.18.2's unpacking, so both are pinned (C2).
+        run: |
+          set -euo pipefail
+          npx --yes publint@0.3.25 --strict
+          npx --yes --package @arethetypeswrong/cli@0.18.2 --package fflate@0.8.2 -- attw --pack . --profile esm-only
       - name: Freeze the exact npm candidate
         env:
           SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -166,7 +246,6 @@ jobs:
           assert.equal(typeof ViewportGizmo, 'function');
           await access(resolve(packageRoot, manifest.types));
           NODE
-          node -e "const { ViewportGizmo } = require('@taulabs/three-viewport-gizmo'); if (typeof ViewportGizmo !== 'function') process.exit(1)"
 
   publish:
     if: needs.preflight.outputs.npm-publish == 'true'
@@ -189,6 +268,8 @@ jobs:
       - run: npm install --global npm@12.0.2
       - name: Publish the exact candidate with trusted provenance
         id: publish
+        env:
+          NPM_TAG: ${{ needs.preflight.outputs.npm-tag }}
         run: |
           set -euo pipefail
           name=$(node -p "require('./candidate/manifest.json').name")
@@ -205,7 +286,7 @@ jobs:
             echo "existed=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          npm publish "./candidate/$filename" --access public --provenance --ignore-scripts
+          npm publish "./candidate/$filename" --access public --provenance --ignore-scripts --tag "$NPM_TAG"
           echo "existed=false" >> "$GITHUB_OUTPUT"
 
   registry-verify:
@@ -229,6 +310,7 @@ jobs:
       - name: Verify registry consumers and provenance
         id: attestations
         env:
+          NPM_TAG: ${{ needs.preflight.outputs.npm-tag }}
           PACKAGE_EXISTED: ${{ needs.publish.outputs.existed }}
           SOURCE_COMMIT: ${{ github.sha }}
           WORKFLOW_RUN: ${{ github.run_id }}
@@ -239,20 +321,24 @@ jobs:
           integrity=$(node -p "require('./candidate/manifest.json').integrity")
           for attempt in {1..20}; do
             existing=$(npm view "$name@$version" dist.integrity 2>/dev/null || true)
-            [[ "$existing" == "$integrity" ]] && break
+            tagged=$(npm view "$name" "dist-tags.$NPM_TAG" 2>/dev/null || true)
+            [[ "$existing" == "$integrity" && "$tagged" == "$version" ]] && break
             [[ "$attempt" == 20 ]] && {
-              echo "::error::Registry did not serve the candidate integrity"
+              echo "::error::Registry did not serve the candidate integrity under dist-tag $NPM_TAG"
               exit 1
             }
             sleep 15
           done
+          if [[ "$NPM_TAG" != latest && "$(npm view "$name" dist-tags.latest)" == "$version" ]]; then
+            echo "::error::Prerelease $version moved the latest dist-tag"
+            exit 1
+          fi
           root="$PWD"
           directory="$(mktemp -d)"
           cd "$directory"
           npm init --yes >/dev/null
           npm install --ignore-scripts "$name@$version" three@0.184.0
           node --input-type=module -e "import { ViewportGizmo } from '$name'; if (typeof ViewportGizmo !== 'function') process.exit(1)"
-          node -e "const { ViewportGizmo } = require('$name'); if (typeof ViewportGizmo !== 'function') process.exit(1)"
           npm audit signatures --json --include-attestations > /tmp/npm-audit-signatures.json
           cd "$root"
           expected=()
@@ -288,6 +374,7 @@ jobs:
           REPOSITORY: ${{ github.repository }}
           SOURCE_COMMIT: ${{ needs.registry-verify.outputs.source-commit }}
           VERSION: ${{ needs.preflight.outputs.version }}
+          PRERELEASE: ${{ needs.preflight.outputs.prerelease }}
         run: |
           set -euo pipefail
           tag="v$VERSION"
@@ -305,11 +392,11 @@ jobs:
               -f ref="refs/tags/$tag" -f sha="$tag_object" >/dev/null
           fi
           gh release view "$tag" --repo "$REPOSITORY" >/dev/null 2>&1 \
-            || gh release create "$tag" --repo "$REPOSITORY" --verify-tag --generate-notes
+            || gh release create "$tag" --repo "$REPOSITORY" --verify-tag --generate-notes --prerelease="$PRERELEASE"
 
   ci-gate:
     if: always()
-    needs: [preflight, quality, candidate, consumer, publish, registry-verify, registry-release]
+    needs: [preflight, quality, browser-gate, peer-three, candidate, consumer, publish, registry-verify, registry-release]
     runs-on: ubuntu-24.04
     steps:
       - name: Assert required job results
@@ -319,7 +406,7 @@ jobs:
         run: |
           node <<'NODE'
           const needs = JSON.parse(process.env.RESULTS);
-          const required = ['preflight', 'quality', 'candidate', 'consumer'];
+          const required = ['preflight', 'quality', 'browser-gate', 'peer-three', 'candidate', 'consumer'];
           if (needs.preflight?.result === 'success' && process.env.PUBLISH === 'true') {
             required.push('publish', 'registry-verify', 'registry-release');
           }

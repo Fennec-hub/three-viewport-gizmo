@@ -1,0 +1,75 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>I2 pointer session</title>
+    <style>
+      body { margin: 0; height: 3000px; }
+      #wrap { position: relative; width: 800px; height: 600px; }
+      #pad { position: absolute; left: 900px; top: 100px; width: 100px; height: 100px; touch-action: none; background: #ccc; }
+    </style>
+  </head>
+  <body>
+    <div id="wrap"></div>
+    <div id="pad"></div>
+    <script type="module">
+      // Browser cases for lib/interaction/pointerSession.ts (I2) on `#pad`. `?gizmo=1` builds the class over a canvas
+      // with OrbitControls for the wheel case (S R27), which the class forwards itself.
+      import { attachPointer } from "/lib/interaction/pointerSession.ts";
+
+      const q = new URLSearchParams(location.search);
+      const pad = document.getElementById("pad");
+      const log = [];
+      let flight = 0;
+      const fly = () => {
+        const step = () => (flight = requestAnimationFrame(step));
+        step();
+      };
+
+      attachPointer(pad, {
+        press: ({ event, rect }) => {
+          const grabbed = flight !== 0;
+          cancelAnimationFrame(flight);
+          flight = 0;
+          log.push({ type: "press", pointerType: event.pointerType, local: [event.clientX - rect.left, event.clientY - rect.top], grabbed });
+          return true;
+        },
+        drag: (dx, dy) => log.push({ type: "drag", dx, dy }),
+        dragEnd: () => log.push({ type: "dragEnd" }),
+        click: (_, double) => log.push({ type: "click", double }),
+        cancel: () => log.push({ type: "cancel" }),
+        hover: (e) => log.push({ type: "hover", pointerType: e ? e.pointerType : null }),
+      });
+
+      const T = { log, fly, flying: () => flight !== 0, distance: () => NaN, gizmoRect: () => null };
+
+      if (q.get("gizmo") === "1") {
+        const THREE = await import("three");
+        const { OrbitControls } = await import("three/addons/controls/OrbitControls.js");
+        const { ViewportGizmo } = await import("/lib/index.ts");
+        const wrap = document.getElementById("wrap");
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(800, 600);
+        wrap.appendChild(renderer.domElement);
+        const scene = new THREE.Scene();
+        scene.add(new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial()));
+        const camera = new THREE.PerspectiveCamera(50, 800 / 600, 0.1, 100);
+        camera.position.set(3, 2, 4);
+        const controls = new OrbitControls(camera, renderer.domElement);
+        const gizmo = new ViewportGizmo(camera, renderer, { container: wrap });
+        gizmo.attachControls(controls);
+        const element = gizmo.domElement;
+        renderer.setAnimationLoop(() => {
+          controls.update();
+          renderer.render(scene, camera);
+          gizmo.render();
+        });
+        T.distance = () => camera.position.distanceTo(controls.target);
+        T.gizmoRect = () => element.getBoundingClientRect().toJSON();
+      }
+
+      window.T = T;
+      window.READY = true;
+    </script>
+  </body>
+</html>

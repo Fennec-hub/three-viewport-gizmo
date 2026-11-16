@@ -37,14 +37,23 @@ export const versionFromPlans = (plannedVersion) => {
   return plannedVersion;
 };
 
-export const validateRequestedVersion = ({ currentVersion, plannedVersion, requestedVersion }) => {
+// The next `<plannedVersion>-<preid>.N`: continues the current train, or starts it at `.0`.
+export const prereleaseVersion = ({ currentVersion, plannedVersion, preid }) => {
+  assert(/^[a-z]+$/u.test(preid ?? ''), `invalid prerelease id: ${preid}`);
+  const [currentPreid] = semver.prerelease(currentVersion) ?? [];
+  const sameTrain = currentPreid === preid && semver.coerce(currentVersion)?.version === plannedVersion;
+  return sameTrain ? semver.inc(currentVersion, 'prerelease', preid) : `${plannedVersion}-${preid}.0`;
+};
+
+export const validateRequestedVersion = ({ currentVersion, plannedVersion, requestedVersion, preid }) => {
   assert(semver.valid(currentVersion), `invalid package version: ${currentVersion}`);
   assert(semver.valid(plannedVersion), `invalid Version Plan result: ${plannedVersion}`);
+  assert(semver.prerelease(plannedVersion) === null, `Version Plan result is not stable SemVer: ${plannedVersion}`);
   assert(semver.valid(requestedVersion), `invalid requested version: ${requestedVersion}`);
-  assert(semver.prerelease(requestedVersion) === null, 'routine releases require stable SemVer');
+  const expected = preid ? prereleaseVersion({ currentVersion, plannedVersion, preid }) : plannedVersion;
   assert(
-    plannedVersion === requestedVersion,
-    `requested ${requestedVersion} does not match Version Plans (${plannedVersion})`,
+    expected === requestedVersion,
+    `requested ${requestedVersion} does not match Version Plans (${expected})`,
   );
   assert(
     semver.gt(requestedVersion, currentVersion),
@@ -53,7 +62,7 @@ export const validateRequestedVersion = ({ currentVersion, plannedVersion, reque
   return requestedVersion;
 };
 
-const prepare = async ({ dryRun, requestedVersion }) => {
+const prepare = async ({ dryRun, requestedVersion, preid: givenPreid }) => {
   if (!dryRun) assertClean();
   runQualityGate();
 
@@ -64,9 +73,28 @@ const prepare = async ({ dryRun, requestedVersion }) => {
     dryRun: true,
   });
   const plannedVersion = versionFromPlans(preview.projectsVersionData[PROJECT]?.newVersion);
-  const version = requestedVersion ?? plannedVersion;
-  validateRequestedVersion({ currentVersion, plannedVersion, requestedVersion: version });
+  const preid = givenPreid ?? semver.prerelease(requestedVersion ?? '')?.[0];
+  const version =
+    requestedVersion ?? (preid ? prereleaseVersion({ currentVersion, plannedVersion, preid }) : plannedVersion);
+  validateRequestedVersion({ currentVersion, plannedVersion, requestedVersion: version, preid });
 
+  if (preid) {
+    // A prerelease keeps the Version Plans and CHANGELOG.md for the stable release they describe.
+    await releaseVersion({ ...GIT_OPTIONS, deleteVersionPlans: false, dryRun, specifier: version });
+  } else {
+    await prepareStable({ dryRun, preview, version });
+  }
+  if (dryRun) return version;
+  execFileSync('npm', ['install', '--package-lock-only', '--ignore-scripts'], { stdio: 'inherit' });
+
+  const lock = JSON.parse(readFileSync(PACKAGE_LOCK_PATH, 'utf8'));
+  assert(packageVersion() === version, `release preparation did not leave ${PROJECT} at ${version}`);
+  assert(lock.version === version, `package-lock.json root is not ${version}`);
+  assert(lock.packages?.['']?.version === version, `package-lock.json importer is not ${version}`);
+  return version;
+};
+
+const prepareStable = async ({ dryRun, preview, version }) => {
   await releaseChangelog({
     ...GIT_OPTIONS,
     createRelease: false,
@@ -75,7 +103,7 @@ const prepare = async ({ dryRun, requestedVersion }) => {
     releaseGraph: preview.releaseGraph,
     version,
   });
-  if (dryRun) return version;
+  if (dryRun) return;
 
   await releaseVersion({
     ...GIT_OPTIONS,
@@ -89,26 +117,23 @@ const prepare = async ({ dryRun, requestedVersion }) => {
     releaseGraph: preview.releaseGraph,
     version,
   });
-  execFileSync('npm', ['install', '--package-lock-only', '--ignore-scripts'], { stdio: 'inherit' });
-
-  const lock = JSON.parse(readFileSync(PACKAGE_LOCK_PATH, 'utf8'));
-  assert(packageVersion() === version, `release preparation did not leave ${PROJECT} at ${version}`);
-  assert(lock.version === version, `package-lock.json root is not ${version}`);
-  assert(lock.packages?.['']?.version === version, `package-lock.json importer is not ${version}`);
-  return version;
 };
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const requestedVersion = process.argv.slice(2).find((value) => !value.startsWith('-'));
+  const requestedVersion = process.argv
+    .slice(2)
+    .find((value, index, args) => !value.startsWith('-') && args[index - 1] !== '--preid');
   const dryRun = process.argv.includes('--dry-run');
   const fromPlans = process.argv.includes('--from-plans');
+  const preidIndex = process.argv.indexOf('--preid');
+  const preid = preidIndex === -1 ? undefined : process.argv[preidIndex + 1];
 
   try {
     assert(
       fromPlans ? !requestedVersion : requestedVersion,
-      'usage: npm run release:prepare -- <version> [--dry-run], or npm run release:prepare -- --from-plans [--dry-run]',
+      'usage: npm run release:prepare -- <version> [--dry-run], or npm run release:prepare -- --from-plans [--preid <id>] [--dry-run]',
     );
-    const version = await prepare({ dryRun, requestedVersion });
+    const version = await prepare({ dryRun, requestedVersion, preid });
     process.stdout.write(`${dryRun ? 'Would prepare' : 'Prepared'} ${PROJECT} v${version}\n`);
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));

@@ -6,9 +6,9 @@ import { PACKAGE, REPO } from "@site/components/site";
 const capabilities = [
   ["Click, drag, animate", "Click a face, edge or corner to turn the camera to it; drag the gizmo to orbit."],
   ["WebGL and WebGPU", "Pass a WebGLRenderer or a WebGPURenderer; the gizmo draws with the renderer you already have."],
-  ["Any up axis", "X-up, Y-up and Z-up scenes, per gizmo or from Object3D.DEFAULT_UP."],
-  ["Any controller", "Attach OrbitControls in one call, wire camera-controls through events, or run it standalone."],
-  ["Three shapes", "Sphere, cube and rounded cube, with colours, labels, sizes and placement all configurable."],
+  ["Any up axis", "Any signed axis as up (±X, ±Y, ±Z) and any perpendicular axis as Front; the default up is camera.up."],
+  ["Any controller", "Attach OrbitControls or camera-controls in one call, or run it standalone and read each pose from its events."],
+  ["Three shapes", "Sphere, cube and rounded cube, with an optional axis triad; colours, labels, sizes and placement all configurable."],
   ["Fits your layout", "Placement, offsets and CSS classes; works with scissored multi-view layouts and post-processing."],
 ] as const;
 

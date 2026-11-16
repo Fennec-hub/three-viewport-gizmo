@@ -21,3 +21,10 @@ site/next-env.d.ts
 *.sln
 *.sw?
 site/tsconfig.tsbuildinfo
+
+# Build output: published from the npm tarball, never committed
+/dist
+
+# Browser gate and perf output
+/test-results
+/perf/out

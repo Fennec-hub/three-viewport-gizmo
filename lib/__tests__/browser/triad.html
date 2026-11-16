@@ -1,0 +1,179 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>S6 axis triad</title>
+  </head>
+  <body>
+    <script type="module">
+      // Browser cases for lib/scene/triad.ts (S6): `?backend=webgpu|webgl`. Renders a cube scene into a 256 px render
+      // target with the gizmo's own camera, turned as the gizmo turns it for a host view, and reads pixels back.
+      // ponytail: drives lib/scene directly until K5 wires buildScene into the class.
+      import * as THREE from "three/webgpu";
+      import { resolveOptions } from "/lib/options/resolve.ts";
+      import { buildScene, disposeScene } from "/lib/scene/build.ts";
+      import { updateScene } from "/lib/scene/update.ts";
+      import { createInternalCamera } from "/lib/render/internalCamera.ts";
+      import { TRIAD_COLORS } from "/lib/scene/triad.ts";
+
+      const q = new URLSearchParams(location.search);
+      const backend = q.get("backend") ?? "webgpu";
+      const SIZE = 256;
+
+      const GL = backend === "webgl" ? await import("three") : null;
+      const renderer = GL ? new GL.WebGLRenderer() : new THREE.WebGPURenderer();
+      if (renderer.init) await renderer.init();
+      // ponytail: renderer internals for a test-only program or pipeline count.
+      const programs = () => (GL ? renderer.info.programs.length : renderer._pipelines.caches.size);
+      const draws = () => (GL ? renderer.info.render.calls : renderer.info.render.drawCalls);
+
+      const resolve = (options, up = [0, 1, 0]) =>
+        resolveOptions({ size: SIZE, ...options }, { up: new THREE.Vector3(...up) });
+      // An sRGB target, so pixels read back as display colours, as on the canvas.
+      const target = GL ? new GL.WebGLRenderTarget(SIZE, SIZE) : new THREE.RenderTarget(SIZE, SIZE);
+      target.texture.colorSpace = THREE.SRGBColorSpace;
+
+      const read = async () => {
+        if (!GL) return renderer.readRenderTargetPixelsAsync(target, 0, 0, SIZE, SIZE);
+        const buffer = new Uint8Array(SIZE * SIZE * 4);
+        await renderer.readRenderTargetPixelsAsync(target, 0, 0, SIZE, SIZE, buffer);
+        return buffer;
+      };
+
+      /** The gizmo's turn for a host camera looking at the origin from `from` with `up`: the inverse of its quaternion. */
+      const turn = (scene, from, up) => {
+        const host = new THREE.Object3D();
+        host.up.set(...up);
+        host.position.set(...from);
+        host.lookAt(0, 0, 0);
+        // Object3D.lookAt points +Z at the target for non-cameras; a camera looks down −Z.
+        host.rotateY(Math.PI);
+        scene.group.quaternion.copy(host.quaternion).invert();
+      };
+
+      const draw = async (world, camera) => {
+        renderer.setRenderTarget(target);
+        renderer.setClearColor(0x000000, 0);
+        renderer.clear();
+        renderer.info.reset();
+        renderer.render(world, camera);
+        const calls = draws();
+        renderer.setRenderTarget(null);
+        return { calls, pixels: await read() };
+      };
+
+      /**
+       * Toggles the triad on and off at run time on one scene. Returns the draws, programs, pixels changed outside the
+       * triad (with the triad's own objects hidden on both sides) and whether the cube's objects and materials stayed.
+       */
+      const toggle = async (type) => {
+        const world = new THREE.Scene();
+        const camera = createInternalCamera(false);
+        const scene = buildScene(resolve({ type }));
+        world.add(scene.group);
+        turn(scene, [3, 2, 4], [0, 1, 0]);
+        const snapshot = () => scene.group.children.map((o) => [o, o.material]);
+        const objects = snapshot();
+        const off = await draw(world, camera);
+        const programsOff = programs();
+        updateScene(scene, resolve({ type, triad: { enabled: true } }));
+        const on = await draw(world, camera);
+        const programsOn = programs();
+        const sameObjects = snapshot().every(([o, m], i) => o === objects[i][0] && m === objects[i][1]);
+        // Pixels the triad covers: the same frame with its objects hidden.
+        scene.parts.triad.object.visible = false;
+        const cubeOnly = await draw(world, camera);
+        scene.parts.triad.object.visible = true;
+        let triadPixels = 0;
+        for (let i = 0; i < on.pixels.length; i += 4)
+          if ([0, 1, 2, 3].some((k) => on.pixels[i + k] !== cubeOnly.pixels[i + k])) triadPixels++;
+        let differ = 0;
+        updateScene(scene, resolve({ type }));
+        const back = await draw(world, camera);
+        for (let i = 0; i < off.pixels.length; i++) if (off.pixels[i] !== back.pixels[i]) differ++;
+        const result = {
+          draws: { off: off.calls, on: on.calls, offAgain: back.calls },
+          programs: { off: programsOff, on: programsOn, added: programsOn - programsOff },
+          sameObjects,
+          triadPixels,
+          offAgainDiffers: differ,
+        };
+        disposeScene(scene);
+        return result;
+      };
+
+      const AXES = ["x", "y", "z"];
+      const UPS = { x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1], nx: [-1, 0, 0], ny: [0, -1, 0], nz: [0, 0, -1] };
+
+      /**
+       * For one up, renders the triad alone from a view that shows all three labels, projects each label's centre and
+       * reports the mean colour of the lit pixels in a window around it, and the axis colour expected there.
+       */
+      const labels = async (type, upName) => {
+        const up = UPS[upName];
+        const world = new THREE.Scene();
+        const camera = createInternalCamera(false);
+        const scene = buildScene(resolve({ type, triad: { enabled: true }, font: FONT }, up));
+        for (const { object } of scene.targets) object.visible = false;
+        scene.parts.background.object.visible = false;
+        scene.parts.lines.object.visible = false;
+        scene.parts.triad.object.children[0].visible = false; // labels only
+        world.add(scene.group);
+        // From the +X +Y +Z octant, tilted so no label lines up behind another: every label shows on every up.
+        turn(scene, [4, 3, 5], up);
+        world.updateMatrixWorld();
+        camera.updateMatrixWorld();
+        const { pixels } = await draw(world, camera);
+        const sprites = scene.parts.triad.object.children.slice(1);
+        const found = sprites.map((sprite, i) => {
+          const p = sprite.getWorldPosition(new THREE.Vector3()).project(camera);
+          const cx = Math.round(((p.x + 1) / 2) * SIZE);
+          const cy = Math.round(((p.y + 1) / 2) * SIZE); // render-target rows run bottom-up on both backends' reads
+          const sum = [0, 0, 0];
+          let lit = 0;
+          for (let y = cy - 10; y <= cy + 10; y++)
+            for (let x = cx - 10; x <= cx + 10; x++) {
+              if (x < 0 || y < 0 || x >= SIZE || y >= SIZE) continue;
+              const row = GL ? y : SIZE - 1 - y;
+              const k = (row * SIZE + x) * 4;
+              if (pixels[k + 3] < 250) continue;
+              lit++;
+              for (let c = 0; c < 3; c++) sum[c] += pixels[k + c];
+            }
+          const expected = TRIAD_COLORS[AXES[i]].match(/\d+/g).map(Number);
+          return { axis: AXES[i], at: [cx, cy], lit, mean: lit ? sum.map((s) => Math.round(s / lit)) : null, expected };
+        });
+        disposeScene(scene);
+        return found;
+      };
+
+      /** Draws the cube with its triad on screen, for a screenshot of one up. */
+      const show = (type, upName) => {
+        const up = UPS[upName];
+        if (!renderer.domElement.isConnected) {
+          renderer.setPixelRatio(1);
+          renderer.setSize(SIZE, SIZE);
+          document.body.append(renderer.domElement);
+        }
+        const world = new THREE.Scene();
+        const camera = createInternalCamera(false);
+        const scene = buildScene(resolve({ type, triad: { enabled: true }, font: FONT }, up));
+        world.add(scene.group);
+        turn(scene, [4, 3, 5], up);
+        renderer.setClearColor(0xffffff, 1);
+        renderer.render(world, camera);
+        disposeScene(scene);
+      };
+
+      // The labels draw with a font the gate serves, not the host's `sans-serif`: a GitHub Linux runner's default face
+      // draws a thinner "X" than macOS does, which no GPU difference explains.
+      const FONT = { family: "GateFont" };
+      const face = new FontFace(FONT.family, "url(/tests/browser/fixtures/geist-latin.woff2)", { weight: "100 900" });
+      document.fonts.add(face);
+      await face.load();
+
+      window.T = { toggle, labels, show, backend: () => (renderer.backend?.isWebGPUBackend ? "webgpu" : "webgl") };
+      window.READY = true;
+    </script>
+  </body>
+</html>

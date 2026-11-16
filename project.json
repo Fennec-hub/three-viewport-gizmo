@@ -33,6 +33,23 @@
       "options": {
         "command": "npm run quality"
       }
+    },
+    "test-browser": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "playwright test -c tests/browser"
+      }
+    },
+    "perf": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "node perf/bundle.mjs",
+          "node perf/run.mjs",
+          "node perf/check.mjs"
+        ],
+        "parallel": false
+      }
     }
   }
 }

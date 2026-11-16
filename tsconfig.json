@@ -23,6 +23,11 @@
       "@lib/*": ["./lib/*"]
     }
   },
+  "files": [
+    "lib/__tests__/publicSurface.types.test.ts",
+    "lib/__tests__/ViewportGizmo.events.test.ts",
+    "lib/controls/contract.test.ts"
+  ],
   "include": ["lib/**/*.ts"],
   "exclude": ["lib/**/*.test.ts", "lib/__tests__/**"]
 }

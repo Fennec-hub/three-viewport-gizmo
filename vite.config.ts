@@ -5,8 +5,8 @@ import dts from "vite-plugin-dts";
 export default defineConfig({
   build: {
     lib: {
-      entry: "./lib/index",
-      name: "ThreeViewportGizmo",
+      entry: { "three-viewport-gizmo": "./lib/index", "camera-controls": "./lib/controls/cameraControls" },
+      formats: ["es"],
     },
     rollupOptions: {
       // Externalize every `three` subpath (`three`, `three/webgpu`, `three/addons/...`,
@@ -15,12 +15,6 @@ export default defineConfig({
       // `WebGPURenderer` (importmapped from a different copy of three) refused to
       // render and that confused WebGL's `LineMaterial` resolver -- see ../docs/webgpu.md.
       external: (id) => id === "three" || id.startsWith("three/"),
-      output: {
-        // UMD users only see the bare `three` global; subpath imports (notably
-        // `three/webgpu`) are unsupported in UMD and Rollup will warn -- ESM
-        // (importmap / bundler) is the supported path for WebGPU.
-        globals: (id) => (id === "three" ? "THREE" : "THREE"),
-      },
     },
     sourcemap: true,
   },

@@ -1,44 +1,34 @@
 import type { Metadata } from "next";
-import { Code } from "@site/components/Code";
+import Link from "next/link";
+import { Sample } from "@site/components/Sample";
 import { Stage } from "@site/components/Stage";
-import { PACKAGE } from "@site/components/site";
+import "@site/samples/responsive.css";
 
-export const metadata: Metadata = { title: "Responsive" };
+export const metadata: Metadata = {
+  title: "Responsive",
+  description: "Size the gizmo with CSS so it follows its container's layout.",
+};
 
 export default function ResponsiveGuide() {
   return (
     <>
       <h1>Responsive</h1>
       <p>
-        The gizmo is an ordinary element inside its <code>container</code>. Give it a class name
-        or id and size it with CSS; call <code>gizmo.update()</code> when the layout changes so it
-        re-reads its box.
+        The gizmo is one element inside its <code>container</code>. Give it a class and size it with
+        CSS; it measures its box every time it renders, so layout changes need no call.
       </p>
-      <Code>{`
-import { ViewportGizmo } from "${PACKAGE}";
 
-const gizmo = new ViewportGizmo(camera, renderer, {
-  type: "rounded-cube",
-  container: viewportElement,
-  className: "responsive-gizmo",
-});
-
-new ResizeObserver(() => {
-  // ... resize the camera and renderer
-  gizmo.update();
-}).observe(viewportElement);
-`}</Code>
+      <h2>Prerequisites</h2>
       <p>
-        The gizmo sets its size inline, so the stylesheet needs <code>!important</code> to override
-        it:
+        The <Link href="/docs/quickstart/">Quickstart</Link>. The container needs a{" "}
+        <code>position</code> other than <code>static</code> for the gizmo to sit in its corner.
       </p>
-      <Code>{`
-.responsive-gizmo {
-  width: auto !important;
-  height: 40% !important;
-  aspect-ratio: 1;
-}
-`}</Code>
+
+      <h2>Steps</h2>
+      <h3>1. Give the gizmo a class</h3>
+      <Sample file="responsive.ts" />
+      <h3>2. Size it in CSS</h3>
+      <Sample file="responsive.css" label="responsive.css" />
       <figure>
         <Stage
           className="resizable"
@@ -47,6 +37,16 @@ new ResizeObserver(() => {
         />
         <figcaption>Drag the bottom-right corner of the viewport to resize it.</figcaption>
       </figure>
+
+      <h2>Related</h2>
+      <ul>
+        <li>
+          <Link href="/docs/styling/">Styling and state</Link>
+        </li>
+        <li>
+          <Link href="/docs/api/#gizmo-options">API reference: size, placement and offset</Link>
+        </li>
+      </ul>
     </>
   );
 }

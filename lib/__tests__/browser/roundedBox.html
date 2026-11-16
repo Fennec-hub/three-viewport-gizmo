@@ -1,0 +1,186 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>S5 rounded box</title>
+  </head>
+  <body style="margin: 0; background: #888">
+    <script type="module">
+      // Browser cases for the seamless rounded cube (S5): `?backend=webgpu|webgl`. Renders the rounded-cube scene into a
+      // 256 px render target without MSAA, looking from each of the 26 targets, and reads it back.
+      // ponytail: drives lib/scene directly until K5 wires buildScene into the class.
+      import * as THREE from "three/webgpu";
+      import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
+      import { resolveOptions } from "/lib/options/resolve.ts";
+      import { buildScene } from "/lib/scene/build.ts";
+      import { hoverScene } from "/lib/scene/update.ts";
+      import { roundedCubeBox } from "/lib/scene/roundedBox.ts";
+      import { hitTest } from "/lib/interaction/hitTest.ts";
+
+      const q = new URLSearchParams(location.search);
+      const backend = q.get("backend") ?? "webgpu";
+      const SIZE = 256;
+
+      const renderer =
+        backend === "webgl" ? new (await import("three")).WebGLRenderer() : new THREE.WebGPURenderer({ forceWebGL: false });
+      if (renderer.init) await renderer.init();
+      const target = backend === "webgl" ? new (await import("three")).WebGLRenderTarget(SIZE, SIZE) : new THREE.RenderTarget(SIZE, SIZE);
+      const camera = new THREE.PerspectiveCamera(26, 1, 5, 10);
+      camera.position.set(0, 0, 7);
+      camera.updateProjectionMatrix();
+      const world = new THREE.Scene();
+      const root = new THREE.Object3D();
+      world.add(root);
+
+      const options = resolveOptions({ type: "rounded-cube", ...JSON.parse(q.get("options") ?? "{}") }, { up: new THREE.Vector3(0, 1, 0) });
+      const scene = buildScene(options);
+      const box = roundedCubeBox(options.radius);
+      const table = scene.targets.map((t) => t.entry);
+      root.add(scene.group);
+      // The background and the axis lines are not part of the box.
+      scene.parts.background.object.visible = false;
+      scene.parts.lines.object.visible = false;
+
+      const draw = async () => {
+        renderer.setRenderTarget(target);
+        renderer.setClearColor(0x000000, 0);
+        renderer.clear();
+        renderer.render(world, camera);
+        renderer.setRenderTarget(null);
+        if (backend !== "webgl") return renderer.readRenderTargetPixelsAsync(target, 0, 0, SIZE, SIZE);
+        const buffer = new Uint8Array(SIZE * SIZE * 4);
+        await renderer.readRenderTargetPixelsAsync(target, 0, 0, SIZE, SIZE, buffer);
+        return buffer;
+      };
+
+      /** Turns the gizmo so the view looks from `direction`, as the host camera would. */
+      const _z = new THREE.Vector3(0, 0, 1);
+      const view = (direction) => root.quaternion.setFromUnitVectors(direction.clone().normalize(), _z);
+
+      const flat = (color, side = THREE.FrontSide) => new THREE.MeshBasicMaterial({ color, side, toneMapped: false });
+      const meshes = scene.targets.map((t) => t.object);
+      const materials = () => meshes.map((m) => m.material);
+      const setMaterials = (list) => meshes.forEach((m, i) => (m.material = list[i]));
+
+      const white = flat(0xffffff);
+      const merged = new THREE.Mesh(
+        mergeGeometries(meshes.map((m) => new THREE.BufferGeometry().setAttribute("position", m.geometry.getAttribute("position")))),
+        white
+      );
+      // The inside of the box, drawn in red: any pixel where it shows is a crack in the outside.
+      const inside = new THREE.Mesh(merged.geometry, flat(0xff0000, THREE.BackSide));
+      // Render targets hold working (linear) colour, so each id is set and read back as linear red.
+      const ids = scene.targets.map((_, i) => {
+        const material = flat(0);
+        material.color.setRGB((i + 1) / 32, 0, 0);
+        return material;
+      });
+
+      const count = (pixels, test) => {
+        let n = 0;
+        for (let i = 0; i < pixels.length; i += 4) if (test(pixels, i)) n++;
+        return n;
+      };
+
+      const run = async () => {
+        const idle = materials();
+        const views = [];
+        for (const piece of scene.targets) {
+          view(piece.entry.direction);
+          const name = piece.target.name;
+
+          // Seams: every piece white over the red inside, then the one merged mesh alone.
+          setMaterials(meshes.map(() => white));
+          root.add(inside);
+          const pieces = await draw();
+          const red = count(pieces, (p, i) => p[i] > 128 && p[i + 1] < 128);
+          // The same red inside under the one merged mesh: red there is the rasteriser, not a crack between pieces.
+          scene.group.visible = false;
+          root.add(merged);
+          const redMerged = count(await draw(), (p, i) => p[i] > 128 && p[i + 1] < 128);
+          root.remove(merged);
+          scene.group.visible = true;
+          root.remove(inside);
+          const lit = count(pieces, (p, i) => p[i + 3] > 0);
+          scene.group.visible = false;
+          root.add(merged);
+          const single = await draw();
+          root.remove(merged);
+          scene.group.visible = true;
+          let differ = 0;
+          for (let i = 0; i < single.length; i++) if (single[i] !== pieces[i]) differ++;
+
+          // Pieces by id, to compare with the hover and with the analytic hit test.
+          setMaterials(ids);
+          const idPixels = await draw();
+          const idAt = (i) => (idPixels[i + 3] ? Math.round((idPixels[i] / 255) * 32) - 1 : -1);
+          const self = scene.targets.indexOf(piece);
+
+          // Hover: the pixels that change are the hovered piece's.
+          setMaterials(idle);
+          hoverScene(scene, null);
+          const rest = await draw();
+          hoverScene(scene, name);
+          const hovered = await draw();
+          hoverScene(scene, null);
+          let changed = 0;
+          let outside = 0;
+          let mask = 0;
+          for (let i = 0; i < rest.length; i += 4) {
+            const own = idAt(i) === self;
+            if (own) mask++;
+            if (rest[i] !== hovered[i] || rest[i + 1] !== hovered[i + 1] || rest[i + 2] !== hovered[i + 2]) {
+              changed++;
+              if (!own) outside++;
+            }
+          }
+
+          // The analytic hit test against the drawn pieces, per pixel; rows read bottom-up on WebGL, top-down on WebGPU.
+          const hitScene = { orientation: root.quaternion, camera, shape: box, targets: table };
+          let agree = 0;
+          let disagree = 0;
+          let interior = 0;
+          for (let row = 0; row < SIZE; row++) {
+            for (let col = 0; col < SIZE; col++) {
+              const i = (row * SIZE + col) * 4;
+              const id = idAt(i);
+              // Only pixels whose 3×3 neighbourhood is one piece: the mesh's chords stray from the analytic box by up
+              // to a pixel at a boundary or the silhouette.
+              let uniform = true;
+              for (let dr = -1; dr <= 1 && uniform; dr++)
+                for (let dc = -1; dc <= 1 && uniform; dc++) {
+                  const r = row + dr, c = col + dc;
+                  if (r < 0 || c < 0 || r >= SIZE || c >= SIZE || idAt((r * SIZE + c) * 4) !== id) uniform = false;
+                }
+              if (!uniform || id < 0) continue;
+              interior++;
+              const x = ((col + 0.5) / SIZE) * 2 - 1;
+              const y = backend === "webgl" ? ((row + 0.5) / SIZE) * 2 - 1 : 1 - ((row + 0.5) / SIZE) * 2;
+              const hit = hitTest(x, y, hitScene);
+              if (hit && hit.name === table[id].name) agree++;
+              else disagree++;
+            }
+          }
+          views.push({ name, lit, red, redMerged, differ, mask, changed, outside, interior, agree, disagree });
+        }
+        const triangles = meshes.reduce((sum, m) => sum + m.geometry.getAttribute("position").count / 3, 0);
+        return { backend, triangles, views };
+      };
+
+      /** Draws the default look on screen, for a screenshot: `look(x, y, z)` looks from that direction. */
+      const look = async (x, y, z, hover = null) => {
+        view(new THREE.Vector3(x, y, z));
+        hoverScene(scene, hover);
+        renderer.setSize(512, 512);
+        renderer.setPixelRatio(1);
+        renderer.setClearColor(0x808080, 1);
+        if (!renderer.domElement.isConnected) document.body.appendChild(renderer.domElement);
+        renderer.setRenderTarget(null);
+        renderer.render(world, camera);
+      };
+
+      window.T = { run, look, scene };
+      window.READY = true;
+    </script>
+  </body>
+</html>

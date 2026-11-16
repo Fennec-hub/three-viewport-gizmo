@@ -1,0 +1,82 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>I3 keyboard</title>
+    <style>
+      body { margin: 0; }
+      #wrap { position: relative; width: 800px; height: 600px; }
+    </style>
+  </head>
+  <body>
+    <button id="before">before</button>
+    <div id="wrap"></div>
+    <button id="after">after</button>
+    <script type="module">
+      // Browser cases for keyboard operation (I3): `?backend=webgpu|webgl&up=+x|-x|+y|-y|+z|-z&roll=true|false`. A real
+      // renderer draws a host scene and the gizmo every frame; keys come from Playwright's real keyboard.
+      const q = new URLSearchParams(location.search);
+      const backend = q.get("backend") ?? "webgpu";
+      const roll = q.get("roll") !== "false";
+      const [sign, letter] = (q.get("up") ?? "+y").split("");
+      const THREE = backend === "webgpu" ? await import("three/webgpu") : await import("three");
+      const { ViewportGizmo } = await import("/lib/index.ts");
+
+      const wrap = document.getElementById("wrap");
+      const renderer = backend === "webgpu" ? new THREE.WebGPURenderer() : new THREE.WebGLRenderer();
+      if (renderer.init) await renderer.init();
+      renderer.setSize(800, 600);
+      wrap.appendChild(renderer.domElement);
+      const scene = new THREE.Scene();
+      scene.add(new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial()));
+      const camera = new THREE.PerspectiveCamera(50, 800 / 600, 0.1, 100);
+      camera.up.set(0, 0, 0).setComponent("xyz".indexOf(letter), sign === "-" ? -1 : 1);
+      camera.position.set(3, 2, 4);
+      camera.lookAt(0, 0, 0);
+      const gizmo = new ViewportGizmo(camera, renderer, { container: wrap, type: q.get("type") ?? "cube", roll, speed: 30 });
+      renderer.setAnimationLoop(() => {
+        renderer.render(scene, camera);
+        gizmo.render();
+      });
+
+      const ends = [];
+      gizmo.addEventListener("end", (e) => ends.push({ cause: e.cause, status: e.outcome.status }));
+      const back = () => new THREE.Vector3(0, 0, 1).applyQuaternion(camera.quaternion);
+      const state = () => ({
+        at: gizmo.atTarget?.target.name ?? null,
+        name: gizmo.domElement.getAttribute("aria-label"),
+        role: gizmo.domElement.getAttribute("role"),
+        tabIndex: gizmo.domElement.tabIndex,
+        focused: document.activeElement?.id || (document.activeElement === gizmo.domElement ? "gizmo" : document.activeElement?.tagName),
+        status: gizmo.domElement.querySelector("[role=status]")?.textContent ?? null,
+        ends: ends.length,
+        last: ends.at(-1) ?? null,
+      });
+      /** Resolves with the state once no flight runs, frames drawn by the animation loop. */
+      const settled = () =>
+        new Promise((resolve) => {
+          const check = () => (gizmo.animating ? requestAnimationFrame(check) : resolve(state()));
+          requestAnimationFrame(check);
+        });
+      const look = async (name) => {
+        await gizmo.lookFrom(name, { up: "reset" });
+        gizmo.domElement.focus();
+        return state();
+      };
+      /** The screen offset of target `to` from the current view: +x right, +y up. Read before the key. */
+      let inverse = new THREE.Quaternion();
+      const mark = () => void inverse.copy(camera.quaternion).invert();
+      const offset = (from, to) => {
+        const d = (n) => gizmo.targets.find((t) => t.name === n).direction;
+        const v = d(to).clone().sub(d(from)).applyQuaternion(inverse);
+        return { x: v.x, y: v.y, dot: d(to).dot(d(from)) };
+      };
+      const targets = gizmo.targets.map((t) => ({ name: t.name, label: t.label }));
+      const rect = () => gizmo.domElement.getBoundingClientRect().toJSON();
+      const disable = (value) => void (gizmo.enabled = !value);
+
+      window.T = { state, settled, look, mark, offset, targets, rect, disable, focus: () => gizmo.domElement.focus() };
+      window.READY = true;
+    </script>
+  </body>
+</html>

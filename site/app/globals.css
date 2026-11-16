@@ -505,12 +505,6 @@ legend,
   max-width: 100%;
 }
 
-.responsive-gizmo {
-  width: auto !important;
-  height: 40% !important;
-  aspect-ratio: 1;
-}
-
 .multi-grid {
   position: absolute;
   inset: 0;

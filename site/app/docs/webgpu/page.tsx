@@ -1,74 +1,75 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Code } from "@site/components/Code";
+import { Sample } from "@site/components/Sample";
 import { Stage } from "@site/components/Stage";
-import { PACKAGE } from "@site/components/site";
 
-export const metadata: Metadata = { title: "WebGPU" };
+export const metadata: Metadata = {
+  title: "WebGPU",
+  description: "Draw the gizmo with three.js's WebGPURenderer, initialised before the first frame.",
+};
 
 export default function WebGPU() {
   return (
     <>
       <h1>WebGPU</h1>
       <p>
-        <code>ViewportGizmo</code> accepts a <code>WebGPURenderer</code> from{" "}
-        <code>three/webgpu</code> in the same place as a <code>WebGLRenderer</code>. It detects the
-        renderer from three.js&apos;s own <code>isWebGPURenderer</code> flag; there is nothing to
-        configure.
+        <code>ViewportGizmo</code> takes a <code>WebGPURenderer</code> from <code>three/webgpu</code>{" "}
+        in the same place as a <code>WebGLRenderer</code>; there is nothing to configure.
       </p>
-      <Code>{`
-import { WebGPURenderer } from "three/webgpu";
-import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { ViewportGizmo } from "${PACKAGE}";
 
-const renderer = new WebGPURenderer({ antialias: true });
-await renderer.init(); // before the first render or clear
-renderer.setSize(width, height);
-container.appendChild(renderer.domElement);
+      <h2>Prerequisites</h2>
+      <p>
+        The <Link href="/docs/quickstart/">Quickstart</Link>. A browser with WebGPU; without an
+        adapter three.js runs <code>WebGPURenderer</code> on its WebGL 2 backend.
+      </p>
 
-const gizmo = new ViewportGizmo(camera, renderer, { type: "cube" });
-gizmo.attachControls(new OrbitControls(camera, renderer.domElement));
-
-renderer.setAnimationLoop(() => {
-  renderer.render(scene, camera);
-  gizmo.render();
-});
-`}</Code>
+      <h2>Steps</h2>
+      <h3>1. Initialise the renderer, then create the gizmo</h3>
+      <p>
+        Await <code>renderer.init()</code> before anything renders or clears, including{" "}
+        <code>gizmo.render()</code>.
+      </p>
+      <Sample file="webgpu.ts" />
       <figure>
         <Stage
           label="Cube gizmo drawn by WebGPURenderer"
           config={{ renderer: "webgpu", controller: "orbit", gizmo: { type: "cube" } }}
         />
         <figcaption>
-          This viewport uses <code>WebGPURenderer</code>. Without a WebGPU adapter, three.js runs it
-          on its WebGL 2 backend and the viewport says so.
+          This viewport uses <code>WebGPURenderer</code>; without a WebGPU adapter it says so.
         </figcaption>
       </figure>
 
-      <h2>Initialise first</h2>
-      <p>
-        Await <code>renderer.init()</code> before anything renders or clears, including{" "}
-        <code>gizmo.render()</code>. Rendering before it resolves can blank the first frames or race
-        the backend start-up.
-      </p>
+      <h2>Variations</h2>
+      <ul>
+        <li>
+          <strong>Viewport origin.</strong> <code>setViewport</code> has a bottom-left origin on{" "}
+          <code>WebGLRenderer</code> and a top-left origin on <code>WebGPURenderer</code>; the gizmo
+          places itself on both, and <code>gizmo.viewport</code> reports its rectangle in the
+          renderer&apos;s own convention.
+        </li>
+        <li>
+          <strong>Bundling.</strong> The gizmo draws its axis lines as ordinary meshes, so the main
+          entry never imports <code>three/webgpu</code>. It imports <code>three</code> as an external:
+          your bundle must resolve one copy of three.js, or <code>instanceof</code> checks and
+          WebGPU materials break.
+        </li>
+        <li>
+          <strong>First frame.</strong> Call <code>await gizmo.compile()</code> to build its
+          pipelines before the first frame; see{" "}
+          <Link href="/docs/render-on-demand/">Render on demand and warm-up</Link>.
+        </li>
+      </ul>
 
-      <h2>Viewport origin</h2>
-      <p>
-        <code>setViewport(x, y, width, height)</code> has a bottom-left origin on{" "}
-        <code>WebGLRenderer</code> and a top-left origin on <code>WebGPURenderer</code>. The gizmo
-        places itself correctly on both.
-      </p>
-
-      <h2>Lines and bundling</h2>
-      <p>
-        On WebGPU the sphere gizmo&apos;s axis lines use <code>Line2NodeMaterial</code>; on WebGL
-        they use <code>LineMaterial</code>. The library imports <code>three</code> and its
-        subpaths as externals, so your bundle must resolve a single copy of three.js: two copies
-        break <code>instanceof</code> checks and WebGPU materials.
-      </p>
-      <p>
-        Compare both renderers on every up axis in the <Link href="/matrix/">Matrix</Link>.
-      </p>
+      <h2>Related</h2>
+      <ul>
+        <li>
+          Both renderers on every up axis in the <Link href="/matrix/">Matrix</Link>.
+        </li>
+        <li>
+          <Link href="/docs/api/">API reference</Link>
+        </li>
+      </ul>
     </>
   );
 }

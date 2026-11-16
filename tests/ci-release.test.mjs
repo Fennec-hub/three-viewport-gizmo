@@ -56,9 +56,52 @@ test('only an exact release commit pushed to main publishes', () => {
   assert.deepEqual(deriveRelease(release), {
     kind: 'release',
     npmPublish: true,
+    npmTag: 'latest',
+    prerelease: false,
     releaseTag: 'v2.2.2',
     version: '2.2.2',
   });
+});
+
+const prerelease = {
+  ...release,
+  packageVersion: '3.0.0-beta.0',
+  subject: 'chore(release): three-viewport-gizmo v3.0.0-beta.0 (#9)',
+  changedFiles: ['package-lock.json', 'package.json'],
+  changelog: '# Changelog\n',
+};
+
+test('a prerelease commit publishes under its preid dist-tag, never latest', () => {
+  assert.deepEqual(deriveRelease(prerelease), {
+    kind: 'release',
+    npmPublish: true,
+    npmTag: 'beta',
+    prerelease: true,
+    releaseTag: 'v3.0.0-beta.0',
+    version: '3.0.0-beta.0',
+  });
+  assert.equal(deriveRelease({ ...prerelease, event: 'pull_request' }).kind, 'release-pull-request');
+});
+
+test('a prerelease commit keeps the Version Plans and changelog for the stable release', () => {
+  assert.throws(
+    () => deriveRelease({ ...prerelease, changedFiles: [...prerelease.changedFiles, '.nx/version-plans/roll.md'] }),
+    /unexpected files: \.nx\/version-plans\/roll\.md/u,
+  );
+  assert.throws(
+    () => deriveRelease({ ...prerelease, changedFiles: [...prerelease.changedFiles, 'CHANGELOG.md'] }),
+    /unexpected files: CHANGELOG\.md/u,
+  );
+  assert.throws(() => deriveRelease({ ...prerelease, changedFiles: ['package.json'] }), /must change package-lock.json/u);
+  assert.throws(
+    () =>
+      deriveRelease({
+        ...prerelease,
+        packageVersion: '3.0.0-0',
+        subject: 'chore(release): three-viewport-gizmo v3.0.0-0',
+      }),
+    /lowercase id/u,
+  );
 });
 
 test('rejects release commits with missing or unexpected files', () => {
@@ -86,8 +129,15 @@ test('publishes the frozen tarball through an explicit local path', () => {
 
   assert.equal(
     publishCommand?.trim(),
-    'npm publish "./candidate/$filename" --access public --provenance --ignore-scripts',
+    'npm publish "./candidate/$filename" --access public --provenance --ignore-scripts --tag "$NPM_TAG"',
   );
+});
+
+test('verifies the derived dist-tag and marks prereleases on GitHub', () => {
+  assert.equal(workflow.includes('NPM_TAG: ${{ needs.preflight.outputs.npm-tag }}'), true);
+  assert.equal(workflow.includes('tagged=$(npm view "$name" "dist-tags.$NPM_TAG" 2>/dev/null || true)'), true);
+  assert.equal(workflow.includes('if [[ "$NPM_TAG" != latest && "$(npm view "$name" dist-tags.latest)" == "$version" ]]; then'), true);
+  assert.equal(workflow.includes('--verify-tag --generate-notes --prerelease="$PRERELEASE"'), true);
 });
 
 test('branches on a missing release tag without treating the 404 body as a SHA', () => {

@@ -1,0 +1,8 @@
+/* Set on the gizmo's element (its className); each variable falls back to the cube's own colours. */
+.nav-cube {
+  --viewport-gizmo-button-background: #1d2330;
+  --viewport-gizmo-button-ring: #3d8be8;
+  --viewport-gizmo-button-ring-hover: #f0b429;
+  --viewport-gizmo-button-color: #ffffff;
+  --viewport-gizmo-button-focus-ring: #f0b429;
+}

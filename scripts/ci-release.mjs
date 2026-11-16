@@ -8,6 +8,8 @@ import semver from 'semver';
 const SHA = /^[0-9a-f]{40}$/u;
 const RELEASE_SUBJECT = /^chore\(release\): three-viewport-gizmo v(.+?)(?: \(#\d+\))?$/u;
 export const RELEASE_FILES = new Set(['CHANGELOG.md', 'package-lock.json', 'package.json']);
+// A prerelease bumps only the version and keeps the Version Plans and changelog for the stable release.
+export const PRERELEASE_FILES = new Set(['package-lock.json', 'package.json']);
 
 const assert = (condition, message) => {
   if (!condition) throw new Error(message);
@@ -21,7 +23,16 @@ const validateRelease = ({ changedFiles, changelog, packageVersion, subject }) =
   assert(semver.valid(match[1]), `release subject has invalid SemVer: ${match[1]}`);
   assert(match[1] === packageVersion, `release subject ${match[1]} does not match ${packageVersion}`);
   assert(semver.valid(packageVersion), `invalid package version: ${packageVersion}`);
-  assert(semver.prerelease(packageVersion) === null, `release version is not stable SemVer: ${packageVersion}`);
+  const prerelease = semver.prerelease(packageVersion);
+  if (prerelease) {
+    assert(/^[a-z]+$/u.test(String(prerelease[0])), `prerelease needs a lowercase id: ${packageVersion}`);
+    for (const file of PRERELEASE_FILES) {
+      assert(changedFiles.includes(file), `prerelease commit must change ${file}`);
+    }
+    const unexpected = changedFiles.filter((file) => !PRERELEASE_FILES.has(file));
+    assert(unexpected.length === 0, `prerelease commit has unexpected files: ${unexpected.join(', ')}`);
+    return;
+  }
   for (const file of RELEASE_FILES) {
     assert(changedFiles.includes(file), `release commit must change ${file}`);
   }
@@ -73,9 +84,12 @@ export const deriveRelease = ({
   }
 
   validateRelease({ changedFiles, changelog, packageVersion, subject });
+  const [preid] = semver.prerelease(packageVersion) ?? [];
   return {
     kind: 'release',
     npmPublish: true,
+    npmTag: preid ?? 'latest',
+    prerelease: Boolean(preid),
     releaseTag: `v${packageVersion}`,
     version: packageVersion,
   };

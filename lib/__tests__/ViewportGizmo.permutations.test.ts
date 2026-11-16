@@ -1,33 +1,38 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Matrix4, Quaternion, Vector3 } from "three";
-import type { GizmoUpAxis } from "../types.js";
-import { GIZMO_TURN_RATE } from "../utils/constants.js";
-import { FRAME_MS, createGizmo, resetDefaultUp, runFlight } from "./test-utils.js";
+import { TURN_RATE } from "../orbit/transition.js";
+import { FRAME_MS, createGizmo, runFlight } from "./test-utils.js";
 
 afterEach(() => {
-  resetDefaultUp();
   vi.restoreAllMocks();
+  document.body.replaceChildren();
 });
 
 const TARGET = new Vector3(3, -4, 2);
 const RADIUS = 9;
 
 /** Nominal turn per frame at speed 1; smoothstep peaks at 1.5x, two angles together at about 2.1x. */
-const NOMINAL_STEP = GIZMO_TURN_RATE * (FRAME_MS / 1000);
+const NOMINAL_STEP = TURN_RATE * (FRAME_MS / 1000);
 const MAX_STEP = 2.2 * NOMINAL_STEP;
 
 const axis = (x: number, y: number, z: number) => new Vector3(x, y, z);
-/** Up axis, then the horizontal axes azimuth runs between, independent of the library's frame table. */
-const FRAMES: Record<GizmoUpAxis, [u: Vector3, e1: Vector3, e2: Vector3]> = {
-  y: [axis(0, 1, 0), axis(0, 0, 1), axis(1, 0, 0)],
-  z: [axis(0, 0, 1), axis(1, 0, 0), axis(0, 1, 0)],
-  x: [axis(1, 0, 0), axis(0, 1, 0), axis(0, 0, 1)],
-};
-/** Screen-right at Top and Bottom: the views are entered from the Front face's side. */
-const POLE_RIGHT: Record<GizmoUpAxis, Vector3> = {
-  y: axis(1, 0, 0),
-  z: axis(1, 0, 0),
-  x: axis(0, 0, 1),
+/** The six label ups, each with its 2.x front (the same axis's front for a negative up, O1). */
+const UPS = {
+  "+x": [axis(1, 0, 0), axis(0, 1, 0)],
+  "-x": [axis(-1, 0, 0), axis(0, 1, 0)],
+  "+y": [axis(0, 1, 0), axis(0, 0, 1)],
+  "-y": [axis(0, -1, 0), axis(0, 0, 1)],
+  "+z": [axis(0, 0, 1), axis(0, -1, 0)],
+  "-z": [axis(0, 0, -1), axis(0, -1, 0)],
+} as const;
+/**
+ * Up axis, then the horizontal axes azimuth runs between, independent of the library's frame table; and screen-right
+ * at Top and Bottom, where the views are entered from the Front face's side: the label right, up × front.
+ */
+const frames = (up: keyof typeof UPS) => {
+  const [u, front] = UPS[up];
+  const right = u.clone().cross(front);
+  return { u, e1: front, e2: right, poleRight: right };
 };
 
 const DIRECTIONS: Vector3[] = [];
@@ -39,13 +44,13 @@ const _matrix = new Matrix4();
 const _lookAt = new Quaternion();
 const _right = new Vector3();
 
-describe.each(["x", "y", "z"] as const)("every view change on a %s-up gizmo", (up) => {
-  const [u, e1, e2] = FRAMES[up];
+describe.each(Object.keys(UPS) as (keyof typeof UPS)[])("every view change on a %s-up gizmo", (up) => {
+  const { u, e1, e2, poleRight } = frames(up);
 
   type Start = { name: string; apply: (gizmo: ReturnType<typeof createGizmo>) => void };
   const starts: Start[] = DIRECTIONS.map((direction) => ({
     name: `view ${direction.toArray()}`,
-    apply: (gizmo) => gizmo.lookFrom(direction, false),
+    apply: (gizmo) => void gizmo.lookFrom(direction, { animated: false }),
   }));
   for (const pole of [1, -1]) {
     for (const azimuth of [0.3, 1.7, -2.9, Math.PI]) {
@@ -74,7 +79,7 @@ describe.each(["x", "y", "z"] as const)("every view change on a %s-up gizmo", (u
   }
 
   it(`stays upright, steps evenly and lands canonically for ${starts.length} starts x ${DIRECTIONS.length} targets`, () => {
-    const gizmo = createGizmo({ cameraPosition: axis(5, 6, 7), gizmoOptions: { type: "cube", up } });
+    const gizmo = createGizmo({ up: u, cameraPosition: axis(5, 6, 7), gizmoOptions: { type: "cube" } });
     gizmo.target.copy(TARGET);
     gizmo.camera.position.copy(TARGET).add(axis(5, 6, 7).setLength(RADIUS));
 
@@ -90,7 +95,7 @@ describe.each(["x", "y", "z"] as const)("every view change on a %s-up gizmo", (u
         const previous = gizmo.camera.quaternion.clone();
         const radius = gizmo.camera.position.distanceTo(TARGET);
 
-        gizmo.lookFrom(to);
+        void gizmo.lookFrom(to);
         runFlight(gizmo, () => {
           const { quaternion, position } = gizmo.camera;
           worstTilt = Math.max(worstTilt, Math.abs(_right.set(1, 0, 0).applyQuaternion(quaternion).dot(u)));
@@ -104,7 +109,7 @@ describe.each(["x", "y", "z"] as const)("every view change on a %s-up gizmo", (u
         const eye = gizmo.camera.position.clone().sub(TARGET).normalize();
         const isPole = Math.abs(to.clone().normalize().dot(u)) > 0.999;
         const right = _right.set(1, 0, 0).applyQuaternion(gizmo.camera.quaternion);
-        const expectedRight = isPole ? POLE_RIGHT[up] : u.clone().cross(to).normalize();
+        const expectedRight = isPole ? poleRight : u.clone().cross(to).normalize();
         const name = `${start.name} -> ${to.toArray()}`;
 
         if (gizmo.animating) failures.push(`${name}: did not finish`);

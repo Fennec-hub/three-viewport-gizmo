@@ -1,11 +1,23 @@
 # Maintains one bot-owned release pull request. Merging it is the release act;
 # ci.yml alone owns npm publication, verification, tagging, and GitHub Releases.
+#
+# Pushes to main prepare the stable release the pending Version Plans dictate (npm `latest`).
+# A prerelease is cut by dispatching this workflow on main with `preid` (for example `beta`):
+# the pull request bumps only package.json and package-lock.json to `<planned>-<preid>.N`,
+# keeps the Version Plans and CHANGELOG.md for the stable release, and merging it publishes
+# under the `<preid>` dist-tag with a GitHub prerelease. The next push to main regenerates the
+# stable release pull request, so merge a prerelease pull request before merging other work.
 name: Release PR
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      preid:
+        description: Prerelease id (for example beta); empty prepares the stable release
+        type: string
+        default: ''
 
 permissions: {}
 
@@ -63,11 +75,17 @@ jobs:
       - name: Generate the release commit
         id: generate
         if: steps.plans.outputs.pending == 'true'
+        env:
+          PREID: ${{ inputs.preid }}
         run: |
           set -euo pipefail
           previous_version=$(node -p "require('./package.json').version")
-          npm run release:prepare -- --from-plans
-          git rm --quiet --force '.nx/version-plans/*.md'
+          if [[ -n "$PREID" ]]; then
+            npm run release:prepare -- --from-plans --preid "$PREID"
+          else
+            npm run release:prepare -- --from-plans
+            git rm --quiet --force '.nx/version-plans/*.md'
+          fi
           git add CHANGELOG.md package.json package-lock.json
           staged=$(git diff --cached --name-only)
           allowed='^(CHANGELOG\.md|package\.json|package-lock\.json|\.nx/version-plans/.+\.md)$'
@@ -92,13 +110,16 @@ jobs:
           TITLE: 'chore(release): three-viewport-gizmo v${{ steps.generate.outputs.version }}'
           VERSION: ${{ steps.generate.outputs.version }}
           PREVIOUS_VERSION: ${{ steps.generate.outputs.previous_version }}
+          PREID: ${{ inputs.preid }}
         run: |
           set -euo pipefail
+          channel="the npm \`latest\` dist-tag"
+          [[ -n "$PREID" ]] && channel="the npm \`$PREID\` dist-tag as a prerelease; Version Plans stay pending for the stable release"
           body=$(cat <<BODYEOF
           Releases **@taulabs/three-viewport-gizmo v${VERSION}** from ${PREVIOUS_VERSION}, as dictated by the pending Nx Version Plan.
 
           - This pull request is bot-managed. Do not push to release/next or enable auto-merge.
-          - **Merging this pull request publishes the tested candidate to npm.** Keep the title unchanged and use squash merge.
+          - **Merging this pull request publishes the tested candidate to npm** under ${channel}. Keep the title unchanged and use squash merge.
           BODYEOF
           )
           pr_number=$(gh pr list --base main --head release/next --state open --json number --jq '.[0].number // empty')

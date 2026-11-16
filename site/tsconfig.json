@@ -28,6 +28,12 @@
       ],
       "@site/*": [
         "./*"
+      ],
+      "@taulabs/three-viewport-gizmo": [
+        "../lib/index.ts"
+      ],
+      "@taulabs/three-viewport-gizmo/camera-controls": [
+        "../lib/controls/cameraControls.ts"
       ]
     }
   },

@@ -1,90 +1,107 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Code } from "@site/components/Code";
+import { Sample } from "@site/components/Sample";
 import { UpAxisExample } from "@site/components/examples";
-import { PACKAGE } from "@site/components/site";
 
-export const metadata: Metadata = { title: "Up axis" };
+export const metadata: Metadata = {
+  title: "Up axis",
+  description: "Orient the gizmo for Z-up, X-up or any signed up axis, and choose which way Front faces.",
+};
+
+/** The default Front and the Right it gives for each up: `right = up × front`, the same Front for either sign. */
+const FRAMES = [
+  ["+Y (three.js default)", "+Z", "+X"],
+  ["−Y", "+Z", "−X"],
+  ["+Z", "−Y", "+X"],
+  ["−Z", "−Y", "−X"],
+  ["+X", "+Y", "+Z"],
+  ["−X", "+Y", "−Z"],
+] as const;
 
 export default function UpAxisGuide() {
   return (
     <>
       <h1>Up axis</h1>
       <p>
-        The gizmo orients its faces, drags and clicks around one world up axis: <code>x</code>,{" "}
-        <code>y</code> or <code>z</code>. Z-up is common in CAD; X-up appears in some engineering
-        and physics tools.
+        The gizmo labels its faces, and orients its drags and clicks, around one world up: any of
+        the six signed axes. Z-up is common in CAD; X-up appears in some engineering tools.
       </p>
-      <table>
-        <thead>
-          <tr>
-            <th>Up</th>
-            <th>Right</th>
-            <th>Front face</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>
-              <code>Y+</code> (three.js default)
-            </td>
-            <td>
-              <code>X+</code>
-            </td>
-            <td>
-              <code>Z+</code>
-            </td>
-          </tr>
-          <tr>
-            <td>
-              <code>Z+</code>
-            </td>
-            <td>
-              <code>X+</code>
-            </td>
-            <td>
-              <code>Y-</code>
-            </td>
-          </tr>
-          <tr>
-            <td>
-              <code>X+</code>
-            </td>
-            <td>
-              <code>Z+</code>
-            </td>
-            <td>
-              <code>Y+</code>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+
+      <h2>Prerequisites</h2>
       <p>
-        By default the gizmo reads the axis from <code>Object3D.DEFAULT_UP</code> and follows later
-        changes to it on its next <code>update()</code> or <code>render()</code>. Pass{" "}
-        <code>up</code> explicitly when views with different up axes share one page, as the{" "}
-        <Link href="/matrix/">Matrix</Link> does.
+        The <Link href="/docs/quickstart/">Quickstart</Link>.
       </p>
-      <Code>{`
-import * as THREE from "three";
-import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { ViewportGizmo } from "${PACKAGE}";
 
-// Either set the process-wide default before creating cameras and controls ...
-THREE.Object3D.DEFAULT_UP.set(0, 0, 1);
-
-// ... or set it per camera and per gizmo.
-camera.up.set(0, 0, 1); // before creating the controls
-const controls = new OrbitControls(camera, renderer.domElement);
-const gizmo = new ViewportGizmo(camera, renderer, { up: "z" });
-gizmo.attachControls(controls);
-`}</Code>
+      <h2>Steps</h2>
+      <h3>1. Set the camera&apos;s up before creating the controls and the gizmo</h3>
+      <p>
+        The gizmo reads its up from <code>camera.up</code> when it is created, snapped to the
+        nearest signed axis. It never reads <code>Object3D.DEFAULT_UP</code> and does not follow
+        later changes to it.
+      </p>
+      <Sample file="up-axis.ts" />
       <figure>
         <UpAxisExample />
         <figcaption>
           The same model in each frame; the red, green and blue lines are world X, Y and Z.
         </figcaption>
       </figure>
+
+      <h2>Variations</h2>
+      <p>
+        Without <code>frontDirection</code>, Front faces the axis 2.x used for that up, for either
+        sign of it:
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Up</th>
+            <th>Front</th>
+            <th>Right</th>
+          </tr>
+        </thead>
+        <tbody>
+          {FRAMES.map(([up, front, right]) => (
+            <tr key={up}>
+              <td>
+                <code>{up}</code>
+              </td>
+              <td>
+                <code>{front}</code>
+              </td>
+              <td>
+                <code>{right}</code>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <ul>
+        <li>
+          <code>up</code> and <code>frontDirection</code> are vectors: <code>up</code> must be a
+          signed axis and <code>frontDirection</code> perpendicular to it, or the gizmo throws{" "}
+          <code>INVALID_FRAME</code>. The 2.x form <code>up: &quot;z&quot;</code> throws{" "}
+          <code>REMOVED_OPTION</code>.
+        </li>
+        <li>
+          Face names follow the labels on every up: <code>top</code> is the face labelled Top, and
+          the face-style options (<code>top</code>, <code>front</code>, …) style it.
+        </li>
+        <li>
+          Pass <code>up</code> explicitly when views with different up axes share a page, as the{" "}
+          <Link href="/matrix/">Matrix</Link> does.
+        </li>
+      </ul>
+
+      <h2>Related</h2>
+      <ul>
+        <li>
+          <Link href="/docs/api/#gizmo-options">API reference: up and frontDirection</Link>
+        </li>
+        <li>
+          <Link href="/docs/migrating/">Migrating from 2.x</Link>
+        </li>
+      </ul>
     </>
   );
 }

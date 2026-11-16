@@ -1,0 +1,5 @@
+---
+three-viewport-gizmo: major
+---
+
+The gizmo's element is keyboard operable. It is a focusable `role="application"` (`aria-roledescription` "view cube" or "view sphere") whose `aria-label` reads the view and the roll ("Front, rolled 90° clockwise", or "Near Top Front Right" off a target), with a visually hidden `role="status"` first child that announces a reached key turn. While it has focus, the arrow keys step to the neighbouring view on that side of the screen (45° toward it, snapped to the nearest of the 26 targets), digits 1 to 6 (top row or keypad) look from Front, Back, Left, Right, Top and Bottom, Home goes home upright, and Shift with Right or Left rolls a quarter turn when `canRoll`. Every key runs `lookFrom` or `turn` with cause `key`; a consumed key is `preventDefault`ed and still propagates; Ctrl, Meta and Alt chords, letters, Escape, Enter, Space and IME input are left to the page. `enabled = false` writes `tabindex="-1"` and `aria-disabled="true"` and takes no key. A pointer press on the gizmo no longer moves focus. Hosts with their own capture-phase arrow keys should treat `[role=application]` as a control that keeps its arrow keys.

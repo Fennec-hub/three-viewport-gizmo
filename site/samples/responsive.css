@@ -1,0 +1,6 @@
+/* The gizmo writes its size inline, so overriding it takes !important. */
+.responsive-gizmo {
+  width: auto !important;
+  height: 40% !important;
+  aspect-ratio: 1;
+}

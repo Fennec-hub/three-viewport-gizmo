@@ -1,0 +1,112 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>S1 scene</title>
+  </head>
+  <body>
+    <script type="module">
+      // Browser cases for lib/scene/ (S1): `?backend=webgpu|webgl&type=sphere|cube|rounded-cube`. Renders the scene
+      // alone into a 256 px render target and reads it back, so pixels compare exactly across set() and rebuilds.
+      // ponytail: drives lib/scene directly until K5 wires buildScene into the class.
+      import * as THREE from "three/webgpu";
+      import { resolveOptions, mergeOptions } from "/lib/options/resolve.ts";
+      import { classifyChange } from "/lib/options/changes.ts";
+      import { buildScene, disposeScene } from "/lib/scene/build.ts";
+      import { hoverScene, updateScene } from "/lib/scene/update.ts";
+
+      const q = new URLSearchParams(location.search);
+      const backend = q.get("backend") ?? "webgpu";
+      const type = q.get("type") ?? "sphere";
+      const SIZE = 256;
+
+      const renderer =
+        backend === "webgl" ? new (await import("three")).WebGLRenderer() : new THREE.WebGPURenderer({ forceWebGL: false });
+      if (renderer.init) await renderer.init();
+      const target = backend === "webgl" ? new (await import("three")).WebGLRenderTarget(SIZE, SIZE) : new THREE.RenderTarget(SIZE, SIZE);
+      const camera =
+        type === "sphere" ? new THREE.OrthographicCamera(-1.8, 1.8, 1.8, -1.8, 5, 10) : new THREE.PerspectiveCamera(26, 1, 5, 10);
+      camera.position.set(0, 0, 7);
+      const world = new THREE.Scene();
+      const root = new THREE.Object3D();
+      root.quaternion.setFromEuler(new THREE.Euler(0.5, -0.7, 0)).invert();
+      world.add(root);
+
+      const resolve = (options) => resolveOptions(options, { up: new THREE.Vector3(0, 1, 0) });
+      const base = { type };
+      let scene = buildScene(resolve(base));
+      root.add(scene.group);
+
+      const draw = async () => {
+        renderer.setRenderTarget(target);
+        renderer.setClearColor(0x000000, 0);
+        renderer.clear();
+        renderer.render(world, camera);
+        renderer.setRenderTarget(null);
+        // WebGL fills a buffer it is given; WebGPU returns one.
+        if (backend !== "webgl") return renderer.readRenderTargetPixelsAsync(target, 0, 0, SIZE, SIZE);
+        const buffer = new Uint8Array(SIZE * SIZE * 4);
+        await renderer.readRenderTargetPixelsAsync(target, 0, 0, SIZE, SIZE, buffer);
+        return buffer;
+      };
+      const lit = (pixels) => {
+        let count = 0;
+        for (let i = 3; i < pixels.length; i += 4) if (pixels[i] > 0) count++;
+        return count;
+      };
+      const equal = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
+      // ponytail: renderer internals for a test-only program or pipeline count.
+      const programs = () => (backend === "webgl" ? renderer.info.programs.length : renderer._pipelines.caches.size);
+
+      const THEME = {
+        x: { color: 0x101010, labelColor: 0xeeeeee },
+        y: { color: 0x202020 },
+        edges: { color: 0x333333, hover: { color: 0x2266ff } },
+        corners: { color: 0x444444, hover: { color: 0x2266ff } },
+        background: { color: 0x111111 },
+      };
+
+      const run = async () => {
+        const before = await draw();
+        const programsBefore = programs();
+
+        for (const { target } of scene.targets) {
+          hoverScene(scene, target.name);
+          await draw();
+        }
+        hoverScene(scene, null);
+        const programsAfterHover = programs();
+
+        const themed = resolve(mergeOptions(base, THEME));
+        const themeClass = classifyChange(resolve(base), themed);
+        const start = performance.now();
+        updateScene(scene, themed);
+        const themedPixels = await draw();
+        const themeMs = performance.now() - start;
+        updateScene(scene, resolve(base));
+        const afterSet = await draw();
+
+        disposeScene(scene);
+        scene = buildScene(resolve(base));
+        root.add(scene.group);
+        const afterRebuild = await draw();
+
+        return {
+          backend: renderer.backend?.isWebGPUBackend ? "webgpu" : "webgl",
+          lit: lit(before),
+          themeChanged: !equal(before, themedPixels),
+          themeClass,
+          themeMs,
+          setEqual: equal(before, afterSet),
+          rebuildEqual: equal(before, afterRebuild),
+          programsBefore,
+          programsAfterHover,
+          materials: [...scene.owned].filter((r) => r.isMaterial).length,
+        };
+      };
+
+      window.T = { run };
+      window.READY = true;
+    </script>
+  </body>
+</html>

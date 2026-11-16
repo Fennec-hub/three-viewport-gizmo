@@ -4,7 +4,6 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import {
   Box3,
   Matrix4,
-  Object3D,
   PerspectiveCamera,
   Quaternion,
   Raycaster,
@@ -14,7 +13,7 @@ import {
   Vector3,
   Vector4,
 } from "three";
-import { createGizmo, createStubRenderer, resetDefaultUp, runFlight } from "./test-utils.js";
+import { createGizmo, runFlight } from "./test-utils.js";
 
 CameraControls.install({
   THREE: {
@@ -33,8 +32,8 @@ CameraControls.install({
 const TARGET = new Vector3(3, -4, 2);
 
 afterEach(() => {
-  resetDefaultUp();
   vi.restoreAllMocks();
+  document.body.replaceChildren();
 });
 
 describe("cardinal orientation settle", () => {
@@ -44,9 +43,8 @@ describe("cardinal orientation settle", () => {
     ["X-up Right", new Vector3(1, 0, 0), new Vector3(1, 0, 0), new Vector3(0, 0, 1)],
     ["X-up Left", new Vector3(1, 0, 0), new Vector3(-1, 0, 0), new Vector3(0, 0, 1)],
   ])("keeps %s stable on every frame when CameraControls accepts the position", (_, up, direction, expectedRight) => {
-    Object3D.DEFAULT_UP.copy(up);
     const cameraPosition = TARGET.clone().add(new Vector3(7, 8, 9));
-    const gizmo = createGizmo({ defaultUp: up, cameraPosition });
+    const gizmo = createGizmo({ up, cameraPosition });
     gizmo.target.copy(TARGET);
     gizmo.camera.position.copy(cameraPosition);
     gizmo.camera.lookAt(TARGET);
@@ -55,7 +53,7 @@ describe("cardinal orientation settle", () => {
     void controls.setLookAt(...gizmo.camera.position.toArray(), ...TARGET.toArray(), false);
     controls.update(0);
 
-    gizmo.lookFrom(direction);
+    void gizmo.lookFrom(direction);
     let worstAngle = 0;
     let worstDistance = 0;
     const frames = runFlight(gizmo, () => {
@@ -84,27 +82,22 @@ describe("cardinal orientation settle", () => {
   });
 
   it("preserves a non-origin target when attached OrbitControls settles Z-up Top on every frame", () => {
-    Object3D.DEFAULT_UP.set(0, 0, 1);
     const cameraPosition = TARGET.clone().add(new Vector3(7, 8, 9));
     const camera = new PerspectiveCamera(50, 1, 0.1, 1000);
     camera.up.set(0, 0, 1);
     camera.position.copy(cameraPosition);
     camera.lookAt(TARGET);
-    const renderer = createStubRenderer();
-    const controls = new OrbitControls(camera, renderer.domElement);
+    const gizmo = createGizmo({ up: new Vector3(0, 0, 1), cameraPosition });
+    const controls = new OrbitControls(camera, gizmo.renderer.domElement);
     controls.target.copy(TARGET);
     controls.update();
 
-    const gizmo = createGizmo({
-      defaultUp: new Vector3(0, 0, 1),
-      cameraPosition,
-    });
     // The controls must drive the gizmo's own camera for the settle check to mean anything.
     gizmo.camera = camera;
     gizmo.attachControls(controls);
 
     const distance = camera.position.distanceTo(TARGET);
-    gizmo.lookFrom(new Vector3(0, 0, 1));
+    void gizmo.lookFrom(new Vector3(0, 0, 1));
     let worstAngle = 0;
     let worstMove = 0;
     runFlight(gizmo, () => {
