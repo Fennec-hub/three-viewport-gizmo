@@ -22,7 +22,7 @@ export default function Home() {
             A view cube and orientation gizmo for three.js cameras. It shows where the camera is
             looking and turns the view when you click or drag it.
           </p>
-          <Code label="Install">{`npm install ${PACKAGE}`}</Code>
+          <Code label="Install" lang="bash">{`npm install ${PACKAGE}`}</Code>
           <div className="actions">
             <Link className="button primary" href="/docs/quickstart/">
               Quickstart

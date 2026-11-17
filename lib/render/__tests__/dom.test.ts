@@ -20,9 +20,10 @@ describe("createGizmoElement", () => {
 
     expect(style.position).toBe("absolute");
     expect(style.touchAction).toBe("none");
-    expect(style.width).toBe("128px");
-    expect(style.height).toBe("128px");
-    expect(style.margin).toBe("10px");
+    // The options are the fallbacks of custom properties a host stylesheet can set without `!important`.
+    expect(style.width).toBe("var(--viewport-gizmo-width, 128px)");
+    expect(style.height).toBe("var(--viewport-gizmo-height, 128px)");
+    expect(style.margin).toBe("var(--viewport-gizmo-margin, 10px 10px 10px 10px)");
     expect(style.top).toBe("0px");
     expect(style.right).toBe("0px");
     expect(style.cursor).toBe("");
@@ -56,7 +57,7 @@ describe("updateGizmoElement", () => {
     const next = { ...options, size: 96, placement: "bottom-left" as const, className: "viewport-gizmo-sphere" };
     updateGizmoElement(element, next, { ...options, id: "a" });
 
-    expect(element.style.width).toBe("96px");
+    expect(element.style.width).toBe("var(--viewport-gizmo-width, 96px)");
     expect([element.style.bottom, element.style.left, element.style.top, element.style.right]).toEqual(["0px", "0px", "", ""]);
     expect(element.style.transform).toBe("");
     expect(element.hasAttribute("id")).toBe(false);

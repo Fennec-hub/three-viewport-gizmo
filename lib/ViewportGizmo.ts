@@ -479,6 +479,7 @@ export class ViewportGizmo extends EventDispatcher<ViewportGizmoEventMap> {
     // ponytail: a host that parented `root` loses it here; without this its gizmo would draw nothing (probe P3).
     if (this.root.parent !== this._three) this._three.add(this.root);
     measureViewport(this.renderer, this.domElement, this._viewport);
+    this._nav?.place();
     renderInRect(this.renderer, this._three, this._camera, this._viewport, this._reset);
   }
 
@@ -914,7 +915,8 @@ export class ViewportGizmo extends EventDispatcher<ViewportGizmoEventMap> {
       this._nav = attachNavigation(this.domElement, this, {
         lookFrom: (view) => this._lookFrom("navigation", view),
         turn: (turn) => this._turn("navigation", turn),
-        anchor: () => navigationAnchor(this._camera, this._scene.group.scale.x, this._options.size),
+        // The measured height once rendered (CSS may resize the element), else the size option.
+        anchor: () => navigationAnchor(this._camera, this._scene.group.scale.x, this._viewport.height || this._options.size),
       });
     } else if (!on && this._nav) {
       this._nav.detach();

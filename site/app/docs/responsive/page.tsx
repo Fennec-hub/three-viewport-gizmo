@@ -28,6 +28,12 @@ export default function ResponsiveGuide() {
       <h3>1. Give the gizmo a class</h3>
       <Sample file="responsive.ts" />
       <h3>2. Size it in CSS</h3>
+      <p>
+        Set <code>--viewport-gizmo-width</code> and <code>--viewport-gizmo-height</code> (and{" "}
+        <code>--viewport-gizmo-margin</code> for the offset). The library writes its size inline as{" "}
+        <code>var()</code> with the <code>size</code> option as fallback, so a plain class rule wins without{" "}
+        <code>!important</code> and no stylesheet ships with the package.
+      </p>
       <Sample file="responsive.css" label="responsive.css" />
       <figure>
         <Stage

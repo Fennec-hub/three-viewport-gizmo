@@ -1,7 +1,7 @@
 // I4: the built-in navigation buttons (OD2). Off by default adds no node; each switch hides only its button; `canRoll`
 // false hides the rolls; reveal on hover and focus within; every press is a `navigation` turn; colours from the cube.
-import { afterEach, describe, expect, it } from "vitest";
-import { PerspectiveCamera, Vector3 } from "three";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { OrthographicCamera, PerspectiveCamera, Vector3 } from "three";
 import type { GizmoCause, GizmoNavigationOptions, GizmoOptions } from "../index.js";
 import type { ViewportGizmo } from "../ViewportGizmo.js";
 import { createGizmo } from "../__tests__/test-utils.js";
@@ -92,7 +92,8 @@ describe("navigation option", () => {
     expect(shown(gizmo)).toEqual([]);
   });
 
-  it("reveals on hover and on focus within, never on a touch hover", () => {
+  it("reveals on hover and on focus within, never on a touch hover; lingers after the pointer leaves", () => {
+    vi.useFakeTimers();
     const gizmo = make({ enabled: true });
     const element = gizmo.domElement;
     expect(shown(gizmo)).toEqual([]);
@@ -101,7 +102,16 @@ describe("navigation option", () => {
     element.dispatchEvent(pointer("pointerenter"));
     expect(shown(gizmo)).toEqual(ALL);
     element.dispatchEvent(pointer("pointerleave"));
+    // The pointer has time to cross the gap to a button outside the element: re-entering keeps them.
+    vi.advanceTimersByTime(300);
+    expect(shown(gizmo)).toEqual(ALL);
+    element.dispatchEvent(pointer("pointerenter"));
+    vi.advanceTimersByTime(1000);
+    expect(shown(gizmo)).toEqual(ALL);
+    element.dispatchEvent(pointer("pointerleave"));
+    vi.advanceTimersByTime(400);
     expect(shown(gizmo)).toEqual([]);
+    vi.useRealTimers();
     element.focus();
     expect(shown(gizmo)).toEqual(ALL);
     button(gizmo, "home").focus();
@@ -148,21 +158,58 @@ describe("navigation option", () => {
     expect(style).toContain("var(--viewport-gizmo-button-ring, #112233)");
     gizmo.set({ front: { color: 0xaabbcc } });
     expect(button(gizmo, "home").innerHTML).toContain("var(--viewport-gizmo-button-ring, #aabbcc)");
+    // No cursor of its own: the default arrow, as over the cube, unless the host styles `[data-navigation]`.
+    expect(button(gizmo, "home").style.cursor).toBe("");
     button(gizmo, "home").dispatchEvent(pointer("pointerenter"));
     expect(button(gizmo, "home").hasAttribute("data-hovered")).toBe(true);
     expect(button(gizmo, "home").innerHTML).toContain("--viewport-gizmo-button-ring-hover");
   });
 });
 
+describe("sphere buttons", () => {
+  it("are white chips ringed in the up axis's colour", () => {
+    for (const [up, axis] of [[new Vector3(0, 1, 0), "y"], [new Vector3(0, 0, 1), "z"]] as const) {
+      const gizmo = make(undefined, { type: "sphere", up });
+      const chip = button(gizmo, "home").firstElementChild as HTMLElement;
+      const color = `#${gizmo.options[axis].color.toString(16).padStart(6, "0")}`;
+      expect(chip.style.background).toContain("var(--viewport-gizmo-button-background, #ffffff)");
+      expect(chip.style.boxShadow).toContain(`var(--viewport-gizmo-button-ring, ${color})`);
+      gizmo.dispose();
+    }
+  });
+});
+
+describe("anchor from the measured size", () => {
+  it("moves the buttons when CSS resizes the element, and only rewrites the anchor when it changes", () => {
+    const gizmo = make(undefined, { type: "sphere", size: 128 });
+    const style = gizmo.domElement.style;
+    expect(style.getPropertyValue("--viewport-gizmo-anchor")).toBe("83px");
+    gizmo.domElement.getBoundingClientRect = () => new DOMRect(0, 0, 256, 256);
+    gizmo.render();
+    expect(style.getPropertyValue("--viewport-gizmo-anchor")).toBe("147px");
+    expect(parseFloat(style.getPropertyValue("--viewport-gizmo-anchor-corner"))).toBeCloseTo(147 / Math.SQRT2);
+    gizmo.dispose();
+  });
+});
+
 describe("navigationAnchor", () => {
   it("puts the G0 grid at 42 px for Tau's 96 px cube with the triad, and clears the silhouette", () => {
     const camera = createInternalCamera(false) as PerspectiveCamera;
-    expect(navigationAnchor(camera, 0.7, 96)).toBeCloseTo(42, 0);
+    expect(navigationAnchor(camera, 0.7, 96).side).toBeCloseTo(42, 0);
+    expect(navigationAnchor(camera, 0.7, 96).corner).toBe(navigationAnchor(camera, 0.7, 96).side);
     // Default cube: the side chips' hit area clears the face square, the corners' the bounding sphere.
-    const a = navigationAnchor(camera, 1, 128);
+    const a = navigationAnchor(camera, 1, 128).side;
     const tan = Math.tan((camera.fov * Math.PI) / 360);
     const face = 64 / ((camera.position.z - 1) * tan);
     expect(a - 12).toBeGreaterThan(face);
     expect(a * Math.SQRT2 - 12).toBeGreaterThan((64 * Math.tan(Math.asin(Math.sqrt(3) / camera.position.z))) / tan);
+  });
+
+  it("puts the sphere's corner chips on the diagonal at the sides' distance, inside the element", () => {
+    const { side, corner } = navigationAnchor(new OrthographicCamera(-1, 1, 1, -1), 1, 128);
+    expect(side).toBe(64 + 19);
+    expect(corner * Math.SQRT2).toBeCloseTo(side);
+    // The chip's 24 px hit area overlaps the 128 px element's corner, so the pointer reaches Home without a gap.
+    expect(corner - 12).toBeLessThan(64);
   });
 });

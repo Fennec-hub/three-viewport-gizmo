@@ -80,9 +80,12 @@ export function updateGizmoElement(element: HTMLElement, options: GizmoElementOp
   const { size, placement, offset } = options;
   const [y, x] = placement.split("-");
   Object.assign(element.style, {
-    width: `${size}px`,
-    height: `${size}px`,
-    margin: `${offset.top}px ${offset.right}px ${offset.bottom}px ${offset.left}px`,
+    // Each size and offset reads a custom property first, so a host's stylesheet can set
+    // `--viewport-gizmo-width`, `--viewport-gizmo-height` or `--viewport-gizmo-margin` on the element without
+    // `!important` and without the library shipping a stylesheet; the options are the fallback.
+    width: `var(--viewport-gizmo-width, ${size}px)`,
+    height: `var(--viewport-gizmo-height, ${size}px)`,
+    margin: `var(--viewport-gizmo-margin, ${offset.top}px ${offset.right}px ${offset.bottom}px ${offset.left}px)`,
     left: x === "left" ? "0" : x === "center" ? "50%" : "",
     right: x === "right" ? "0" : "",
     top: y === "top" ? "0" : y === "center" ? "50%" : "",

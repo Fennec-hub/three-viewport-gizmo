@@ -25,7 +25,7 @@ export default function Quickstart() {
       </p>
 
       <h2>Install</h2>
-      <Code>{`npm install ${PACKAGE} three`}</Code>
+      <Code lang="bash">{`npm install ${PACKAGE} three`}</Code>
 
       <h2>Use it with OrbitControls</h2>
       <p>

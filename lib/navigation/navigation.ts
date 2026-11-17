@@ -28,8 +28,8 @@ export type NavigationGizmo = Readonly<{
 export type NavigationActions = Readonly<{
   lookFrom: (view: GizmoView) => Promise<GizmoTurnEnd>;
   turn: (turn: GizmoTurn) => Promise<GizmoTurnEnd>;
-  /** CSS pixels from the element's centre to a grid line: see {@link navigationAnchor}. */
-  anchor: () => number;
+  /** CSS pixels from the element's centre to the side and corner buttons: see {@link navigationAnchor}. */
+  anchor: () => NavigationAnchor;
 }>;
 
 /** The buttons in the element: {@link Navigation.refresh} on each state write, `restyle` on each option change. */
@@ -38,6 +38,8 @@ export type Navigation = {
   refresh(): void;
   /** Writes the cube's colours and the grid anchor from the options. */
   restyle(): void;
+  /** Rewrites the anchor when it changed, as after CSS resizes the element: call it after each measure. */
+  place(): void;
   /** Removes the buttons and their listeners, and the anchor property. */
   detach(): void;
 };
@@ -45,7 +47,12 @@ export type Navigation = {
 /** The `data-navigation` values, in tab order (row by row). */
 export type NavigationButton = "roll-clockwise" | GizmoSide | "roll-counterclockwise" | "home";
 
+/** CSS pixels from the element's centre to the side buttons' grid line, and to the corner buttons' (per axis). */
+export type NavigationAnchor = Readonly<{ side: number; corner: number }>;
+
 const QUARTER = Math.PI / 2;
+/** Milliseconds the buttons stay after the pointer leaves the element, so it can cross the gap to one outside it. */
+const LINGER = 400;
 const HIT = 24;
 /** CSS pixels from the cube's silhouette to a chip's centre: the 8 px chip radius and an 11 px gap (G0's 42 px). */
 const CLEARANCE = 19;
@@ -71,25 +78,31 @@ const isSide = (button: NavigationButton): button is GizmoSide =>
   button === "up" || button === "right" || button === "down" || button === "left";
 
 /**
- * The grid's distance from the cube's centre in CSS pixels, from the cube's projected silhouette: side triangles clear
- * the face square at a face view, and the corner chips clear the cube's bounding sphere, so no chip covers the cube at
- * any of the 26 views and any roll.
+ * The buttons' distance from the gizmo's centre in CSS pixels, from its projected silhouette. On the cube (perspective)
+ * one grid serves both: side triangles clear the face square at a face view, and the corner chips clear the cube's
+ * bounding sphere, so no chip covers the cube at any of the 26 views and any roll. The sphere (orthographic) is round,
+ * so the corner chips sit on the diagonal at the sides' distance, inside the element's corners within reach.
  *
  * @param camera - The gizmo's own camera, looking down -z at the origin
  * @param scale - The cube's scale in the gizmo's scene (0.7 with the triad)
- * @param size - The gizmo's `size` in CSS pixels
+ * @param size - The gizmo's height in CSS pixels: as measured once rendered, else its `size` option
  */
-export function navigationAnchor(camera: PerspectiveCamera | OrthographicCamera, scale: number, size: number): number {
+export function navigationAnchor(
+  camera: PerspectiveCamera | OrthographicCamera,
+  scale: number,
+  size: number,
+): NavigationAnchor {
   const half = size / 2;
-  let face = half * scale;
-  let bound = face;
-  if (camera instanceof PerspectiveCamera) {
-    const distance = camera.position.z;
-    const tan = Math.tan((camera.fov * Math.PI) / 360);
-    face = (half * scale) / ((distance - scale) * tan);
-    bound = (half * Math.tan(Math.asin(Math.min(1, (Math.sqrt(3) * scale) / distance)))) / tan;
+  if (!(camera instanceof PerspectiveCamera)) {
+    const side = half * scale + CLEARANCE;
+    return { side, corner: side / Math.SQRT2 };
   }
-  return Math.max(face + CLEARANCE, (bound + CLEARANCE) / Math.SQRT2);
+  const distance = camera.position.z;
+  const tan = Math.tan((camera.fov * Math.PI) / 360);
+  const face = (half * scale) / ((distance - scale) * tan);
+  const bound = (half * Math.tan(Math.asin(Math.min(1, (Math.sqrt(3) * scale) / distance)))) / tan;
+  const grid = Math.max(face + CLEARANCE, (bound + CLEARANCE) / Math.SQRT2);
+  return { side: grid, corner: grid };
 }
 
 const hex = (color: ColorRepresentation) => `#${new Color(color).getHexString()}`;
@@ -119,7 +132,8 @@ export function attachNavigation(element: HTMLElement, gizmo: NavigationGizmo, a
     button.type = "button";
     button.hidden = true;
     button.dataset.navigation = spec.button;
-    const at = (n: number) => (n ? `calc(50% + var(--viewport-gizmo-anchor) * ${n} - ${HIT / 2}px)` : `calc(50% - ${HIT / 2}px)`);
+    const anchor = spec.x && spec.y ? "--viewport-gizmo-anchor-corner" : "--viewport-gizmo-anchor";
+    const at = (n: number) => (n ? `calc(50% + var(${anchor}) * ${n} - ${HIT / 2}px)` : `calc(50% - ${HIT / 2}px)`);
     Object.assign(button.style, {
       position: "absolute",
       left: at(spec.x),
@@ -131,7 +145,6 @@ export function attachNavigation(element: HTMLElement, gizmo: NavigationGizmo, a
       border: "0",
       borderRadius: "50%",
       background: "none",
-      cursor: "pointer",
       outline: "none",
     });
     button.innerHTML =
@@ -162,10 +175,17 @@ export function attachNavigation(element: HTMLElement, gizmo: NavigationGizmo, a
     return { spec, button, chip, ring };
   });
 
+  let linger: ReturnType<typeof setTimeout> | undefined;
   const pointer = (on: boolean) => (event: PointerEvent) => {
     if (event.pointerType === "touch") return;
-    hovering = on;
-    handle.refresh();
+    clearTimeout(linger);
+    const apply = () => {
+      hovering = on;
+      handle.refresh();
+    };
+    // Buttons outside the element are its children, so reaching one re-enters it and cancels the pending hide.
+    if (on || !hovering) apply();
+    else linger = setTimeout(apply, LINGER);
   };
   const enter = pointer(true);
   const leave = pointer(false);
@@ -182,6 +202,7 @@ export function attachNavigation(element: HTMLElement, gizmo: NavigationGizmo, a
   element.addEventListener("focusin", focusin);
   element.addEventListener("focusout", focusout);
 
+  let placed: NavigationAnchor = { side: Number.NaN, corner: Number.NaN };
   const handle: Navigation = {
     refresh() {
       const o = gizmo.options.navigation;
@@ -220,19 +241,24 @@ export function attachNavigation(element: HTMLElement, gizmo: NavigationGizmo, a
     },
     restyle() {
       const o = gizmo.options;
-      const face = o[labelFrame(o.up, o.frontDirection).faces.front.end];
+      const frame = labelFrame(o.up, o.frontDirection);
+      const face = o[frame.faces.front.end];
+      // The sphere rings its chips in the up axis's colour (Home is the upright view); its hover is that colour darker.
+      const up = o.type === "sphere" ? o[frame.faces.top.end].color : null;
+      const upHover = up === null ? null : new Color(up).multiplyScalar(0.7);
       const cube: Record<keyof typeof paint, ColorRepresentation> = {
-        // The cube's bevel: its edges where they are drawn (Tau's cube), else the body between the tiles (plain cube).
-        background: o.edges.opacity > 0 ? o.edges.color : o.background.color,
-        ring: face.color,
-        "ring-hover": face.hover.color,
+        // The cube's bevel: its edges where they are drawn (Tau's cube), else the body between the tiles (plain cube,
+        // and the sphere, whose edges are never drawn).
+        background: o.edges.enabled && o.edges.opacity > 0 ? o.edges.color : o.background.color,
+        ring: up ?? face.color,
+        "ring-hover": upHover ?? face.hover.color,
         color: face.labelColor,
-        "focus-ring": face.hover.color,
+        "focus-ring": upHover ?? face.hover.color,
       };
       for (const key of Object.keys(paint) as (keyof typeof paint)[]) {
         paint[key] = `var(--viewport-gizmo-button-${key}, ${hex(cube[key])})`;
       }
-      element.style.setProperty("--viewport-gizmo-anchor", `${actions.anchor()}px`);
+      handle.place();
       for (const { button, chip, ring } of buttons) {
         button.style.color = paint.color;
         chip.style.background = paint.background;
@@ -240,12 +266,21 @@ export function attachNavigation(element: HTMLElement, gizmo: NavigationGizmo, a
         if (button.style.outline !== "none") button.style.outline = `2px solid ${paint["focus-ring"]}`;
       }
     },
+    place() {
+      const anchor = actions.anchor();
+      if (anchor.side === placed.side && anchor.corner === placed.corner) return;
+      placed = anchor;
+      element.style.setProperty("--viewport-gizmo-anchor", `${anchor.side}px`);
+      element.style.setProperty("--viewport-gizmo-anchor-corner", `${anchor.corner}px`);
+    },
     detach() {
+      clearTimeout(linger);
       element.removeEventListener("pointerenter", enter);
       element.removeEventListener("pointerleave", leave);
       element.removeEventListener("focusin", focusin);
       element.removeEventListener("focusout", focusout);
       element.style.removeProperty("--viewport-gizmo-anchor");
+      element.style.removeProperty("--viewport-gizmo-anchor-corner");
       for (const { button } of buttons) button.remove();
     },
   };

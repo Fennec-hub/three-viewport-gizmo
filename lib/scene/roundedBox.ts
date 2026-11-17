@@ -1,5 +1,5 @@
 import { BufferGeometry, Float32BufferAttribute, Quaternion, Vector3 } from "three";
-import { classifyPoint, PRIORITY_DEPTH, type HitBox } from "../interaction/hitTest";
+import { classifyPoint, type HitBox } from "../interaction/hitTest";
 import type { LabelFrame } from "../orbit/labelFrame";
 import { targetTable } from "../orbit/targets";
 import type { GeometryProvider } from "./build";
@@ -16,14 +16,15 @@ const MAX_ARC_STEPS = 16;
 
 /**
  * The hit box of the `rounded-cube`: the closed box `[-1, 1]³` rounded by `radius`, its faces cut at `1 - radius` and
- * its corners winning within {@link PRIORITY_DEPTH} (I1). {@link roundedBoxGeometry} cuts its pieces by the same box,
- * so what draws is what the pointer hits.
+ * its corners exactly the rounded corner patches (`corner = flat`). A corner that reached further into the faces, as
+ * the sharp cube's does, would cut a square notch out of every face and edge piece, because the pieces are drawn from
+ * the same partition. {@link roundedBoxGeometry} cuts its pieces by this box, so what draws is what the pointer hits.
  *
  * @param radius - The `radius` option; clamped to `[0.001, 0.999]`
  */
 export function roundedCubeBox(radius: number): HitBox {
   const r = Math.min(Math.max(radius, RADIUS[0]), RADIUS[1]);
-  return { type: "box", radius: r, flat: 1 - r, corner: 1 - r - PRIORITY_DEPTH };
+  return { type: "box", radius: r, flat: 1 - r, corner: 1 - r };
 }
 
 /**

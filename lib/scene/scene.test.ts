@@ -70,7 +70,8 @@ describe("buildScene", () => {
     expect(scene.group.children).toContain(scene.parts.triad.object);
   });
 
-  it.each([["cube", 16], ["rounded-cube", 16]] as const)("draws %s with at most %i materials, sharing per style", (type, budget) => {
+  // The rounded cube's white corners and grey edges (2.3.0's defaults) take one material more than the cube.
+  it.each([["cube", 16], ["rounded-cube", 17]] as const)("draws %s with at most %i materials, sharing per style", (type, budget) => {
     const scene = build({ type });
     expect(materialsOf(scene).length).toBeLessThanOrEqual(budget);
     const edges = scene.targets.filter((t) => t.entry.kind === "edge");

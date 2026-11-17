@@ -70,6 +70,17 @@ pre {
   font-size: 0.9em;
 }
 
+/* Build-time highlighting (components/Code.tsx): each token carries both themes as CSS variables. */
+.code pre span {
+  color: var(--shiki-light);
+}
+
+@media (prefers-color-scheme: dark) {
+  .code pre span {
+    color: var(--shiki-dark);
+  }
+}
+
 :not(pre) > code {
   background: var(--code-bg);
   padding: 0.1em 0.35em;

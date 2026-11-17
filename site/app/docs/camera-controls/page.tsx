@@ -26,7 +26,7 @@ export default function CameraControlsGuide() {
         The <Link href="/docs/quickstart/">Quickstart</Link>, and camera-controls 3 (an optional peer
         dependency):
       </p>
-      <Code>{`npm install ${PACKAGE} three camera-controls`}</Code>
+      <Code lang="bash">{`npm install ${PACKAGE} three camera-controls`}</Code>
 
       <h2>Steps</h2>
       <h3>1. Attach through the adapter</h3>

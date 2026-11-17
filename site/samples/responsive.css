@@ -1,6 +1,6 @@
-/* The gizmo writes its size inline, so overriding it takes !important. */
+/* The gizmo reads its size from these custom properties, falling back to the size option. */
 .responsive-gizmo {
-  width: auto !important;
-  height: 40% !important;
+  --viewport-gizmo-width: auto;
+  --viewport-gizmo-height: 40%;
   aspect-ratio: 1;
 }

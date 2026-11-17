@@ -41,8 +41,11 @@ export default function StylingGuide() {
       <h3>2. Style its states in CSS</h3>
       <p>
         The library writes only the element&apos;s position, size, margin and{" "}
-        <code>touch-action: none</code> inline. Cursor, stacking order, corner radius and focus ring
-        are yours, keyed on these attributes:
+        <code>touch-action: none</code> inline. Size and margin read the custom properties{" "}
+        <code>--viewport-gizmo-width</code>, <code>--viewport-gizmo-height</code> and{" "}
+        <code>--viewport-gizmo-margin</code> first, so a class can resize the gizmo without{" "}
+        <code>!important</code>. Cursor, stacking order, corner radius and focus ring are yours, keyed on
+        these attributes:
       </p>
       <table>
         <thead>

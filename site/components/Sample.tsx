@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { Code } from "./Code";
+import type { CodeLanguage } from "./Code";
 
 /** `next build` type-checks every `.ts` sample here and bundles every `.css` one a page imports. */
 const SAMPLES = path.join(process.cwd(), "site", "samples");
@@ -10,7 +11,12 @@ const SAMPLES = path.join(process.cwd(), "site", "samples");
  * `// @hide` (the stand-ins for the reader's own camera, renderer and scene) are left out. Server components only.
  */
 export function Sample({ file, label }: { file: string; label?: string }) {
-  return <Code label={label ?? file}>{readSample(file)}</Code>;
+  const lang: CodeLanguage = file.endsWith(".css") ? "css" : "ts";
+  return (
+    <Code label={label ?? file} lang={lang}>
+      {readSample(file)}
+    </Code>
+  );
 }
 
 /** A sample's source as the page shows it: without its `// @hide` lines. */

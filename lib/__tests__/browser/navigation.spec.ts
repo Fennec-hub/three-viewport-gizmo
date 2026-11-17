@@ -56,9 +56,9 @@ for (const backend of ["webgl", "webgpu"] as const) {
     await page.mouse.click(cx, cy);
     expect((await state(page)).shown).toEqual(expect.arrayContaining(["roll-clockwise", "roll-counterclockwise", "home"]));
 
-    // Leaving the gizmo hides them (reveal on hover).
+    // Leaving the gizmo hides them (reveal on hover), after a short linger.
     await page.mouse.move(5, 590);
-    expect((await state(page)).shown).toEqual([]);
+    await expect.poll(async () => (await state(page)).shown).toEqual([]);
     expect(errors).toEqual([]);
   });
 

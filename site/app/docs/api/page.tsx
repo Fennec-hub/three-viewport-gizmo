@@ -70,9 +70,9 @@ const events: Entry[] = [
 const options: Entry[] = [
   ["container", "HTMLElement | string", <>Parent element, or a CSS selector. Default: the canvas&apos;s parent.</>],
   ["type", "\"sphere\" | \"cube\" | \"rounded-cube\"", "Default \"sphere\"."],
-  ["size", "number", "CSS pixels. Default 128."],
+  ["size", "number", <>CSS pixels. Default 128. CSS can override it with <code>--viewport-gizmo-width</code> and <code>--viewport-gizmo-height</code>.</>],
   ["placement", "\"top-left\" | \"top-center\" | … | \"bottom-right\"", "Vertical then horizontal alignment in the container. Default \"top-right\"."],
-  ["offset", "{ left?, top?, right?, bottom? }", "CSS pixels from the container edges. Default 10 each."],
+  ["offset", "{ left?, top?, right?, bottom? }", <>CSS pixels from the container edges. Default 10 each. CSS can override it with <code>--viewport-gizmo-margin</code>.</>],
   ["animated", "boolean", <>Default: off under <code>prefers-reduced-motion</code>, else on.</>],
   ["speed", "number", "Animation speed multiplier; a turn's duration follows its angle. Default 1."],
   ["up", "Vector3Like", <>Label up; a signed axis. Default: <code>camera.up</code> at construction, snapped to the nearest signed axis.</>],

@@ -132,10 +132,15 @@ describe("roundedBoxGeometry", () => {
     for (const { entry, mesh, vertices } of pieces(build({}, up))) {
       if (entry.kind !== "face") continue;
       const uv = mesh.geometry.getAttribute("uv") as BufferAttribute;
-      // The texture's right and up on the surface: on the flat face, u and v grow linearly along them.
+      // The texture's right and up on the surface: on the flat face, u and v grow linearly along them. Each distinct
+      // vertex counts once, so triangles repeating a corner vertex do not lean the sums along their diagonals.
       const right = new Vector3();
       const top = new Vector3();
+      const seen = new Set<string>();
       vertices.forEach((v, i) => {
+        const key = v.toArray().map((c) => c.toFixed(6)).join(",");
+        if (seen.has(key)) return;
+        seen.add(key);
         right.addScaledVector(v, uv.getX(i) - 0.5);
         top.addScaledVector(v, uv.getY(i) - 0.5);
       });
@@ -143,7 +148,7 @@ describe("roundedBoxGeometry", () => {
       const along = (x: number, y: number) => new Vector3(x, y, 0).applyQuaternion(plain.quaternion);
       const normal = entry.direction;
       const project = (v: Vector3) => v.sub(normal.clone().multiplyScalar(v.dot(normal))).normalize();
-      // The vertex sums lean with the triangle diagonals; a flip or a quarter turn would be at or below 0.
+      // A flip or a quarter turn would be at or below 0.
       expect(project(right).dot(along(1, 0))).toBeGreaterThan(0.99);
       expect(project(top).dot(along(0, 1))).toBeGreaterThan(0.99);
     }
