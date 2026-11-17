@@ -1,4 +1,4 @@
-import { Color, Mesh, MeshBasicMaterial, Vector3, type BufferGeometry, type Object3D } from "three";
+import { Color, Mesh, PerspectiveCamera, Vector3, type BufferGeometry, type DataTexture, type MeshBasicMaterial, type Object3D } from "three";
 import { describe, expect, it, vi } from "vitest";
 import { classifyChange } from "../options/changes";
 import { resolveOptions } from "../options/resolve";
@@ -31,35 +31,53 @@ describe("triad", () => {
     expect(scene.parts.triad.object.children).toHaveLength(0);
   });
 
-  it("draws X, Y and Z from the cube's corner in one line mesh and three labels, all owned", () => {
+  it("draws X, Y and Z from the cube's corner as three feathered ribbons and three labels, all owned", () => {
     const scene = buildScene(resolve({ type: "cube", triad: { enabled: true } }));
     const { object } = scene.parts.triad;
     expect(object.visible).toBe(true);
     expect(object.position.toArray()).toEqual([-1.05, -1.05, -1.05]);
-    const [lines, ...labels] = object.children as [Mesh<BufferGeometry>, ...Mesh<BufferGeometry>[]];
-    expect(lines.isMesh).toBe(true);
+    const children = object.children as Mesh<BufferGeometry, MeshBasicMaterial>[];
+    const lines = children.slice(0, 3);
+    const labels = children.slice(3);
     expect(labels).toHaveLength(3);
     // Each label sits past its own world axis's tip.
     labels.forEach((label, i) => {
       expect(label.position.getComponent(i)).toBeCloseTo(2.3, 9);
       expect(label.position.toArray().filter((_, k) => k !== i)).toEqual([0, 0]);
     });
-    const owned = [lines.geometry, lines.material, ...labels.flatMap((l) => [l.geometry, l.material, (l.material as MeshBasicMaterial).map!])];
+    const owned = [...lines, ...labels].flatMap((l) => [l.geometry, l.material, l.material.map!]);
     for (const resource of owned) expect(scene.owned.has(resource as never)).toBe(true);
-    // The x line's vertices are coloured with Tau's X colour and lie along +X, 1.5 px across.
-    const { position, color } = lines.geometry.attributes;
-    const block = position.count / 3;
-    const xs = Array.from({ length: block }, (_, k) => position.getX(k));
-    expect(Math.max(...xs)).toBeCloseTo(2.1, 6);
-    const zs = Array.from({ length: block }, (_, k) => position.getZ(k));
-    const width = (Math.max(...zs) - Math.min(...zs)) * pixelsPerUnit(scene.options) * TRIAD_SCENE_SCALE;
-    expect(width).toBeCloseTo(1.5, 6);
-    const expected = new Mesh().material.color.set(TRIAD_COLORS.x);
-    expect([color.getX(0), color.getY(0), color.getZ(0)].map((c) => c.toFixed(6))).toEqual(
-      [expected.r, expected.g, expected.b].map((c) => c.toFixed(6))
-    );
+    // Each line is 2.1 long, in its axis colour, 1.5 px across plus a 1 device pixel feather each side (DPR 1).
+    lines.forEach((line, i) => {
+      const axis = (["x", "y", "z"] as const)[i];
+      expect(line.scale.y).toBeCloseTo(2.1, 9);
+      expect(line.scale.x * pixelsPerUnit(scene.options) * TRIAD_SCENE_SCALE).toBeCloseTo(3.5, 6);
+      expect(line.material.color.getHex()).toBe(new Color(TRIAD_COLORS[axis]).getHex());
+    });
+    // The cross-section: clear at the ribbon's edges; inside, each texel's coverage by the 1.5 px line (0.81 at 0.44 px
+    // off its centre).
+    const { data, width } = (lines[0].material.map as DataTexture).image as { data: Uint8Array; width: number };
+    const alpha = Array.from({ length: width }, (_, i) => data[i * 4 + 3]);
+    expect(alpha).toEqual([0, 207, 207, 0]);
     disposeScene(scene);
     expect(scene.owned.size).toBe(0);
+  });
+
+  it("turns each line about its own axis to face the camera", () => {
+    const scene = buildScene(resolve({ type: "cube", triad: { enabled: true } }));
+    const { object } = scene.parts.triad;
+    const camera = new PerspectiveCamera();
+    camera.position.set(3, 4, 5);
+    scene.group.updateMatrixWorld(true);
+    (object.children.slice(0, 3) as Mesh[]).forEach((line, i) => {
+      line.onBeforeRender(undefined as never, undefined as never, camera, line.geometry, line.material as never, null as never);
+      const axis = new Vector3().setComponent(i, 1);
+      // Still along its axis, and its face's normal (local +Z) is the camera's direction off that axis.
+      expect(new Vector3(0, 1, 0).applyQuaternion(line.quaternion).distanceTo(axis)).toBeLessThan(1e-9);
+      const toCamera = object.worldToLocal(camera.position.clone()).addScaledVector(axis, -1.05);
+      toCamera.addScaledVector(axis, -toCamera.dot(axis)).normalize();
+      expect(new Vector3(0, 0, 1).applyQuaternion(line.quaternion).distanceTo(toCamera)).toBeLessThan(1e-9);
+    });
   });
 
   it("toggles at run time as a cheap change, changing only the triad's draws and the scene's scale", () => {
@@ -73,7 +91,7 @@ describe("triad", () => {
 
     updateScene(scene, on);
     const triadDraws = drawn(scene.parts.triad.object);
-    expect(triadDraws).toHaveLength(4);
+    expect(triadDraws).toHaveLength(6);
     expect(drawn(group).filter((o) => !triadDraws.includes(o)).map((o) => [o, (o as Mesh).material])).toEqual(before);
     expect([...ownedBefore].every((r) => scene.owned.has(r))).toBe(true);
     expect(group.scale.x).toBe(TRIAD_SCENE_SCALE);

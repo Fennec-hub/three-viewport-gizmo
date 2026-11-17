@@ -15,8 +15,8 @@ type Toggle = {
 
 type Label = { axis: string; at: [number, number]; lit: number; mean: number[] | null; expected: number[] };
 
-/** Draws the triad adds while shown: one line mesh and three label sprites. */
-const TRIAD_DRAWS = 4;
+/** Draws the triad adds while shown: three line ribbons and three label quads. */
+const TRIAD_DRAWS = 6;
 
 const open = async (page: Page, backend: string) => {
   const errors: string[] = [];

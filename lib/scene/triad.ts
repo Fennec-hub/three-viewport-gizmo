@@ -1,16 +1,18 @@
 import {
-  BufferAttribute,
+  type Camera,
   CanvasTexture,
   Color,
-  CylinderGeometry,
+  DataTexture,
   Group,
+  LinearFilter,
+  LinearMipmapLinearFilter,
+  Matrix4,
   Mesh,
+  type MeshBasicMaterial,
   PlaneGeometry,
-  Quaternion,
   SRGBColorSpace,
   Vector3,
 } from "three";
-import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { GIZMO_MAIN_AXES } from "../utils/constants";
 import { pixelsPerUnit } from "./axisLines";
 import { turnToCamera } from "./background";
@@ -32,15 +34,50 @@ export const TRIAD_SCENE_SCALE = 0.7;
 /** Tau's `axesHelperColors`: the default of the `triad.colors` option. */
 export const TRIAD_COLORS = { x: "rgb(130, 41, 37)", y: "rgb(53, 122, 56)", z: "rgb(0, 70, 145)" } as const;
 
-const RADIAL_SEGMENTS = 8;
-const Y = /*@__PURE__*/ new Vector3(0, 1, 0);
-/** A unit cylinder along +Y turned onto +X, +Y and +Z. */
-const ROTATIONS = /*@__PURE__*/ [new Vector3(1, 0, 0), Y, new Vector3(0, 0, 1)].map((axis) =>
-  new Quaternion().setFromUnitVectors(Y, axis)
-);
-const _vertex = /*@__PURE__*/ new Vector3();
-const _scale = /*@__PURE__*/ new Vector3();
+/** Each line's soft edge: its alpha falls from 1 to 0 over this many device pixels, centred on the line's edge. */
+const FEATHER = 1;
+const _camera = /*@__PURE__*/ new Vector3();
+const _normal = /*@__PURE__*/ new Vector3();
+const _side = /*@__PURE__*/ new Vector3();
+const _basis = /*@__PURE__*/ new Matrix4();
 const _color = /*@__PURE__*/ new Color();
+const AXES = /*@__PURE__*/ [new Vector3(1, 0, 0), new Vector3(0, 1, 0), new Vector3(0, 0, 1)];
+
+/**
+ * The lines' cross-section: `texels` white texels whose alpha is each one's coverage of a line `width` device pixels
+ * across, on a ribbon `width + 2 * FEATHER` across, so the edge texels are clear and linear sampling feathers the edge.
+ * Antialiased whether or not the host's target has MSAA (Tau's node pipeline is single-sample).
+ */
+function crossSection(width: number): DataTexture {
+  const across = width + 2 * FEATHER;
+  const texels = Math.ceil(across);
+  const data = new Uint8Array(texels * 4).fill(255);
+  for (let i = 0; i < texels; i++) {
+    const distance = Math.abs((i + 0.5) / texels - 0.5) * across;
+    data[i * 4 + 3] = Math.round(255 * Math.min(Math.max(width / 2 + FEATHER / 2 - distance, 0), 1));
+  }
+  const texture = new DataTexture(data, texels, 1);
+  // A label's sampling (`CanvasTexture` defaults): on WebGPU the sampler is part of the pipeline.
+  texture.colorSpace = SRGBColorSpace;
+  texture.magFilter = LinearFilter;
+  texture.minFilter = LinearMipmapLinearFilter;
+  texture.generateMipmaps = true;
+  texture.needsUpdate = true;
+  return texture;
+}
+
+/** An `onBeforeRender` that turns an axis ribbon about its axis (local +Y) to face `camera`, as a line is drawn. */
+function faceAlongAxis(this: Mesh, _renderer: unknown, _scene: unknown, camera: Camera): void {
+  const axis = AXES[this.userData.axis as number];
+  camera.getWorldPosition(_camera);
+  this.parent!.worldToLocal(_camera).addScaledVector(axis, -LENGTH / 2);
+  _normal.copy(_camera).addScaledVector(axis, -_camera.dot(axis));
+  // Seen end-on the line is a point: any side will do.
+  if (_normal.lengthSq() < 1e-12) _normal.set(axis.y, axis.z, axis.x);
+  _side.crossVectors(axis, _normal.normalize());
+  this.quaternion.setFromRotationMatrix(_basis.makeBasis(_side, axis, _normal));
+  this.updateMatrixWorld();
+}
 
 /** Whether the triad shows for these options: on, and a cube type. */
 export const triadShown = (o: SceneOptions): boolean => o.type !== "sphere" && o.triad.enabled;
@@ -60,43 +97,37 @@ function drawLetter(canvas: HTMLCanvasElement, axis: (typeof GIZMO_MAIN_AXES)[nu
 
 /**
  * The axis triad of the cube types (OD3): world +X, +Y and +Z from the cube's corner, as Tau draws them, with an X, Y
- * or Z label past each tip in the axis colour. The lines are one vertex-coloured mesh and the labels three
- * camera-facing quads, all on the targets' program (`targetMaterial`), so showing the triad adds no program or
- * pipeline (perf budget `programs`). Nothing is built until the triad
- * first shows, so a gizmo without it pays nothing; toggling it after that writes `visible` and the scene's scale only.
- * Draws while shown: 4 (one line mesh, three labels).
+ * or Z label past each tip in the axis colour. The lines are three ribbons turned about their axes to face the camera,
+ * feathered by {@link crossSection} so they are smooth without MSAA, and the labels three camera-facing quads, all on
+ * the targets' program (`targetMaterial`), so showing the triad adds no program or pipeline (perf budget `programs`).
+ * Nothing is built until the triad first shows, so a gizmo without it pays nothing; toggling it after that writes
+ * `visible` and the scene's scale only. Draws while shown: 6 (three lines, three labels).
  */
 export const triad: PartBuilder = (_, __, owned) => {
   const object = new Group();
   object.position.setScalar(ORIGIN);
-  let lines: Mesh | null = null;
+  let lines: Mesh<PlaneGeometry, MeshBasicMaterial>[] | null = null;
   let letters: { canvas: HTMLCanvasElement; texture: CanvasTexture }[] = [];
-  let base: ArrayLike<number> = [];
-  let count = 0;
+  let dpr = 1;
 
   const create = (o: SceneOptions) => {
-    const unit = new CylinderGeometry(1, 1, 1, RADIAL_SEGMENTS).translate(0, 0.5, 0);
-    unit.deleteAttribute("uv");
-    base = unit.attributes.position.array;
-    count = unit.attributes.position.count;
-    // Each line's normals, turned once, as the axis lines' are.
-    const turned = ROTATIONS.map((rotation) => unit.clone().applyQuaternion(rotation));
-    const geometry = mergeGeometries(turned);
-    for (const g of [unit, ...turned]) g.dispose();
-    meshAttributes(
-      geometry.setAttribute("color", new BufferAttribute(new Float32Array(geometry.attributes.position.count * 3), 3))
-    );
+    // Texture sizes fixed at first show, as the face labels' are at build (S2).
+    dpr = globalThis.devicePixelRatio || 1;
+    const section = crossSection(LINE_WIDTH * dpr);
+    const ribbon = meshAttributes(new PlaneGeometry().translate(0, 0.5, 0));
     const white = whiteTexture(owned);
-    const material = targetMaterial({ sprite: false, map: null, color: 0xffffff, opacity: 1 }, white);
-    owned.add(geometry).add(material);
-    lines = new Mesh(geometry, material);
-    // ponytail: positions move on a size or field-of-view change; the gizmo is always in view.
-    lines.frustumCulled = false;
-    lines.renderOrder = 2;
-    object.add(lines);
+    owned.add(section).add(ribbon);
+    lines = GIZMO_MAIN_AXES.map((_axis, i) => {
+      const material = targetMaterial({ sprite: false, map: section, color: 0xffffff, opacity: 1 }, white) as MeshBasicMaterial;
+      owned.add(material);
+      const line = new Mesh(ribbon, material);
+      line.userData.axis = i;
+      line.onBeforeRender = faceAlongAxis;
+      line.renderOrder = 2;
+      object.add(line);
+      return line;
+    });
 
-    // Texture size fixed at first show, as the face labels' are at build (S2).
-    const dpr = globalThis.devicePixelRatio || 1;
     const texels = Math.ceil(LABEL_SIZE * TRIAD_SCENE_SCALE * pixelsPerUnit(o) * dpr * 2);
     const quad = meshAttributes(new PlaneGeometry());
     owned.add(quad);
@@ -126,23 +157,12 @@ export const triad: PartBuilder = (_, __, owned) => {
       if (!shown) return;
       if (!lines) create(o);
 
-      // Each line is LINE_WIDTH CSS pixels across inside the scaled scene.
-      const radius = LINE_WIDTH / 2 / (pixelsPerUnit(o) * TRIAD_SCENE_SCALE);
-      const positions = lines!.geometry.attributes.position as BufferAttribute;
-      _scale.set(radius, LENGTH, radius);
-      ROTATIONS.forEach((rotation, i) => {
-        for (let k = 0; k < count; k++) {
-          _vertex.fromArray(base, k * 3).multiply(_scale).applyQuaternion(rotation);
-          positions.setXYZ(i * count + k, _vertex.x, _vertex.y, _vertex.z);
-        }
-      });
-      positions.needsUpdate = true;
-      const colors = lines!.geometry.attributes.color as BufferAttribute;
+      // Each ribbon is LINE_WIDTH CSS pixels and its feather across inside the scaled scene.
+      const across = (LINE_WIDTH + (2 * FEATHER) / dpr) / (pixelsPerUnit(o) * TRIAD_SCENE_SCALE);
       GIZMO_MAIN_AXES.forEach((axis, i) => {
-        const { r, g, b } = _color.set(o.triad.colors[axis]);
-        for (let k = 0; k < count; k++) colors.setXYZ(i * count + k, r, g, b);
+        lines![i].scale.set(across, LENGTH, 1);
+        lines![i].material.color.set(o.triad.colors[axis]);
       });
-      colors.needsUpdate = true;
       // ponytail: redrawn on every update (three letters), so a font change applies; a late web font waits for one.
       GIZMO_MAIN_AXES.forEach((axis, i) => {
         drawLetter(letters[i].canvas, axis, o);

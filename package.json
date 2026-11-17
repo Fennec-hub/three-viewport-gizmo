@@ -43,7 +43,7 @@
     "typecheck": "tsc --noEmit",
     "docs:dev": "next dev site",
     "docs:build": "npm run build && next build site",
-    "quality": "npm test && npm run typecheck && npm run docs:build && npm audit --audit-level=high && npm run test:release",
+    "quality": "npm test && npm run typecheck && npm run docs:build && node scripts/audit.mjs && npm run test:release",
     "plan:check": "nx release plan:check",
     "release:prepare": "node scripts/prepare-release.mjs"
   },

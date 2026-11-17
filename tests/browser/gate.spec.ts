@@ -49,7 +49,7 @@ for (const type of ["cube", "rounded-cube"] as const) {
     measured(info, { off: off.steady.draws, on: on.steady.draws });
     expect(off.steady.draws).toBeLessThanOrEqual(draws[type]);
     expect(on.steady.draws).toBeLessThanOrEqual(triad[type]);
-    expect(on.steady.draws - off.steady.draws).toBe(4);
+    expect(on.steady.draws - off.steady.draws).toBe(6);
     expect(programs(on.afterFirst)).toBe(programs(off.afterFirst));
     expect(errors).toEqual([]);
   });

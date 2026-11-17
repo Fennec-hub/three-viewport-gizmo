@@ -117,14 +117,14 @@
         for (const { object } of scene.targets) object.visible = false;
         scene.parts.background.object.visible = false;
         scene.parts.lines.object.visible = false;
-        scene.parts.triad.object.children[0].visible = false; // labels only
+        scene.parts.triad.object.children.slice(0, 3).forEach((line) => (line.visible = false)); // labels only
         world.add(scene.group);
         // From the +X +Y +Z octant, tilted so no label lines up behind another: every label shows on every up.
         turn(scene, [4, 3, 5], up);
         world.updateMatrixWorld();
         camera.updateMatrixWorld();
         const { pixels } = await draw(world, camera);
-        const sprites = scene.parts.triad.object.children.slice(1);
+        const sprites = scene.parts.triad.object.children.slice(3);
         const found = sprites.map((sprite, i) => {
           const p = sprite.getWorldPosition(new THREE.Vector3()).project(camera);
           const cx = Math.round(((p.x + 1) / 2) * SIZE);

@@ -127,6 +127,10 @@ export function attachNavigation(element: HTMLElement, gizmo: NavigationGizmo, a
     color: "",
     "focus-ring": "",
   };
+  // Read from `:focus-visible`, never back from the inline style: WebKit reads `outline: none` back as "medium".
+  const focusRing = (button: HTMLButtonElement, chip: HTMLElement) => {
+    chip.style.outline = button.matches(":focus-visible") ? `2px solid ${paint["focus-ring"]}` : "";
+  };
   const buttons = SPECS.map((spec) => {
     const button = document.createElement("button");
     button.type = "button";
@@ -148,7 +152,7 @@ export function attachNavigation(element: HTMLElement, gizmo: NavigationGizmo, a
       outline: "none",
     });
     button.innerHTML =
-      '<span style="display:grid;place-items:center;width:16px;height:16px;margin:4px;border-radius:50%">' +
+      '<span style="display:grid;place-items:center;width:16px;height:16px;margin:4px;border-radius:50%;outline-offset:1px">' +
       `<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" style="width:${spec.size}px;height:${spec.size}px;transform:${spec.rotate ?? "none"}">` +
       `${spec.glyph}</svg></span>`;
     const chip = button.firstElementChild as HTMLElement;
@@ -160,10 +164,9 @@ export function attachNavigation(element: HTMLElement, gizmo: NavigationGizmo, a
     button.addEventListener("pointerdown", (event) => event.stopPropagation());
     button.addEventListener("pointerenter", () => ring(true));
     button.addEventListener("pointerleave", () => ring(false));
-    button.addEventListener("focus", () => {
-      if (button.matches(":focus-visible")) button.style.outline = `2px solid ${paint["focus-ring"]}`;
-    });
-    button.addEventListener("blur", () => (button.style.outline = "none"));
+    // A key pressed on a button focused by the pointer makes it `:focus-visible` (Chromium) with no new focus event.
+    const syncRing = () => focusRing(button, chip);
+    for (const type of ["focus", "blur", "keydown", "keyup"]) button.addEventListener(type, syncRing);
     button.addEventListener("click", () => {
       const name = spec.button;
       if (name === "home") void actions.lookFrom("home");
@@ -263,7 +266,7 @@ export function attachNavigation(element: HTMLElement, gizmo: NavigationGizmo, a
         button.style.color = paint.color;
         chip.style.background = paint.background;
         ring(button.hasAttribute("data-hovered"));
-        if (button.style.outline !== "none") button.style.outline = `2px solid ${paint["focus-ring"]}`;
+        focusRing(button, chip);
       }
     },
     place() {

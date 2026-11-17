@@ -166,6 +166,50 @@ describe("navigation option", () => {
   });
 });
 
+describe("focus ring", () => {
+  it("rings only the focused button's chip, and no restyle rings an unfocused one", () => {
+    const gizmo = make();
+    document.body.appendChild(gizmo.domElement);
+    const outlines = () =>
+      buttons(gizmo).map((b) => [b.style.outline, (b.firstElementChild as HTMLElement).style.outline].join("|"));
+    const none = buttons(gizmo).map(() => "none|");
+    expect(outlines()).toEqual(none);
+    // WebKit reads the buttons' inline `outline: none` back as "medium"; nothing may read the ring from the style.
+    for (const b of buttons(gizmo)) Object.defineProperty(b.style, "outline", { get: () => "medium", set: () => {} });
+    gizmo.set({ front: { color: 0xaabbcc } });
+    expect(buttons(gizmo).map((b) => (b.firstElementChild as HTMLElement).style.outline)).toEqual(none.map(() => ""));
+    const home = button(gizmo, "home");
+    home.focus();
+    const chip = home.firstElementChild as HTMLElement;
+    expect(chip.style.outline).toBe("2px solid var(--viewport-gizmo-button-focus-ring, #93d3eb)");
+    gizmo.set({ front: { color: 0x112233 } });
+    expect(chip.style.outline).toContain("--viewport-gizmo-button-focus-ring");
+    home.blur();
+    expect(chip.style.outline).toBe("");
+    gizmo.dispose();
+  });
+  it("rings a pointer-focused button once a key makes it :focus-visible, with no new focus event", () => {
+    const gizmo = make();
+    document.body.appendChild(gizmo.domElement);
+    const home = button(gizmo, "home");
+    const chip = home.firstElementChild as HTMLElement;
+    // Focused by a click: focused, but not `:focus-visible`.
+    let visible = false;
+    const matches = home.matches.bind(home);
+    home.matches = (selector: string) => (selector === ":focus-visible" ? visible : matches(selector));
+    home.focus();
+    expect(chip.style.outline).toBe("");
+    // The browser switches to keyboard modality on the key press; only the key event reaches the button.
+    visible = true;
+    home.dispatchEvent(new KeyboardEvent("keydown", { key: "Shift", bubbles: true }));
+    expect(chip.style.outline).toBe("2px solid var(--viewport-gizmo-button-focus-ring, #93d3eb)");
+    visible = false;
+    home.blur();
+    expect(chip.style.outline).toBe("");
+    gizmo.dispose();
+  });
+});
+
 describe("sphere buttons", () => {
   it("are white chips ringed in the up axis's colour", () => {
     for (const [up, axis] of [[new Vector3(0, 1, 0), "y"], [new Vector3(0, 0, 1), "z"]] as const) {
