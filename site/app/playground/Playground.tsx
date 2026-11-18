@@ -45,6 +45,10 @@ const CHOICES = {
     ["front", "From the front"],
     ["nearest", "Nearest side"],
   ],
+  gizmoFov: [
+    ["tau", "Tau's mapping"],
+    ["default", "Library default"],
+  ],
   roll: [
     ["default", "Default"],
     ["off", "Off"],
@@ -93,6 +97,7 @@ const LABELS: Record<Choice, string> = {
   projection: "Projection",
   limits: "Limits",
   poleEntry: "Turning to Top or Bottom",
+  gizmoFov: "Gizmo's own field of view",
   roll: "Roll",
 };
 
@@ -104,8 +109,19 @@ const DEFAULTS: Values = {
   projection: "perspective",
   limits: "none",
   poleEntry: "front",
+  gizmoFov: "tau",
   roll: "default",
 };
+
+/** The stage camera's field of view, in degrees, and the slider's range. */
+const FOV = { initial: 50, min: 1, max: 120 } as const;
+
+/**
+ * The gizmo's `fieldOfView` for a host field of view, as Tau's viewer sets it (`gizmoFieldOfView`): half the host's
+ * angle, clamped to 0–90 and mapped linearly onto 0.1–90°, in radians. Tau's slider reads 0 for orthographic.
+ */
+const tauGizmoFieldOfView = (hostDegrees: number) =>
+  ((0.1 + (89.9 * Math.min(90, Math.max(0, hostDegrees * 0.5))) / 90) * Math.PI) / 180;
 
 const FACES: readonly GizmoFaceName[] = ["front", "back", "left", "right", "top", "bottom"];
 
@@ -134,6 +150,10 @@ export function Playground() {
   const triad = params.get("triad") === "true";
   const controlled = params.get("controlled") === "true";
   const navigation = params.get("navigation") === "true";
+  const reversedDepth = params.get("reversed") === "true";
+  const fovParam = Math.round(Number(params.get("fov")));
+  const fov = fovParam >= FOV.min && fovParam <= FOV.max ? fovParam : FOV.initial;
+  const perspective = values.projection === "perspective";
   const hasTriad = values.type !== "sphere";
 
   const [stage, setStage] = useState<StageHandle | null>(null);
@@ -163,12 +183,19 @@ export function Playground() {
     };
   }, [stage]);
 
+  // The host camera's field of view changes in place, without a rebuild, as a host app would change it.
+  useEffect(() => {
+    stage?.setFieldOfView(fov);
+  }, [stage, fov]);
+
   // Changing any of these rebuilds the stage.
   const config: StageConfig = {
     renderer: values.renderer,
     up: values.up,
     front,
     projection: values.projection,
+    // Recreates the renderer: `reversedDepthBuffer` is a constructor parameter.
+    reversedDepth,
     controller: values.controller,
     gizmo: {},
   };
@@ -186,6 +213,8 @@ export function Playground() {
     // Room for the buttons, which sit around the cube and outside its box.
     offset: navigation ? { top: 30, right: 30, bottom: 30, left: 30 } : { top: 10, right: 10, bottom: 10, left: 10 },
     roll: ROLL[values.roll],
+    // Tau hands the gizmo a dampened copy of its own field of view; orthographic is 0 on Tau's slider.
+    fieldOfView: values.gizmoFov === "tau" ? tauGizmoFieldOfView(perspective ? fov : 0) : undefined,
   };
   const optionsKey = JSON.stringify(options);
 
@@ -206,7 +235,7 @@ export function Playground() {
           config={config}
           options={options}
           onStage={onStage}
-          label={`Playground viewport: ${values.renderer}, ${axisLabel(values.up)} up, Front ${axisLabel(front)}, ${values.type} gizmo, ${values.controller} controller, ${values.projection} camera`}
+          label={`Playground viewport: ${values.renderer}${reversedDepth ? " with reversed depth" : ""}, ${axisLabel(values.up)} up, Front ${axisLabel(front)}, ${values.type} gizmo, ${values.controller} controller, ${perspective ? `perspective camera at ${fov}°` : "orthographic camera"}`}
         />
 
         <div className="views" role="group" aria-label="Look from">
@@ -256,9 +285,19 @@ export function Playground() {
       </div>
 
       <div className="controls">
-        {(["renderer", "up"] as const).map((key) => (
-          <Segmented key={key} name={key} values={values} update={update} />
-        ))}
+        <Segmented name="renderer" values={values} update={update} />
+
+        <label>
+          <input
+            type="checkbox"
+            checked={reversedDepth}
+            onChange={(e) => update("reversed", String(e.target.checked))}
+          />{" "}
+          Reversed depth buffer: the renderer is created with <code>reversedDepthBuffer: true</code>, as
+          Tau&apos;s WebGPU viewport is
+        </label>
+
+        <Segmented name="up" values={values} update={update} />
 
         <fieldset>
           <legend>Front faces</legend>
@@ -278,7 +317,35 @@ export function Playground() {
           </div>
         </fieldset>
 
-        {(["type", "controller", "projection", "limits", "poleEntry", "roll"] as const).map((key) => (
+        {(["type", "controller", "projection"] as const).map((key) => (
+          <Segmented key={key} name={key} values={values} update={update} />
+        ))}
+
+        <div>
+          <label className="control-label" htmlFor="fov">
+            Field of view: {perspective ? `${fov}°` : "orthographic"}
+          </label>
+          <input
+            id="fov"
+            type="range"
+            min={FOV.min}
+            max={FOV.max}
+            step={1}
+            value={fov}
+            disabled={!perspective}
+            aria-describedby="fov-note"
+            aria-valuetext={perspective ? `${fov} degrees` : "Orthographic"}
+            onChange={(e) => update("fov", e.target.value)}
+            style={{ width: "100%" }}
+          />
+          <p className="muted" id="fov-note">
+            {perspective
+              ? "Sets the host camera's fov and dollies it so the scene keeps its size on screen, as Tau's Field of view slider does: Tau at 51° is this slider at 51°. With Tau's mapping the gizmo's own camera gets half the angle, 0.1° + 89.9° × (fov / 2) / 90°, as Tau sets it."
+              : "Applies to the perspective camera; choose Perspective to change it."}
+          </p>
+        </div>
+
+        {(["gizmoFov", "limits", "poleEntry", "roll"] as const).map((key) => (
           <Segmented key={key} name={key} values={values} update={update} />
         ))}
 
@@ -341,7 +408,17 @@ export function Playground() {
           </div>
           <dl className="readout" aria-labelledby="readout-label">
             <dt>backend</dt>
-            <dd>{stage?.backend ?? "…"}</dd>
+            <dd>
+              {stage?.backend ?? "…"}
+              {reversedDepth ? ", reversed depth" : ""}
+            </dd>
+            <dt>fov</dt>
+            <dd>
+              {perspective ? `${fov}°` : "orthographic"}; gizmo{" "}
+              {options.fieldOfView === undefined
+                ? "default"
+                : `${((options.fieldOfView * 180) / Math.PI).toFixed(2)}°`}
+            </dd>
             <dt>direction</dt>
             <dd>{view ? vector(view.direction) : "…"}</dd>
             <dt>up</dt>

@@ -14,6 +14,7 @@ import {
   Group,
   HemisphereLight,
   Material,
+  MathUtils,
   Matrix4,
   Mesh,
   MeshStandardMaterial,
@@ -59,6 +60,8 @@ export type StageConfig = {
   /** The axis the gizmo's Front faces. Default: the library's default for `up`. */
   front?: Axis;
   projection?: Projection;
+  /** Passes `reversedDepthBuffer: true` to the renderer, as Tau's WebGPU viewport does. Default false. */
+  reversedDepth?: boolean;
   controller?: ControllerKind;
   /** Gizmo options; `null` creates no gizmo (the example draws its own). */
   gizmo?: Omit<GizmoOptions, "container" | "up" | "frontDirection"> | null;
@@ -94,6 +97,13 @@ export type StageHandle = {
   /** Maps a direction written in Y-up terms into this stage's up frame. */
   toWorld(v: Vec3): Vector3;
   readView(): ViewReading;
+  /**
+   * Sets the perspective camera's vertical field of view in degrees the way Tau's viewer does: the camera dollies
+   * along its view direction so the target plane keeps its height on screen, then the controls and the gizmo sync.
+   * From the first call on, the clip planes follow the camera's distance so a far camera at a narrow angle still
+   * draws the scene. Does nothing for an orthographic camera.
+   */
+  setFieldOfView(degrees: number): void;
   /** Calls `fn` on every gizmo or controller view change; returns an unsubscribe. */
   onViewChange(fn: () => void): () => void;
   dispose(): void;
@@ -111,6 +121,8 @@ export type StageSetup = (stage: StageHandle) => StageExtension | void;
 
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 const ORTHO_HALF_HEIGHT = 5;
+/** Generously bounds everything the stage draws (grid, axes, models), for clip planes around the target. */
+const SCENE_RADIUS = 20;
 
 let fontPromise: Promise<Font> | undefined;
 let cameraControlsInstalled = false;
@@ -126,6 +138,7 @@ export async function createStage(
     up: upAxis = "+y",
     front,
     projection = "perspective",
+    reversedDepth = false,
     controller = "orbit",
     gizmo: gizmoOptions = {},
   } = config;
@@ -133,7 +146,7 @@ export async function createStage(
   let renderer: WebGLRenderer | WebGPURenderer;
   let backend: Backend = "webgl";
   if (kind === "webgpu") {
-    const gpu = new WebGPURenderer({ antialias: true });
+    const gpu = new WebGPURenderer({ antialias: true, reversedDepthBuffer: reversedDepth });
     // Must resolve before anything renders or clears.
     await gpu.init();
     backend = (gpu.backend as { isWebGPUBackend?: boolean }).isWebGPUBackend
@@ -141,7 +154,7 @@ export async function createStage(
       : "webgpu-fallback";
     renderer = gpu;
   } else {
-    renderer = new WebGLRenderer({ antialias: true });
+    renderer = new WebGLRenderer({ antialias: true, reversedDepthBuffer: reversedDepth });
   }
   if (signal.aborted) {
     disposeRenderer(renderer);
@@ -263,6 +276,26 @@ export async function createStage(
     gizmo.addEventListener("end", notify);
   }
 
+  /** The point the camera orbits: the controller's target, else the gizmo's. */
+  const focusPoint = new Vector3();
+  const focus = () => {
+    if (controls instanceof OrbitControls) return focusPoint.copy(controls.target);
+    if (controls instanceof CameraControls) return controls.getTarget(focusPoint, false);
+    return focusPoint.copy(gizmo?.target ?? target);
+  };
+  let fitClipPlanes = false;
+  /** Near and far around the target, so depth precision holds however far a narrow angle puts the camera. */
+  const clipPlanes = () => {
+    if (!fitClipPlanes || !(camera instanceof PerspectiveCamera)) return;
+    const distance = camera.position.distanceTo(focus());
+    const near = Math.max(0.1, distance - SCENE_RADIUS);
+    const far = distance + SCENE_RADIUS;
+    if (camera.near === near && camera.far === far) return;
+    camera.near = near;
+    camera.far = far;
+    camera.updateProjectionMatrix();
+  };
+
   const handle: StageHandle = {
     backend,
     container,
@@ -283,6 +316,21 @@ export async function createStage(
         heading: heading ? (heading.target?.label ?? "a direction") : null,
         canRoll: gizmo?.canRoll ?? false,
       };
+    },
+    setFieldOfView(degrees) {
+      if (!(camera instanceof PerspectiveCamera) || camera.fov === degrees) return;
+      // Tau keeps the target plane's vertical span: distance × tan(fov / 2) stays constant.
+      const center = focus().clone();
+      const scale = Math.tan(MathUtils.degToRad(camera.fov) / 2) / Math.tan(MathUtils.degToRad(degrees) / 2);
+      camera.position.sub(center).multiplyScalar(scale).add(center);
+      camera.fov = degrees;
+      fitClipPlanes = true;
+      clipPlanes();
+      camera.updateProjectionMatrix();
+      // What a host does after moving the camera: sync its controls, then the gizmo (`update()` steps no controls).
+      syncControls();
+      gizmo?.update();
+      notify();
     },
     onViewChange(fn) {
       viewListeners.add(fn);
@@ -328,6 +376,7 @@ export async function createStage(
   renderer.setAnimationLoop((time) => {
     timer.update(time);
     updateControls();
+    clipPlanes();
     if (extension?.frame) extension.frame();
     else renderer.render(scene, camera);
     gizmo?.render();
