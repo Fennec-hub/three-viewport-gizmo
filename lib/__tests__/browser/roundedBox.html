@@ -136,8 +136,15 @@
           }
 
           // The analytic hit test against the drawn pieces, per pixel; rows read bottom-up on WebGL, top-down on WebGPU.
+          // The hit box's corners reach into the faces and edges around them (the corner band); the pieces are drawn
+          // without it, so there the hit names the corner that the drawn face or edge borders.
           const hitScene = { orientation: root.quaternion, camera, shape: box, targets: table };
+          const borders = (corner, side) =>
+            corner.kind === "corner" &&
+            side.kind !== "corner" &&
+            ["x", "y", "z"].every((a) => Math.abs(side.direction[a]) < 1e-9 || Math.sign(side.direction[a]) === Math.sign(corner.direction[a]));
           let agree = 0;
+          let band = 0;
           let disagree = 0;
           let interior = 0;
           for (let row = 0; row < SIZE; row++) {
@@ -158,10 +165,11 @@
               const y = backend === "webgl" ? ((row + 0.5) / SIZE) * 2 - 1 : 1 - ((row + 0.5) / SIZE) * 2;
               const hit = hitTest(x, y, hitScene);
               if (hit && hit.name === table[id].name) agree++;
+              else if (hit && borders(hit, table[id])) band++;
               else disagree++;
             }
           }
-          views.push({ name, lit, red, redMerged, differ, mask, changed, outside, interior, agree, disagree });
+          views.push({ name, lit, red, redMerged, differ, mask, changed, outside, interior, agree, band, disagree });
         }
         const triangles = meshes.reduce((sum, m) => sum + m.geometry.getAttribute("position").count / 3, 0);
         return { backend, triangles, views };

@@ -1,5 +1,5 @@
 import { BufferGeometry, Float32BufferAttribute, Quaternion, Vector3 } from "three";
-import { classifyPoint, type HitBox } from "../interaction/hitTest";
+import { classifyPoint, PRIORITY_DEPTH, type HitBox } from "../interaction/hitTest";
 import type { LabelFrame } from "../orbit/labelFrame";
 import { targetTable } from "../orbit/targets";
 import type { GeometryProvider } from "./build";
@@ -16,15 +16,19 @@ const MAX_ARC_STEPS = 16;
 
 /**
  * The hit box of the `rounded-cube`: the closed box `[-1, 1]³` rounded by `radius`, its faces cut at `1 - radius` and
- * its corners exactly the rounded corner patches (`corner = flat`). A corner that reached further into the faces, as
- * the sharp cube's does, would cut a square notch out of every face and edge piece, because the pieces are drawn from
- * the same partition. {@link roundedBoxGeometry} cuts its pieces by this box, so what draws is what the pointer hits.
+ * its corners winning within {@link PRIORITY_DEPTH} of the rounded corner patch on the faces and edges around it (I1,
+ * 2.3.0's corner-over-face priority), so a small `radius` still leaves a corner a target the pointer can find. The band
+ * keeps at least the inner half of each face's flat region for the face, so a large `radius` (where `flat` is under
+ * twice the band) does not hand the whole box to the corners. {@link roundedBoxGeometry} draws its pieces from this box
+ * with the band removed (`corner = flat`), so the faces and edges stay square: a hover inside the band lights only the
+ * corner's rounded patch.
  *
  * @param radius - The `radius` option; clamped to `[0.001, 0.999]`
  */
 export function roundedCubeBox(radius: number): HitBox {
   const r = Math.min(Math.max(radius, RADIUS[0]), RADIUS[1]);
-  return { type: "box", radius: r, flat: 1 - r, corner: 1 - r };
+  const flat = 1 - r;
+  return { type: "box", radius: r, flat, corner: Math.max(flat - PRIORITY_DEPTH, flat / 2) };
 }
 
 /**
@@ -42,13 +46,16 @@ function cuts({ radius, flat, corner }: HitBox, steps: number): number[] {
 
 /**
  * The seamless `rounded-cube` (OD3): one closed rounded box, cut into its 26 targets by {@link classifyPoint} on
- * {@link roundedCubeBox}, so a hover lights exactly the piece the pointer hits and neighbouring pieces share every
- * boundary vertex. The pieces are built in gizmo space and placed at the origin, so shared vertices are transformed
- * identically and the GPU rasterises no crack between them. A face piece carries its label's UVs from the label frame
+ * {@link roundedCubeBox} without its corner band, so every face and edge piece is a clean rectangle, a hover lights the
+ * piece of the target the pointer hits (only the rounded patch of a corner hit in its band), and neighbouring pieces
+ * share every boundary vertex. The pieces are built in gizmo space and placed at the origin, so shared vertices are
+ * transformed identically and the GPU rasterises no crack between them. A face piece carries its label's UVs from the label frame
  * (its top along `textUp`), spanning `±flat`; every piece carries outward normals.
  */
 export const roundedBoxGeometry: GeometryProvider = (o, frame, owned) => {
-  const box = roundedCubeBox(o.radius);
+  // The drawn partition: corners are exactly the rounded patches, so the hit box's corner band cuts no notch.
+  const hit = roundedCubeBox(o.radius);
+  const box = { ...hit, corner: hit.flat };
   const pieces = roundedBoxPieces(box, Math.min(Math.max(Math.ceil(o.smoothness / 2), 1), MAX_ARC_STEPS), frame);
   for (const geometry of pieces.values()) owned.add(geometry);
   return (entry) => ({ geometry: pieces.get(entry.name)!, position: new Vector3(), quaternion: new Quaternion() });

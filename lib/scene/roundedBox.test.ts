@@ -46,7 +46,9 @@ describe("roundedBoxGeometry", () => {
 
   it.each(cases)("partitions the box by classifyPoint on up %s, radius %s", (_, radius, up) => {
     const scene = build({ radius }, up);
-    const box = roundedCubeBox(radius);
+    // The pieces are drawn without the hit box's corner band: corners are exactly the rounded patches.
+    const hit = roundedCubeBox(radius);
+    const box = { ...hit, corner: hit.flat };
     const table = targetTable(scene.frame);
     const owners = new Map<string, Set<string>>();
     for (const { entry, vertices } of pieces(scene)) {
@@ -66,6 +68,40 @@ describe("roundedBoxGeometry", () => {
       const [x, y, z] = position.split(",").map(Number);
       const name = classifyPoint({ x, y, z }, box, table)?.name;
       if (names.size === 1) expect(names).toContain(name);
+    }
+  });
+
+  // Regression (3.0.0-beta.0 drew the pieces from the hit box, whose corner band cut a square notch out of every face):
+  // each face piece is the whole flat square, however far the corners' hit band reaches.
+  it.each([0.05, 0.3, 0.45, 0.8])("draws every face as a whole square, without a notch, at radius %s", (radius) => {
+    const { flat, corner } = roundedCubeBox(radius);
+    expect(corner).toBeLessThan(flat);
+    for (const { entry, vertices } of pieces(build({ radius }))) {
+      if (entry.kind !== "face") continue;
+      let area = 0;
+      for (let i = 0; i < vertices.length; i += 3) {
+        const [a, b, c] = vertices.slice(i, i + 3);
+        area += b.clone().sub(a).cross(c.clone().sub(a)).length() / 2;
+        // Flat on the face plane, within the square.
+        for (const v of [a, b, c]) {
+          expect(v.dot(entry.direction)).toBeCloseTo(1, 6);
+          for (const axis of ["x", "y", "z"] as const) expect(Math.abs(v[axis])).toBeLessThanOrEqual(1 + 1e-6);
+        }
+      }
+      expect(area).toBeCloseTo(4 * flat * flat, 6);
+    }
+  });
+
+  it.each([0.05, 0.3, 0.8])("hits each drawn corner patch as its corner at radius %s", (radius) => {
+    const scene = build({ radius });
+    const hit = roundedCubeBox(radius);
+    const table = targetTable(scene.frame);
+    for (const { entry, vertices } of pieces(scene)) {
+      if (entry.kind !== "corner") continue;
+      for (let i = 0; i < vertices.length; i += 3) {
+        const centroid = vertices[i].clone().add(vertices[i + 1]).add(vertices[i + 2]).divideScalar(3);
+        expect(classifyPoint(centroid, hit, table)?.name).toBe(entry.name);
+      }
     }
   });
 

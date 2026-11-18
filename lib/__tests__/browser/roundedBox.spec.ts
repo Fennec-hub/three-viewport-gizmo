@@ -16,13 +16,17 @@ type View = {
   mask: number;
   changed: number;
   outside: number;
-  /** Pixels a pixel away from any piece boundary, and those the analytic hit test names differently. */
+  /**
+   * Pixels a pixel away from any piece boundary; those where the analytic hit test names a corner the drawn face or
+   * edge borders (the corner band, which the pieces are drawn without); and those it names otherwise differently.
+   */
   interior: number;
+  band: number;
   disagree: number;
 };
 
 for (const backend of ["webgpu", "webgl"] as const) {
-  test(`${backend} rounded-cube: no seam at any of the 26 views; hover lights the piece the hit test names`, async ({ page }) => {
+  test(`${backend} rounded-cube: no seam at any of the 26 views; hover lights the piece the hit test names, or a corner's patch from its band`, async ({ page }) => {
     const errors: string[] = [];
     page.on("console", (message) => (message.type() === "error" || message.type() === "warning") && !message.text().includes("GL Driver Message") && errors.push(message.text()));
     page.on("pageerror", (error) => errors.push(error.message));
@@ -51,6 +55,8 @@ for (const backend of ["webgpu", "webgl"] as const) {
       expect(view.changed, view.name).toBeGreaterThan(view.mask / 2);
       expect(view.disagree, view.name).toBe(0);
     }
+    // The band shows wherever a corner does, next to it.
+    expect(result.views.reduce((sum, view) => sum + view.band, 0)).toBeGreaterThan(0);
     expect(errors).toEqual([]);
   });
 }

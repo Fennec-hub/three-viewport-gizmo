@@ -6,8 +6,8 @@ import type { TargetEntry } from "../orbit/targets";
  * by `radius` (0 for a sharp box). {@link classifyPoint} names the target of each point on it from `flat` and
  * `corner`. Fitted to the 2.3.0 raycaster (`hitTest.test.ts`):
  * - `cube`: `{ radius: 0, flat: 0.7, corner: 0.65 }`; `flat` is its face tiles' half-size, their default `scale`.
- * - `rounded-cube`: `{ radius: r, flat: 1 - r, corner: 1 - r }`, `r` its `radius` option (0.3): the corners are
- *   exactly the rounded corner patches, so the drawn pieces (cut by the same box) have square faces.
+ * - `rounded-cube`: `{ radius: r, flat: 1 - r, corner: max(flat - PRIORITY_DEPTH, flat / 2) }`, `r` its `radius`
+ *   option (0.3). Its drawn pieces are cut by the same box with `corner = flat`, so they have square faces.
  */
 export type HitBox = Readonly<{
   type: "box";

@@ -6,6 +6,7 @@ import { resolveOptions } from "../options/resolve";
 import { labelFrame } from "../orbit/labelFrame";
 import { targetTable, type TargetEntry } from "../orbit/targets";
 import { createInternalCamera } from "../render/internalCamera";
+import { roundedCubeBox } from "../scene/roundedBox";
 import { classifyPoint, hitTest, PRIORITY_DEPTH, sphereDiscs, type HitBox, type HitScene } from "./hitTest";
 
 type Up = "x" | "y" | "z";
@@ -37,12 +38,6 @@ const TOLERANCE = 2;
 const upVector = (up: Up) => new Vector3().setComponent("xyz".indexOf(up), 1);
 
 const CUBE: HitBox = { type: "box", radius: 0, flat: 0.7, corner: 0.65 };
-const roundedBox = (radius: number): HitBox => ({
-  type: "box",
-  radius,
-  flat: 1 - radius,
-  corner: 1 - radius,
-});
 
 /** The hit scene K5 would build for a fixture variant from 2.3.0's default options. */
 function sceneFor(variant: string, up: Up, orientation: Quaternion): HitScene {
@@ -58,7 +53,7 @@ function sceneFor(variant: string, up: Up, orientation: Quaternion): HitScene {
       )
     : variant === "cube"
       ? CUBE
-      : roundedBox(options.corners.radius);
+      : roundedCubeBox(options.corners.radius);
   return {
     orientation,
     camera: createInternalCamera(isSphere),
@@ -80,19 +75,6 @@ function analyticGrid({ variant, up, quaternion }: View) {
   for (let cell = 0; cell < grid * grid; cell++) hits += code(hitTest(...ndc(cell), scene));
   return hits;
 }
-
-/** The signed axis direction a code names, each component -1, 0 or 1. */
-const direction = (cell: string) => {
-  const index = CODES.indexOf(cell);
-  return [Math.floor(index / 9) - 1, (Math.floor(index / 3) % 3) - 1, (index % 3) - 1];
-};
-
-/** Whether `side` is one of the three faces or three edges that meet at `corner`. */
-const borders = (corner: string, side: string) => {
-  if (side === "." || kindOf(side) === "corner") return false;
-  const [c, d] = [direction(corner), direction(side)];
-  return d.every((component, axis) => component === 0 || component === c[axis]);
-};
 
 /** Whether a fixture cell within the tolerance of `cell` says `value`. */
 function nearby(expected: string, cell: number, value: string) {
@@ -116,7 +98,7 @@ describe("hitTest against the recorded 2.3.0 raycaster", () => {
   });
 
   it.each(variants)("should classify the %s grid within the edge tolerance", (variant) => {
-    const tally = { cells: 0, exact: 0, nearby: 0, holes: 0, beyond: 0, fills: 0, rims: 0, ceded: 0 };
+    const tally = { cells: 0, exact: 0, nearby: 0, holes: 0, beyond: 0, fills: 0, rims: 0 };
     for (const view of fixture.views.filter((candidate) => candidate.variant === variant)) {
       const actual = analyticGrid(view);
       const present = new Set(view.hits);
@@ -129,10 +111,6 @@ describe("hitTest against the recorded 2.3.0 raycaster", () => {
         // 2.3.0's cube is separate tiles, and an edge's or corner's tile seen edge-on draws nothing: where the view
         // shows that target nowhere, the closed box's rim still names it.
         else if (want === "." && variant === "cube" && kindOf(got) !== "face" && !present.has(got)) tally.rims++;
-        // The rounded cube's corners are exactly its rounded corner patches, without 2.3.0's corner-over-face priority
-        // band (that band cut a square notch out of every drawn face and edge): 2.3.0's corner cells next to them
-        // now name the face or edge.
-        else if (variant === "rounded-cube" && want !== "." && kindOf(want) === "corner" && borders(want, got)) tally.ceded++;
         else tally.beyond++;
       }
     }
@@ -140,7 +118,6 @@ describe("hitTest against the recorded 2.3.0 raycaster", () => {
     expect(tally.holes).toBe(0);
     expect(tally.beyond).toBe(0);
     if (variant !== "cube") expect(tally.rims).toBe(0);
-    if (variant !== "rounded-cube") expect(tally.ceded).toBe(0);
   });
 });
 
@@ -169,7 +146,7 @@ describe("hitTest", () => {
 
   it("should miss outside the box", () => {
     const camera = createInternalCamera(false);
-    expect(hitTest(0.95, 0.95, { orientation: front, camera, shape: roundedBox(0.3), targets })).toBeNull();
+    expect(hitTest(0.95, 0.95, { orientation: front, camera, shape: roundedCubeBox(0.3), targets })).toBeNull();
   });
 
   it("should refuse a gated target instead of hitting what lies behind it", () => {
@@ -189,6 +166,42 @@ describe("hitTest", () => {
     const shape = sphereDiscs(targets, () => 0.35);
     const noFront = (target: TargetEntry) => target.name !== "front";
     expect(hitTest(0, 0, { orientation: front, camera, shape, targets, enabled: noFront })?.name).toBe("back");
+  });
+
+  // Regression (3.0.0-beta.1 shrank the rounded cube's corners to their rounded patches, so a small `radius` left a
+  // corner almost nothing to hover): a pointer near a corner, on the face or edge beside it, still hits the corner.
+  it.each([0.05, 0.3])("should hit a rounded cube's corner from the face and edge beside it at radius %s", (radius) => {
+    const camera = createInternalCamera(false);
+    camera.updateMatrixWorld();
+    const scene = { orientation: front, camera, targets, shape: roundedCubeBox(radius) };
+    const flat = 1 - radius;
+    const at = (x: number, y: number, z: number) => {
+      const { x: px, y: py } = new Vector3(x, y, z).project(camera);
+      return hitTest(px, py, scene)?.name;
+    };
+    // On the Front face, between the band's edge and the rounded patch.
+    const inside = flat - PRIORITY_DEPTH / 2;
+    expect(at(inside, inside, 1)).toBe("top-front-right");
+    expect(at(-inside, -inside, 1)).toBe("bottom-front-left");
+    // On the Top-Front edge's rounding, beside the corner.
+    const arc = flat + radius * Math.SQRT1_2;
+    expect(at(inside, arc, arc)).toBe("top-front-right");
+    // Outside the band, the face and the edge keep their pointer.
+    const outside = flat - PRIORITY_DEPTH * 1.5;
+    expect(at(outside, outside, 1)).toBe("front");
+    expect(at(outside, arc, arc)).toBe("top-front");
+  });
+
+  it("should keep a large-radius rounded cube's face centre and corner patches", () => {
+    const camera = createInternalCamera(false);
+    camera.updateMatrixWorld();
+    const box = roundedCubeBox(0.8);
+    // The band never reaches past half the flat face, nor stops short of the rounded patch.
+    expect(box.corner).toBeCloseTo(box.flat / 2, 12);
+    const scene = { orientation: front, camera, targets, shape: box };
+    expect(hitTest(0, 0, scene)?.name).toBe("front");
+    const { x, y } = new Vector3(box.flat * 0.4, box.flat * 0.4, 1).project(camera);
+    expect(hitTest(x, y, scene)?.name).toBe("front");
   });
 
   it("should give a corner priority over a nearer face within the priority depth only", () => {
