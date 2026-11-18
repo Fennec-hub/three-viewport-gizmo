@@ -36,8 +36,10 @@ export type HitScene = Readonly<{
   /** The gizmo's rotation from gizmo space into the camera's world: the inverse of the host camera's rotation. */
   orientation: Readonly<Quaternion>;
   /**
-   * The gizmo's own camera. Only its `position` and `projectionMatrixInverse` are read; it is assumed unrotated,
-   * as `createInternalCamera` makes it. Its world matrix is never read, so a hit before the first render lands (G8).
+   * The camera the gizmo is drawn with, the same object, so a hit always sees the projection of the last draw and
+   * of any field-of-view change since. Only its `position` and `projectionMatrixInverse` are read, in whatever
+   * clip-space convention the renderer gave it (`coordinateSystem`, `reversedDepth`); it is assumed unrotated, as
+   * `createInternalCamera` makes it. Its world matrix is never read, so a hit before the first render lands (G8).
    */
   camera: Readonly<Camera>;
   shape: HitBox | HitDiscs;
@@ -128,10 +130,17 @@ export function sphereDiscs(targets: readonly TargetEntry[], radiusOf: (target: 
  */
 export function hitTest(x: number, y: number, scene: HitScene): TargetEntry | null {
   const { camera, shape } = scene;
-  // The ray in the camera's world: unproject the near and far planes in camera space, then add its position.
-  _origin.set(x, y, -1).applyMatrix4(camera.projectionMatrixInverse);
-  _direction.set(x, y, 1).applyMatrix4(camera.projectionMatrixInverse).sub(_origin).normalize();
-  _origin.add(camera.position);
+  // The ray in the camera's world, from the projection as drawn, in any clip-space convention. A renderer rewrites
+  // the camera's projection on its first draw: WebGPU's clip z is [0, 1], and reversed depth puts the near plane at 1.
+  // Clip z 0 and 1 lie in every convention's range, so both unproject to points on the pointer's line, though which
+  // is nearer depends on the convention (-1 is outside some, and lands behind the gizmo, flipping the ray).
+  _origin.set(x, y, 0).applyMatrix4(camera.projectionMatrixInverse);
+  _direction.set(x, y, 1).applyMatrix4(camera.projectionMatrixInverse).sub(_origin);
+  // The camera looks down -z in its own space: point the ray away from it, then start it on the camera's plane (the
+  // eye of a perspective camera, the pointer's place on an orthographic one), in front of everything it draws.
+  if (_direction.z > 0) _direction.negate();
+  _direction.normalize();
+  _origin.addScaledVector(_direction, -_origin.z / _direction.z).add(camera.position);
   // A uniform scale commutes with the rotation: shrinking the ray's origin by it equals growing the shape.
   if (scene.scale !== undefined && scene.scale !== 1) _origin.divideScalar(scene.scale);
   return shape.type === "box" ? hitBox(shape, scene) : hitDiscs(shape, scene);

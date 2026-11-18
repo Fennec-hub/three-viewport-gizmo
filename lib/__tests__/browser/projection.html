@@ -1,0 +1,117 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Hit test projection</title>
+    <style>
+      body { margin: 0; }
+      #wrap { position: relative; width: 800px; height: 600px; }
+    </style>
+  </head>
+  <body>
+    <div id="wrap"></div>
+    <script type="module">
+      // Browser cases for the hit test against the projection a real renderer draws the gizmo with:
+      // `?backend=webgpu|webgl&reversed=0|1`. three rewrites the gizmo camera's projection on its first draw (WebGPU clip
+      // z, reversed depth); the page reports that projection and where each target is drawn through it.
+      const q = new URLSearchParams(location.search);
+      const backend = q.get("backend") ?? "webgpu";
+      const reversedDepthBuffer = q.get("reversed") === "1";
+      const THREE = backend === "webgpu" ? await import("three/webgpu") : await import("three");
+      const { ViewportGizmo } = await import("/lib/index.ts");
+
+      const wrap = document.getElementById("wrap");
+      const renderer =
+        backend === "webgpu"
+          ? new THREE.WebGPURenderer({ reversedDepthBuffer })
+          : new THREE.WebGLRenderer({ reversedDepthBuffer });
+      if (renderer.init) await renderer.init();
+      renderer.setSize(800, 600);
+      wrap.appendChild(renderer.domElement);
+      const scene = new THREE.Scene();
+      scene.add(new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial()));
+      const camera = new THREE.PerspectiveCamera(50, 800 / 600, 0.1, 100);
+      // The camera the gizmo draws with, as the renderer receives it: every draw that is not the host's is the gizmo's.
+      let own = null;
+      const draw = renderer.render.bind(renderer);
+      renderer.render = (drawn, drawnCamera) => {
+        if (drawn !== scene) own = drawnCamera;
+        return draw(drawn, drawnCamera);
+      };
+      const gizmo = new ViewportGizmo(camera, renderer, { container: wrap, type: "cube", navigation: { enabled: false } });
+      const frame = () => {
+        renderer.render(scene, camera);
+        gizmo.render();
+      };
+      const frames = (n) => new Promise((done) => {
+        const step = () => (frame(), --n > 0 ? requestAnimationFrame(step) : done());
+        requestAnimationFrame(step);
+      });
+
+      /** Builds the case: gizmo type and field of view in degrees, from a view direction; renders two frames. */
+      const setUp = async (type, degrees, eye) => {
+        gizmo.set({ type, fieldOfView: THREE.MathUtils.degToRad(degrees) });
+        camera.position.fromArray(eye).setLength(6);
+        camera.lookAt(0, 0, 0);
+        gizmo.update();
+        await frames(2);
+        return { coordinateSystem: own.coordinateSystem, reversedDepth: own.reversedDepth, near: own.near, far: own.far };
+      };
+
+      /** Where each target facing the eye well is drawn, in client pixels, through the camera as the renderer left it. */
+      const points = (type) => {
+        const group = gizmo.root.children[0];
+        const rect = gizmo.domElement.getBoundingClientRect();
+        const radius = type === "rounded-cube" ? gizmo.options.corners.radius : 0;
+        gizmo.root.updateMatrixWorld(true);
+        own.updateMatrixWorld();
+        const out = [];
+        const eye = own.position.clone().normalize();
+        const axis = new THREE.Vector3();
+        for (const target of gizmo.targets) {
+          if (type === "sphere" && target.kind !== "face") continue;
+          // As hitTest.projection.test.ts: the disc centre, the rounded box's support point, or on the sharp cube the
+          // middle of the target's band on its face that best faces the eye.
+          const unit = target.direction;
+          const signs = [Math.sign(unit.x), Math.sign(unit.y), Math.sign(unit.z)];
+          const point = new THREE.Vector3();
+          const normal = unit.clone();
+          if (type === "sphere") point.copy(unit).multiplyScalar(target.kind === "face" ? 1.3 : 1.7);
+          else if (type === "rounded-cube") point.fromArray(signs).multiplyScalar(1 - radius).addScaledVector(unit, radius);
+          else {
+            let face = -1;
+            let best = -Infinity;
+            for (let k = 0; k < 3; k++) {
+              if (signs[k] === 0) continue;
+              const facing = axis.set(0, 0, 0).setComponent(k, signs[k]).applyQuaternion(gizmo.root.quaternion).dot(eye);
+              if (facing > best) [face, best] = [k, facing];
+            }
+            point.fromArray(signs.map((sign, k) => (k === face ? sign : 0.85 * sign)));
+            normal.set(0, 0, 0).setComponent(face, signs[face]);
+          }
+          point.applyMatrix4(group.matrixWorld);
+          normal.applyQuaternion(gizmo.root.quaternion).normalize();
+          const facing = type === "sphere" ? normal.z : normal.dot(own.position.clone().sub(point).normalize());
+          if (facing < 0.4) continue;
+          point.project(own);
+          // The real pointer reaches the gizmo only over its element; a narrow angle draws the cube past it.
+          if (Math.max(Math.abs(point.x), Math.abs(point.y)) > 0.95) continue;
+          out.push({
+            name: target.name,
+            x: rect.left + ((point.x + 1) / 2) * rect.width,
+            y: rect.top + ((1 - point.y) / 2) * rect.height,
+          });
+        }
+        return out;
+      };
+
+      const centre = () => {
+        const rect = gizmo.domElement.getBoundingClientRect();
+        return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+      };
+
+      window.T = { setUp, points, centre, hovered: () => gizmo.hovered?.name ?? "none" };
+      window.READY = true;
+    </script>
+  </body>
+</html>

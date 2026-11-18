@@ -20,7 +20,11 @@ import { targetRect } from "./rect";
 /** The gizmo's depth-reset quad, from {@link createDepthReset}. */
 export type DepthReset = Mesh<PlaneGeometry, MeshBasicMaterial>;
 
-/** How far toward the internal camera's far plane the reset quad sits, as a fraction of `far`. */
+/**
+ * How far toward the internal camera's far plane the reset quad sits, as a fraction of the clip range from `near` to
+ * `far`. A fraction of the range, not of `far`: at a narrow field of view the camera is far away (distance 1588 at
+ * 0.1°), and 99 % of `far` would put the quad in front of the gizmo and even of the near plane.
+ */
 const RESET_DEPTH = 0.99;
 
 /** Margin of the quad over the frustum's cross-section at its depth. */
@@ -82,7 +86,7 @@ function placeDepthReset(reset: DepthReset, camera: PerspectiveCamera | Orthogra
   const reversed = isWebGPURenderer(renderer) ? renderer.reversedDepthBuffer : renderer.capabilities.reversedDepthBuffer;
   reset.material.depthFunc = reversed && SWAPS_ALWAYS ? NeverDepth : AlwaysDepth;
 
-  const distance = camera.far * RESET_DEPTH;
+  const distance = camera.near + (camera.far - camera.near) * RESET_DEPTH;
   const half =
     "isPerspectiveCamera" in camera
       ? distance * Math.tan(camera.fov * 0.5 * MathUtils.DEG2RAD) * Math.max(camera.aspect, 1)
