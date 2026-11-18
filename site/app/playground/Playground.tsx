@@ -2,7 +2,14 @@
 
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import type { GizmoFaceName, GizmoLimits, GizmoOptions, GizmoTurn, GizmoTurnEnd } from "@lib/index";
+import type {
+  GizmoFaceName,
+  GizmoLimits,
+  GizmoOptions,
+  GizmoResolvedOptions,
+  GizmoTurn,
+  GizmoTurnEnd,
+} from "@lib/index";
 import { Stage } from "@site/components/Stage";
 import { AXES, defaultFront, frontsFor, type Axis, type Vec3 } from "@site/components/frames";
 import type { StageConfig, StageHandle, ViewReading } from "@site/components/stage-runtime";
@@ -46,8 +53,8 @@ const CHOICES = {
     ["nearest", "Nearest side"],
   ],
   gizmoFov: [
+    ["default", "Library default (26°)"],
     ["tau", "Tau's mapping"],
-    ["default", "Library default"],
   ],
   roll: [
     ["default", "Default"],
@@ -109,7 +116,7 @@ const DEFAULTS: Values = {
   projection: "perspective",
   limits: "none",
   poleEntry: "front",
-  gizmoFov: "tau",
+  gizmoFov: "default",
   roll: "default",
 };
 
@@ -122,6 +129,30 @@ const FOV = { initial: 50, min: 1, max: 120 } as const;
  */
 const tauGizmoFieldOfView = (hostDegrees: number) =>
   ((0.1 + (89.9 * Math.min(90, Math.max(0, hostDegrees * 0.5))) / 90) * Math.PI) / 180;
+
+/** The hit-size controls: their URL keys and labels. A missing or out-of-range value is Auto (the type's default). */
+const HIT_SIZES = [
+  { kind: "corners", key: "cornerHit", label: "Corner hit size" },
+  { kind: "edges", key: "edgeHit", label: "Edge hit size" },
+] as const;
+
+type HitKind = (typeof HIT_SIZES)[number]["kind"];
+
+/** A hit size from the URL: 0 to 1, or `undefined` for Auto. */
+const hitSizeParam = (params: URLSearchParams, key: string) => {
+  const raw = params.get(key);
+  const value = raw === null || raw === "" ? NaN : Number(raw);
+  return value >= 0 && value <= 1 ? value : undefined;
+};
+
+/**
+ * The hit size the hit box uses, from the resolved options: the library clamps it to `[radius, 1)` on `rounded-cube`,
+ * `[0, 1)` for the plain cube's corners and `[0.3, 1)` for its edges (the gap between its face tiles).
+ */
+const effectiveHitSize = (options: GizmoResolvedOptions, kind: HitKind) => {
+  const min = options.type === "rounded-cube" ? options.radius : kind === "edges" ? 0.3 : 0;
+  return Math.min(Math.max(options[kind].hitSize ?? 0, min), 1);
+};
 
 const FACES: readonly GizmoFaceName[] = ["front", "back", "left", "right", "top", "bottom"];
 
@@ -155,10 +186,12 @@ export function Playground() {
   const fov = fovParam >= FOV.min && fovParam <= FOV.max ? fovParam : FOV.initial;
   const perspective = values.projection === "perspective";
   const hasTriad = values.type !== "sphere";
+  const hitSizes = { corners: hitSizeParam(params, "cornerHit"), edges: hitSizeParam(params, "edgeHit") };
 
   const [stage, setStage] = useState<StageHandle | null>(null);
   const [view, setView] = useState<ViewReading | null>(null);
   const [lastEnd, setLastEnd] = useState<string | null>(null);
+  const [resolved, setResolved] = useState<GizmoResolvedOptions | null>(null);
 
   const update = (key: string, value: string) => {
     const next = new URLSearchParams(params);
@@ -215,12 +248,17 @@ export function Playground() {
     roll: ROLL[values.roll],
     // Tau hands the gizmo a dampened copy of its own field of view; orthographic is 0 on Tau's slider.
     fieldOfView: values.gizmoFov === "tau" ? tauGizmoFieldOfView(perspective ? fov : 0) : undefined,
+    // Hit test only, a cheap change: `undefined` (Auto) returns each to its default for the type and `radius`. The
+    // sphere ignores them.
+    corners: { hitSize: hasTriad ? hitSizes.corners : undefined },
+    edges: { hitSize: hasTriad ? hitSizes.edges : undefined },
   };
   const optionsKey = JSON.stringify(options);
 
-  // `set()` runs in the stage's effect, before this one: read `canRoll` after it.
+  // `set()` runs in the stage's effect, before this one: read `canRoll` and the resolved options after it.
   useEffect(() => {
     if (stage) setView(stage.readView());
+    setResolved(stage?.gizmo ? { ...stage.gizmo.options } : null);
   }, [stage, optionsKey]);
 
   const gizmo = stage?.gizmo;
@@ -348,6 +386,65 @@ export function Playground() {
         {(["gizmoFov", "limits", "poleEntry", "roll"] as const).map((key) => (
           <Segmented key={key} name={key} values={values} update={update} />
         ))}
+
+        {HIT_SIZES.map(({ kind, key, label }) => {
+          const value = hitSizes[kind];
+          const auto = value === undefined;
+          const effective = resolved && hasTriad ? effectiveHitSize(resolved, kind) : null;
+          const shown = effective === null ? "…" : effective.toFixed(2);
+          const clamped = !auto && effective !== null && Math.abs(effective - value) > 5e-3;
+          const reading = !hasTriad
+            ? "ignored by the sphere"
+            : auto
+              ? `auto: ${shown}`
+              : `${value.toFixed(2)}${clamped ? ` (clamped to ${shown})` : ""}`;
+          return (
+            <div key={key}>
+              <label className="control-label" htmlFor={key}>
+                {label}: {reading}
+              </label>
+              <input
+                id={key}
+                type="range"
+                min={0}
+                max={1}
+                step={0.01}
+                value={auto ? (effective ?? 0) : value}
+                disabled={!hasTriad || auto}
+                aria-describedby={`${key}-note`}
+                aria-valuetext={reading}
+                onChange={(e) => update(key, e.target.value)}
+                style={{ width: "100%" }}
+              />
+              <label>
+                <input
+                  type="checkbox"
+                  checked={auto}
+                  disabled={!hasTriad}
+                  aria-label={`${label}: Auto (default)`}
+                  onChange={(e) =>
+                    update(key, e.target.checked ? "auto" : (effective ?? (kind === "edges" ? 0.3 : 0.35)).toFixed(2))
+                  }
+                />{" "}
+                Auto (default)
+              </label>
+              <p className="muted" id={`${key}-note`}>
+                {!hasTriad
+                  ? "The sphere ignores hit sizes; choose Cube or Rounded cube to change them."
+                  : kind === "corners"
+                    ? <>
+                        <code>corners.hitSize</code>: how far in from the cube&apos;s edge, in gizmo units (a face&apos;s
+                        half-width is 1), a pointer still lands on a corner. Hit test only: the drawn corner and its
+                        highlight stay the same.
+                      </>
+                    : <>
+                        <code>edges.hitSize</code>: how far in from the cube&apos;s edge a pointer still lands on an
+                        edge. Hit test only: the drawn edge and its highlight stay the same.
+                      </>}
+              </p>
+            </div>
+          );
+        })}
 
         <div>
           <label className="control-label" htmlFor="speed">

@@ -34,7 +34,8 @@ export default function RoundedCubeGuide() {
       <ul>
         <li>
           <code>radius</code> sets the rounding of every edge and corner (default 0.3). Its faces stay
-          square, and its corners take the edge colour unless you pass <code>corners.color</code>.
+          square. Its corners are white like the faces and its edges light grey (<code>0xeeeeee</code>);
+          pass <code>corners.color</code> or <code>edges.color</code> to change them.
         </li>
         <li>
           <code>corners.hitSize</code> and <code>edges.hitSize</code> set how far in from the
