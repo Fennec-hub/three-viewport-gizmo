@@ -117,6 +117,8 @@ const part = shape({
   scale: nonNegative,
   radius: nonNegative,
   smoothness: nonNegative,
+  // Gizmo units; the hit box clamps it to the type's range.
+  hitSize: nonNegative,
   hover: shape({ color, opacity: unit, scale: nonNegative }),
 });
 

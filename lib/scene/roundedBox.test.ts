@@ -5,7 +5,7 @@ import { targetTable } from "../orbit/targets";
 import { resolveOptions } from "../options/resolve";
 import type { GizmoOptions } from "../types";
 import { buildScene } from "./build";
-import { roundedCubeBox } from "./roundedBox";
+import { cubeBox, defaultHitSizes, roundedCubeBox, roundedCubeDrawnBox } from "./roundedBox";
 
 const UPS = [
   [1, 0, 0],
@@ -46,9 +46,8 @@ describe("roundedBoxGeometry", () => {
 
   it.each(cases)("partitions the box by classifyPoint on up %s, radius %s", (_, radius, up) => {
     const scene = build({ radius }, up);
-    // The pieces are drawn without the hit box's corner band: corners are exactly the rounded patches.
-    const hit = roundedCubeBox(radius);
-    const box = { ...hit, corner: hit.flat };
+    // The pieces are drawn without the hit box's bands: corners are exactly the rounded patches.
+    const box = roundedCubeDrawnBox(radius);
     const table = targetTable(scene.frame);
     const owners = new Map<string, Set<string>>();
     for (const { entry, vertices } of pieces(scene)) {
@@ -74,8 +73,8 @@ describe("roundedBoxGeometry", () => {
   // Regression (3.0.0-beta.0 drew the pieces from the hit box, whose corner band cut a square notch out of every face):
   // each face piece is the whole flat square, however far the corners' hit band reaches.
   it.each([0.05, 0.3, 0.45, 0.8])("draws every face as a whole square, without a notch, at radius %s", (radius) => {
-    const { flat, corner } = roundedCubeBox(radius);
-    expect(corner).toBeLessThan(flat);
+    const { flat } = roundedCubeDrawnBox(radius);
+    expect(roundedCubeBox(radius).corner).toBeLessThan(flat);
     for (const { entry, vertices } of pieces(build({ radius }))) {
       if (entry.kind !== "face") continue;
       let area = 0;
@@ -143,7 +142,7 @@ describe("roundedBoxGeometry", () => {
 
   it.each(UPS.map((up) => [up.join(","), up] as const))("maps each face label upright along textUp on up %s", (_, up) => {
     const scene = build({}, up);
-    const flat = roundedCubeBox(0.3).flat;
+    const flat = roundedCubeDrawnBox(0.3).flat;
     for (const { entry, mesh, vertices } of pieces(scene)) {
       // Every piece has UVs (one program for all targets); an edge's or corner's sample one white texel.
       const uv = mesh.geometry.getAttribute("uv") as BufferAttribute;
@@ -188,5 +187,76 @@ describe("roundedBoxGeometry", () => {
       expect(project(right).dot(along(1, 0))).toBeGreaterThan(0.99);
       expect(project(top).dot(along(0, 1))).toBeGreaterThan(0.99);
     }
+  });
+});
+
+/** 3.0.0-beta.3's rounded-cube hit box, before the hit sizes were options. */
+const beta3Box = (radius: number) => {
+  const flat = 1 - radius;
+  return { type: "box", radius, flat, corner: Math.max(flat - 0.2, flat / 2) };
+};
+
+describe("hit sizes", () => {
+  const resolved = (options: GizmoOptions) => resolveOptions(options, { up: new Vector3(0, 1, 0) });
+  const sizes = (options: GizmoOptions) => {
+    const o = resolved(options);
+    return { corners: o.corners.hitSize, edges: o.edges.hitSize };
+  };
+
+  it.each([0.05, 0.1, 0.3, 0.6, 0.8])("resolves the corner band of 3.0.0-beta.3 at radius %s", (radius) => {
+    const box = roundedCubeBox(radius, sizes({ type: "rounded-cube", radius }));
+    const before = beta3Box(radius);
+    expect(box.radius).toBe(before.radius);
+    expect(box.corner).toBeCloseTo(before.corner, 12);
+    // Edges: the drawn strip from radius 0.15 up, as before; widened to 0.15 below it.
+    expect(box.flat).toBeCloseTo(radius >= 0.15 ? before.flat : 0.85, 12);
+    expect(roundedCubeBox(radius)).toEqual(box);
+  });
+
+  it("resolves the documented defaults for each type", () => {
+    expect(sizes({ type: "cube" })).toEqual({ corners: 0.35, edges: 0.3 });
+    expect(sizes({ type: "sphere" })).toEqual({ corners: 0.35, edges: 0.3 });
+    expect(sizes({ type: "rounded-cube" })).toEqual({ corners: 0.5, edges: 0.3 });
+    expect(sizes({ type: "rounded-cube", radius: 0.05 })).toEqual({ corners: 0.25, edges: 0.15 });
+    expect(sizes({ type: "rounded-cube", radius: 0.8 }).corners).toBeCloseTo(0.9, 12);
+    // A caller's value is kept as given; the hit box clamps it.
+    const given = sizes({ type: "rounded-cube", corners: { hitSize: 2 }, edges: { hitSize: 0 } });
+    expect(given).toEqual({ corners: 2, edges: 0 });
+    expect(defaultHitSizes("rounded-cube", 0)).toEqual(defaultHitSizes("rounded-cube", 1e-3));
+  });
+
+  it("keeps the plain cube's 2.3.0 hit box by default", () => {
+    expect(cubeBox(sizes({ type: "cube" }))).toEqual({ type: "box", radius: 0, flat: 0.7, corner: 0.65 });
+    expect(cubeBox()).toEqual({ type: "box", radius: 0, flat: 0.7, corner: 0.65 });
+  });
+
+  it("widens the bands from the options", () => {
+    expect(roundedCubeBox(0.05, { corners: 0.4, edges: 0.25 })).toMatchObject({ flat: 0.75, corner: 0.6 });
+    expect(cubeBox({ corners: 0.5, edges: 0.4 })).toMatchObject({ flat: 0.6, corner: 0.5 });
+  });
+
+  it("clamps a hit size below the radius to the radius, and one of 1 or more to just below 1", () => {
+    const small = roundedCubeBox(0.3, { corners: 0.1, edges: 0 });
+    expect(small.corner).toBeCloseTo(0.7, 12);
+    expect(small.flat).toBeCloseTo(0.7, 12);
+    for (const size of [1, 5]) {
+      const large = roundedCubeBox(0.3, { corners: size, edges: size });
+      expect(large.corner).toBeGreaterThan(0);
+      expect(large.corner).toBeLessThan(1e-3);
+      expect(large.flat).toBeGreaterThan(0);
+      expect(large.flat).toBeLessThan(1e-3);
+    }
+    // The plain cube: corners from 0, edges never narrower than the gap between its tiles.
+    expect(cubeBox({ corners: -1, edges: 0 })).toMatchObject({ corner: 1, flat: 0.7 });
+    expect(cubeBox({ corners: 1, edges: 1 }).corner).toBeGreaterThan(0);
+    expect(cubeBox({ corners: 1, edges: 1 }).flat).toBeGreaterThan(0);
+  });
+
+  it.each([0.05, 0.3])("draws the same pieces whatever the hit sizes at radius %s", (radius) => {
+    const plain = pieces(build({ radius }));
+    const wide = pieces(build({ radius, corners: { hitSize: 0.6 }, edges: { hitSize: 0.5 } }));
+    expect(wide.map(({ entry, vertices }) => [entry.name, vertices.map(key)])).toEqual(
+      plain.map(({ entry, vertices }) => [entry.name, vertices.map(key)])
+    );
   });
 });

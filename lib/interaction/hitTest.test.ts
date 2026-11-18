@@ -192,6 +192,28 @@ describe("hitTest", () => {
     expect(at(outside, arc, arc)).toBe("top-front");
   });
 
+  // 3.0.0-beta.3 caught an edge only on its drawn strip, `radius` wide: 0.05 at radius 0.05. `edges.hitSize` defaults
+  // to at least 0.15, so a pointer 0.1 in from the edge lands on it; the face keeps the rest.
+  it("should hit a small-radius rounded cube's edge from 0.1 in on the face beside it", () => {
+    const camera = createInternalCamera(false);
+    camera.updateMatrixWorld();
+    const radius = 0.05;
+    const at = (shape: HitBox, x: number, y: number) => {
+      const p = new Vector3(x, y, 1).project(camera);
+      return hitTest(p.x, p.y, { orientation: front, camera, targets, shape })?.name;
+    };
+    const box = roundedCubeBox(radius);
+    expect(at(box, 0, 0.9)).toBe("top-front");
+    expect(at(box, 0.9, 0)).toBe("front-right");
+    expect(at(box, 0, 0.8)).toBe("front");
+    // Before: the drawn strip only.
+    expect(at({ ...box, flat: 1 - radius }, 0, 0.9)).toBe("front");
+    // Wider from the option; the corner, tested first, keeps its band.
+    const wide = roundedCubeBox(radius, { corners: 0.25, edges: 0.3 });
+    expect(at(wide, 0, 0.75)).toBe("top-front");
+    expect(at(wide, 0.8, 0.8)).toBe("top-front-right");
+  });
+
   it("should keep a large-radius rounded cube's face centre and corner patches", () => {
     const camera = createInternalCamera(false);
     camera.updateMatrixWorld();

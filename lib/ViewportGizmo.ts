@@ -14,7 +14,7 @@ import type { WebGPURenderer } from "three/webgpu";
 import { assertControls, holdControls, readControlsLimits, refreshCameraUp } from "./controls/contract";
 import { ViewportGizmoError } from "./errors";
 import { attachPointer, forwardWheel, type PointerInput } from "./interaction/pointerSession";
-import { hitTest, sphereDiscs, type HitBox, type HitScene } from "./interaction/hitTest";
+import { hitTest, sphereDiscs, type HitScene } from "./interaction/hitTest";
 import { attachKeyboard, type KeyboardInput } from "./interaction/keyboard";
 import { attachNavigation, navigationAnchor, type Navigation } from "./navigation/navigation";
 import { classifyChange } from "./options/changes";
@@ -31,7 +31,7 @@ import { createDepthReset, renderInRect, type DepthReset } from "./render/frame"
 import { measureViewport, type MutableViewport } from "./render/rect";
 import { warmUp } from "./render/warmUp";
 import { buildScene, disposeScene, type GizmoScene, type SceneTarget } from "./scene/build";
-import { roundedCubeBox } from "./scene/roundedBox";
+import { cubeBox, roundedCubeBox } from "./scene/roundedBox";
 import { fadeScene, hoverScene, pointerOverScene, updateScene } from "./scene/update";
 import type {
   GizmoAtTarget,
@@ -88,9 +88,6 @@ const cancelled = (reason: "cancel" | "pointercancel" | "disabled" | "set" | "di
   status: "cancelled",
   reason,
 });
-
-/** I1's fit of the plain cube's hit box to its 2.3.0 raycaster: face tiles at their default 0.7, corners from 0.65. */
-const CUBE_BOX: HitBox = Object.freeze({ type: "box", radius: 0, flat: 0.7, corner: 0.65 });
 
 const COS_TARGET_TOLERANCE = Math.cos(TARGET_TOLERANCE);
 const X = new Vector3(1, 0, 0);
@@ -1036,9 +1033,10 @@ export class ViewportGizmo extends EventDispatcher<ViewportGizmoEventMap> {
             const { end } = this._byEntry.get(entry)!;
             return (end ? o[end] : entry.kind === "edge" ? o.edges : o.corners).scale / 2;
           })
-        : o.type === "cube"
-          ? CUBE_BOX
-          : roundedCubeBox(o.radius);
+        : // The hit box only: `corners.hitSize` and `edges.hitSize` change it without rebuilding a mesh.
+          o.type === "cube"
+          ? cubeBox({ corners: o.corners.hitSize, edges: o.edges.hitSize })
+          : roundedCubeBox(o.radius, { corners: o.corners.hitSize, edges: o.edges.hitSize });
     const group = scene.group;
     this._hit = {
       orientation: this.root.quaternion,

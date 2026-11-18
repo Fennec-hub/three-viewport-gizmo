@@ -94,7 +94,9 @@ const options: Entry[] = [
   ["radius", "number", "Edge radius of every target; for rounded-cube the rounding of its edges and corners. Default 1 for the sphere, 0.2 for the cube, 0.3 for the rounded cube."],
   ["smoothness", "number", "Edge smoothness of every target. Default 18."],
   ["background", "{ enabled?, color?, opacity?, hover? }", "The sphere's background disc, or the cube's body colour."],
-  ["corners, edges", "{ enabled?, color?, opacity?, scale?, radius?, smoothness?, hover? }", "Corner and edge targets; on by default for the cubes only."],
+  ["corners, edges", "{ enabled?, color?, opacity?, scale?, radius?, smoothness?, hitSize?, hover? }", "Corner and edge targets; on by default for the cubes only."],
+  ["corners.hitSize", "number", <>How far in from the cube&apos;s edge a pointer still lands on a corner, in gizmo units (a face&apos;s half-width is 1). Hit test only: the drawn corner and its hover highlight are unchanged, and <code>set()</code> rebuilds nothing. Clamped to [<code>radius</code>, 1) on the rounded cube and [0, 1) on the cube. Default 0.35 for the cube; <code>min(radius + 0.2, (1 + radius) / 2)</code> for the rounded cube. Ignored by the sphere.</>],
+  ["edges.hitSize", "number", <>How far in from the cube&apos;s edge a pointer still lands on an edge, in gizmo units. Hit test only. Never narrower than the drawn edge: clamped to [<code>radius</code>, 1) on the rounded cube and [0.3, 1) on the cube. Default 0.3 for the cube; <code>max(radius, 0.15)</code> for the rounded cube. Ignored by the sphere.</>],
   ["x, y, z, nx, ny, nz", "GizmoTargetOptions", "The world axis ends."],
   ["top, bottom, front, back, right, left", "GizmoTargetOptions", "The face with that label, on every up axis; wins over the axis key."],
 ];

@@ -1,6 +1,7 @@
 import type { Vector3Like } from "three";
 import { ViewportGizmoError } from "../errors";
 import { cameraUpRefusal } from "../controls/contract";
+import { defaultHitSizes } from "../scene/roundedBox";
 import { TRIAD_COLORS } from "../scene/triad";
 import { axisEndOf, labelFrame, type AxisEnd, type LabelFrame } from "../orbit/labelFrame";
 import { DEFAULT_FIELD_OF_VIEW } from "../render/internalCamera";
@@ -112,6 +113,8 @@ export function resolveOptions(options: GizmoOptions, context: ResolveContext): 
   const roundedTarget = isRounded ? { scale: 1, opacity: 1, hover: { scale: 1, opacity: 1 } } : {};
 
   const targets = resolveTargets(options, frame, isSphere, roundedTarget);
+  // Hit test only (cheap): the bands the corners and edges catch a pointer in, per type and `radius`.
+  const hitSize = defaultHitSizes(type, radius);
 
   const { top, bottom, front, back, right, left, ...rest } = options;
 
@@ -151,6 +154,7 @@ export function resolveOptions(options: GizmoOptions, context: ResolveContext): 
       scale: isSphere ? 0.15 : 0.2,
       radius: 1,
       smoothness: 18,
+      hitSize: hitSize.corners,
       hover: { color: isSphere ? 0xffffff : 0x93d3eb, opacity: 1, scale: isSphere ? 0.2 : 0.225 },
     }),
     edges: fill(options.edges, roundedPart, {
@@ -160,6 +164,7 @@ export function resolveOptions(options: GizmoOptions, context: ResolveContext): 
       radius: isSphere ? 1 : 0.125,
       smoothness: 18,
       scale: isSphere ? 0.15 : 1,
+      hitSize: hitSize.edges,
       hover: { color: isSphere ? 0xffffff : 0x93d3eb, opacity: 1, scale: isSphere ? 0.2 : 1 },
     }),
     radius,

@@ -4,20 +4,26 @@ import type { TargetEntry } from "../orbit/targets";
 /**
  * The closed solid the cube types are hit on, in gizmo space: the box `[-1, 1]³` with its edges and corners rounded
  * by `radius` (0 for a sharp box). {@link classifyPoint} names the target of each point on it from `flat` and
- * `corner`. Fitted to the 2.3.0 raycaster (`hitTest.test.ts`):
+ * `corner`, which the `edges.hitSize` and `corners.hitSize` options set (`flat = 1 - edges.hitSize`, never past the
+ * drawn face; `corner = 1 - corners.hitSize`). The defaults are fitted to the 2.3.0 raycaster (`hitTest.test.ts`):
  * - `cube`: `{ radius: 0, flat: 0.7, corner: 0.65 }`; `flat` is its face tiles' half-size, their default `scale`.
- * - `rounded-cube`: `{ radius: r, flat: 1 - r, corner: max(flat - PRIORITY_DEPTH, flat / 2) }`, `r` its `radius`
- *   option (0.3). Its drawn pieces are cut by the same box with `corner = flat`, so they have square faces.
+ * - `rounded-cube`: `{ radius: r, flat: 1 - max(r, 0.15), corner: max(1 - r - PRIORITY_DEPTH, (1 - r) / 2) }`, `r`
+ *   its `radius` option (0.3). Its drawn pieces are cut by `{ radius: r, flat: 1 - r, corner: 1 - r }`, so they have
+ *   square faces whatever the hit sizes.
  */
 export type HitBox = Readonly<{
   type: "box";
   /** Radius of the rounded edges and corners, in `[0, 1)`. */
   radius: number;
-  /** Half-size of a face's region: a coordinate beyond `±flat` leaves the face for the edge or corner on that side. */
+  /**
+   * Half-size of a face's region: a coordinate beyond `±flat` leaves the face for the edge or corner on that side. At
+   * most `1 - radius`, the drawn face.
+   */
   flat: number;
   /**
    * A point with all three coordinates beyond `±corner` is a corner, though it lies on a face or edge: 2.3.0's
-   * corner-over-face priority, as a rule on the surface. At most `flat`.
+   * corner-over-face priority, as a rule on the surface. Above `flat` it adds nothing: three coordinates beyond
+   * `±flat` already make a corner.
    */
   corner: number;
 }>;

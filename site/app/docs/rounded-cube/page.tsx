@@ -37,6 +37,13 @@ export default function RoundedCubeGuide() {
           square, and its corners take the edge colour unless you pass <code>corners.color</code>.
         </li>
         <li>
+          <code>corners.hitSize</code> and <code>edges.hitSize</code> set how far in from the
+          cube&apos;s edge a pointer still lands on a corner or an edge (defaults{" "}
+          <code>min(radius + 0.2, (1 + radius) / 2)</code> and <code>max(radius, 0.15)</code>), so a
+          small <code>radius</code> keeps both easy to hit. They change the hit test only: the drawn
+          pieces and their hover highlight stay the same.
+        </li>
+        <li>
           The triad is off by default and works on <code>cube</code> and <code>rounded-cube</code>.
           While it shows, the cube is drawn at 70% of its size to make room. Toggling it through{" "}
           <code>set()</code> never rebuilds the cube.

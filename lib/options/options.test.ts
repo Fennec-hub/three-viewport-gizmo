@@ -105,6 +105,17 @@ describe("resolveOptions", () => {
     expect(resolve({}).nx).toMatchObject({ label: "", color: 0xff3653, line: false, scale: 0.45 });
   });
 
+  it("should default the hit sizes per type and radius", () => {
+    expect(resolve({ type: "cube" }).corners.hitSize).toBe(0.35);
+    expect(resolve({ type: "cube" }).edges.hitSize).toBe(0.3);
+    expect(resolve({ type: "rounded-cube" }).corners.hitSize).toBe(0.5);
+    expect(resolve({ type: "rounded-cube" }).edges.hitSize).toBe(0.3);
+    expect(resolve({ type: "rounded-cube", radius: 0.05 }).corners.hitSize).toBeCloseTo(0.25, 12);
+    expect(resolve({ type: "rounded-cube", radius: 0.05 }).edges.hitSize).toBe(0.15);
+    expect(resolve({ type: "rounded-cube", radius: 0.6 }).corners.hitSize).toBeCloseTo(0.8, 12);
+    expect(resolve({ type: "rounded-cube", radius: 0.6, corners: { hitSize: 0.4 } }).corners.hitSize).toBe(0.4);
+  });
+
   it("should take the label up from the context and keep `up` as a vector", () => {
     const resolved = resolveOptions({ type: "cube" }, { up: new Vector3(0, 0, 0.9999999) });
 
@@ -185,6 +196,10 @@ describe("validateOptions", () => {
     ["a field of view above 100°", { fieldOfView: MathUtils.degToRad(101) }, "INVALID_OPTION"],
     ["a field of view in degrees", { fieldOfView: 30 }, "INVALID_OPTION"],
     ["a polar limit above π", { limits: { maxPolarAngle: 4 } }, "INVALID_OPTION"],
+    ["a negative corner hit size", { corners: { hitSize: -0.1 } }, "INVALID_OPTION"],
+    ["an edge hit size as a string", { edges: { hitSize: "0.2" } }, "INVALID_OPTION"],
+    ["an infinite edge hit size", { edges: { hitSize: Infinity } }, "INVALID_OPTION"],
+    ["a misspelt hit size", { corners: { hitsize: 0.3 } }, "UNKNOWN_OPTION"],
   ])("should throw its code for %s", (_name, options, code) => {
     expect(codeOf(() => validateOptions(options))).toBe(code);
   });
@@ -235,6 +250,8 @@ describe("change classification", () => {
     ["a target switched off", { edges: { enabled: false } }, "cheap"],
     ["the field of view", { fieldOfView: 1 }, "cheap"],
     ["an edge radius", { edges: { radius: 0.3 } }, "structural"],
+    ["a corner hit size", { corners: { hitSize: 0.5 } }, "cheap"],
+    ["an edge hit size", { edges: { hitSize: 0.4 } }, "cheap"],
     ["the type", { type: "sphere" }, "structural"],
     ["the up", { up: new Vector3(0, 0, 1) }, "structural"],
   ])("should classify %s", (_name, change, expected) => {

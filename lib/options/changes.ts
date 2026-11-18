@@ -13,7 +13,7 @@ type PartClasses = { [Key in keyof NonNullable<GizmoOptions["corners"]>]-?: Chan
 /**
  * The class of every option. `satisfies` fails type-checking when an option is added unclassified; the unit test
  * fails at run time against `GizmoOptions` in `lib/types.ts`. `corners` and `edges` split by field: their geometry
- * fields are structural, their styling is cheap.
+ * fields are structural, their styling and `hitSize` (the hit box only, rebuilt on every change) are cheap.
  */
 export const OPTION_CHANGES = {
   container: "cheap",
@@ -48,6 +48,7 @@ export const OPTION_CHANGES = {
     scale: "cheap",
     radius: "structural",
     smoothness: "structural",
+    hitSize: "cheap",
     hover: "cheap",
   },
   edges: {
@@ -57,6 +58,7 @@ export const OPTION_CHANGES = {
     scale: "cheap",
     radius: "structural",
     smoothness: "structural",
+    hitSize: "cheap",
     hover: "cheap",
   },
   radius: "structural",
