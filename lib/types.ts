@@ -284,9 +284,11 @@ export type GizmoOptions = {
   frontDirection?: Readonly<Vector3Like>;
 
   /**
-   * Whether the view may roll (L4). Default inferred: on when the gizmo writes the camera or the attached controls can
-   * take a new up; off in controlled mode and for free-tumble controls. `'free'`: every click, side triangle and roll
-   * is the single shortest rotation (Tumble).
+   * Whether the view may roll (L4). Default inferred: on when the gizmo writes the camera (not controlled mode) and
+   * no controls are attached or the attached controls can take a new up (`updateCameraUp()`, or `OrbitControls` and
+   * `MapControls` from three 0.168); off in controlled mode or when the attached controls cannot take a new up, such as
+   * `TrackballControls` and `ArcballControls`. `'free'`: every click, side triangle and roll is the single shortest
+   * rotation (free orbit, trackball-style).
    */
   roll?: boolean | "free";
 

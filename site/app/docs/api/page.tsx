@@ -77,7 +77,7 @@ const options: Entry[] = [
   ["speed", "number", "Animation speed multiplier; a turn's duration follows its angle. Default 1."],
   ["up", "Vector3Like", <>Label up; a signed axis. Default: <code>camera.up</code> at construction, snapped to the nearest signed axis.</>],
   ["frontDirection", "Vector3Like", <>The direction the Front label faces, perpendicular to <code>up</code>. Default: the 2.x Front for that up axis. See <Link href="/docs/up-axis/">Up axis</Link>.</>],
-  ["roll", "boolean | \"free\"", <>Whether the view may roll. Default: on when the gizmo writes the camera and the attached controls (if any) can take a new up; off in controlled mode. <code>&quot;free&quot;</code>: every click and turn is the shortest rotation, and drags tumble.</>],
+  ["roll", "boolean | \"free\"", <>Whether the view may roll. Default: on when the gizmo writes the camera and the attached controls (if any) can take a new up; off in controlled mode. <code>&quot;free&quot;</code>: every click and turn is the shortest rotation, and drags orbit freely (trackball-style).</>],
   ["poleEntry", "\"front\" | \"nearest\"", <>How Top and Bottom are entered. Default &quot;front&quot;. See <Link href="/docs/limits/">Limits</Link>.</>],
   ["oppositeOnRepeat", "boolean", "A click on the target the view rests on turns to the opposite one. Default false."],
   ["drag", "boolean", "Whether a drag on the gizmo turns the view. Default true."],

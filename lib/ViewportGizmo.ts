@@ -555,7 +555,7 @@ export class ViewportGizmo extends EventDispatcher<ViewportGizmoEventMap> {
       poseQuaternion(clampPose(_pose, orbit.limits), orbit.frame, _quaternion);
       this._write(_quaternion, _pose.roll ? _up.set(0, 1, 0).applyQuaternion(_quaternion) : orbit.up);
     } else {
-      // `roll: 'free'` (the approved Tumble demo): a trackball turn by this step's travel about the screen's axes; the
+      // `roll: 'free'` (free orbit): a trackball turn by this step's travel about the screen's axes; the
       // orbit up follows the screen up.
       _quaternion
         .copy(this._current())
