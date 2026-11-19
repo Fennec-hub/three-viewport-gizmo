@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   GizmoFaceName,
   GizmoLimits,
@@ -13,6 +13,8 @@ import type {
 import { Stage } from "@site/components/Stage";
 import { AXES, defaultFront, frontsFor, type Axis, type Vec3 } from "@site/components/frames";
 import type { StageConfig, StageHandle, ViewReading } from "@site/components/stage-runtime";
+import "./playground.css";
+import { attachHitRegions, HIT_REGION_COLORS, isSamplingHitRegions, type HitRegions } from "./hitRegions";
 
 const axisLabel = (axis: Axis) => `${axis[0] === "-" ? "−" : "+"}${axis[1].toUpperCase()}`;
 const axisChoices = (axes: readonly Axis[]) => axes.map((axis) => [axis, axisLabel(axis)] as const);
@@ -54,7 +56,7 @@ const CHOICES = {
   ],
   gizmoFov: [
     ["default", "Library default (26°)"],
-    ["tau", "Tau's mapping"],
+    ["half", "Half the host field of view"],
   ],
   roll: [
     ["default", "Default"],
@@ -124,10 +126,10 @@ const DEFAULTS: Values = {
 const FOV = { initial: 50, min: 1, max: 120 } as const;
 
 /**
- * The gizmo's `fieldOfView` for a host field of view, as Tau's viewer sets it (`gizmoFieldOfView`): half the host's
- * angle, clamped to 0–90 and mapped linearly onto 0.1–90°, in radians. Tau's slider reads 0 for orthographic.
+ * The gizmo's `fieldOfView` for a host field of view: half the host's angle, clamped to 0–90 and mapped linearly onto
+ * 0.1–90°, in radians. An orthographic host counts as 0.
  */
-const tauGizmoFieldOfView = (hostDegrees: number) =>
+const halfGizmoFieldOfView = (hostDegrees: number) =>
   ((0.1 + (89.9 * Math.min(90, Math.max(0, hostDegrees * 0.5))) / 90) * Math.PI) / 180;
 
 /** The hit-size controls: their URL keys and labels. A missing or out-of-range value is Auto (the type's default). */
@@ -150,9 +152,23 @@ const hitSizeParam = (params: URLSearchParams, key: string) => {
  * `[0, 1)` for the plain cube's corners and `[0.3, 1)` for its edges (the gap between its face tiles).
  */
 const effectiveHitSize = (options: GizmoResolvedOptions, kind: HitKind) => {
-  const min = options.type === "rounded-cube" ? options.radius : kind === "edges" ? 0.3 : 0;
+  const min = options.type === "rounded-cube" ? builtRadius(options.radius) : kind === "edges" ? 0.3 : 0;
   return Math.min(Math.max(options[kind].hitSize ?? 0, min), 1);
 };
+
+/** The radius slider's range. `rounded-cube` builds and hits with `radius` clamped to 0.001–0.999. */
+const RADIUS = { min: 0, max: 1, step: 0.01 } as const;
+const builtRadius = (radius: number) => Math.min(Math.max(radius, 1e-3), 0.999);
+
+/** `radius` from the URL: a number from 0 to 1, or `undefined` for the type's default. */
+const radiusParam = (params: URLSearchParams) => {
+  const raw = params.get("radius");
+  const value = raw === null || raw === "" ? NaN : Number(raw);
+  return value >= RADIUS.min && value <= RADIUS.max ? value : undefined;
+};
+
+/** Values links made before a choice was renamed still select it. */
+const ALIASES: Partial<Record<Choice, Record<string, string>>> = { gizmoFov: { tau: "half" } };
 
 const FACES: readonly GizmoFaceName[] = ["front", "back", "left", "right", "top", "bottom"];
 
@@ -160,7 +176,8 @@ const FACES: readonly GizmoFaceName[] = ["front", "back", "left", "right", "top"
 const param = (params: URLSearchParams, key: string) => params.get(key)?.replace(/^ /, "+") ?? null;
 
 function pick<K extends Choice>(params: URLSearchParams, key: K): Values[K] {
-  const value = param(params, key);
+  const raw = param(params, key);
+  const value = raw === null ? null : (ALIASES[key]?.[raw] ?? raw);
   const allowed = CHOICES[key].map(([v]) => v) as readonly string[];
   return (value !== null && allowed.includes(value) ? value : DEFAULTS[key]) as Values[K];
 }
@@ -187,11 +204,33 @@ export function Playground() {
   const perspective = values.projection === "perspective";
   const hasTriad = values.type !== "sphere";
   const hitSizes = { corners: hitSizeParam(params, "cornerHit"), edges: hitSizeParam(params, "edgeHit") };
+  const radius = radiusParam(params);
+  const showHitRegions = params.get("hitRegions") === "true";
 
   const [stage, setStage] = useState<StageHandle | null>(null);
   const [view, setView] = useState<ViewReading | null>(null);
   const [lastEnd, setLastEnd] = useState<string | null>(null);
   const [resolved, setResolved] = useState<GizmoResolvedOptions | null>(null);
+  const [hovered, setHovered] = useState<string | null>(null);
+  const hitRegions = useRef<HitRegions | null>(null);
+  const root = useRef<HTMLDivElement>(null);
+  /** Shows the gizmo's current hover in the readout. */
+  const publishHover = useCallback(() => {
+    const target = stage?.gizmo?.hovered;
+    setHovered(target ? `${target.kind}: ${target.label}` : null);
+  }, [stage]);
+
+  // The stage column sticks below the site's sticky header, whose height changes as its links wrap.
+  useEffect(() => {
+    const header = document.querySelector<HTMLElement>(".site-header");
+    const element = root.current;
+    if (!header || !element) return;
+    const measure = () => element.style.setProperty("--playground-top", `${header.offsetHeight}px`);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, []);
 
   const update = (key: string, value: string) => {
     const next = new URLSearchParams(params);
@@ -210,11 +249,30 @@ export function Playground() {
     // Clicks and drags on the gizmo end here; refused turns fire no event and are caught from their promise below.
     const onEnd = (end: GizmoTurnEnd) => setLastEnd(describeEnd(end));
     stage.gizmo?.addEventListener("end", onEnd);
+    // The hit-region overlay probes through hover: its probes are not the user's, but the hover it restores is, and
+    // it publishes that through `publishHover` once it is done.
+    const onHover = () => {
+      if (!isSamplingHitRegions()) publishHover();
+    };
+    stage.gizmo?.addEventListener("hoverchange", onHover);
     return () => {
       stop();
       stage.gizmo?.removeEventListener("end", onEnd);
+      stage.gizmo?.removeEventListener("hoverchange", onHover);
+      setHovered(null);
     };
-  }, [stage]);
+  }, [stage, publishHover]);
+
+  // The overlay redraws itself on view changes and resizes; option changes reach it below.
+  useEffect(() => {
+    if (!stage || !showHitRegions) return;
+    const current = attachHitRegions(stage, publishHover);
+    hitRegions.current = current;
+    return () => {
+      current.dispose();
+      hitRegions.current = null;
+    };
+  }, [stage, showHitRegions, publishHover]);
 
   // The host camera's field of view changes in place, without a rebuild, as a host app would change it.
   useEffect(() => {
@@ -246,8 +304,10 @@ export function Playground() {
     // Room for the buttons, which sit around the cube and outside its box.
     offset: navigation ? { top: 30, right: 30, bottom: 30, left: 30 } : { top: 10, right: 10, bottom: 10, left: 10 },
     roll: ROLL[values.roll],
-    // Tau hands the gizmo a dampened copy of its own field of view; orthographic is 0 on Tau's slider.
-    fieldOfView: values.gizmoFov === "tau" ? tauGizmoFieldOfView(perspective ? fov : 0) : undefined,
+    // A host can hand the gizmo a dampened copy of its own field of view; orthographic counts as 0.
+    fieldOfView: values.gizmoFov === "half" ? halfGizmoFieldOfView(perspective ? fov : 0) : undefined,
+    // Structural: rebuilds the gizmo's targets. `undefined` returns it to the type's default.
+    radius,
     // Hit test only, a cheap change: `undefined` (Auto) returns each to its default for the type and `radius`. The
     // sphere ignores them.
     corners: { hitSize: hasTriad ? hitSizes.corners : undefined },
@@ -259,6 +319,7 @@ export function Playground() {
   useEffect(() => {
     if (stage) setView(stage.readView());
     setResolved(stage?.gizmo ? { ...stage.gizmo.options } : null);
+    hitRegions.current?.schedule();
   }, [stage, optionsKey]);
 
   const gizmo = stage?.gizmo;
@@ -267,8 +328,8 @@ export function Playground() {
   const canRoll = view?.canRoll ?? false;
 
   return (
-    <div className="playground">
-      <div>
+    <div className="playground" ref={root}>
+      <div className="playground-stage-column">
         <Stage
           config={config}
           options={options}
@@ -331,9 +392,11 @@ export function Playground() {
             checked={reversedDepth}
             onChange={(e) => update("reversed", String(e.target.checked))}
           />{" "}
-          Reversed depth buffer: the renderer is created with <code>reversedDepthBuffer: true</code>, as
-          Tau&apos;s WebGPU viewport is
+          Reversed depth buffer
         </label>
+        <p className="muted">
+          Creates the renderer with <code>reversedDepthBuffer: true</code>.
+        </p>
 
         <Segmented name="up" values={values} update={update} />
 
@@ -378,7 +441,7 @@ export function Playground() {
           />
           <p className="muted" id="fov-note">
             {perspective
-              ? "Sets the host camera's fov and dollies it so the scene keeps its size on screen, as Tau's Field of view slider does: Tau at 51° is this slider at 51°. With Tau's mapping the gizmo's own camera gets half the angle, 0.1° + 89.9° × (fov / 2) / 90°, as Tau sets it."
+              ? "Sets the host camera's fov and dollies it so the scene keeps its size on screen. With Half the host field of view, the gizmo's own camera gets 0.1° + 89.9° × (fov / 2) / 90°."
               : "Applies to the perspective camera; choose Perspective to change it."}
           </p>
         </div>
@@ -386,6 +449,65 @@ export function Playground() {
         {(["gizmoFov", "limits", "poleEntry", "roll"] as const).map((key) => (
           <Segmented key={key} name={key} values={values} update={update} />
         ))}
+
+        {(() => {
+          const auto = radius === undefined;
+          const current = resolved?.radius ?? null;
+          const shown = current === null ? "…" : current.toFixed(2);
+          const rounded = values.type === "rounded-cube";
+          const built = rounded && !auto && builtRadius(radius) !== radius;
+          const reading = auto
+            ? `auto: ${shown}`
+            : `${radius.toFixed(2)}${built ? ` (built at ${builtRadius(radius).toFixed(3)})` : ""}`;
+          return (
+            <div>
+              <label className="control-label" htmlFor="radius">
+                Radius: {reading}
+              </label>
+              <input
+                id="radius"
+                type="range"
+                min={RADIUS.min}
+                max={RADIUS.max}
+                step={RADIUS.step}
+                value={auto ? (current ?? 0) : radius}
+                disabled={auto}
+                aria-describedby="radius-note"
+                aria-valuetext={reading}
+                onChange={(e) => update("radius", e.target.value)}
+                style={{ width: "100%" }}
+              />
+              <label>
+                <input
+                  type="checkbox"
+                  checked={auto}
+                  aria-label="Radius: Auto (default)"
+                  onChange={(e) => update("radius", e.target.checked ? "auto" : (current ?? 0.3).toFixed(2))}
+                />{" "}
+                Auto (default)
+              </label>
+              <p className="muted" id="radius-note">
+                {rounded ? (
+                  <>
+                    <code>radius</code>: how far the rounded cube&apos;s edges and corners curve in, in gizmo units
+                    (a face&apos;s half-width is 1). Default 0.3; built at 0.001 to 0.999. It sets the default hit
+                    sizes and their lower bound, so the hit-size readouts follow it.
+                  </>
+                ) : values.type === "cube" ? (
+                  <>
+                    <code>radius</code>: the corner rounding of the cube&apos;s face tiles and their labels. Default
+                    0.2. Drawing only: the cube&apos;s hit test ignores it.
+                  </>
+                ) : (
+                  <>
+                    <code>radius</code>: the corner rounding of the sphere&apos;s target discs; 1, the default, draws
+                    circles. Drawing only.
+                  </>
+                )}
+              </p>
+            </div>
+          );
+        })()}
 
         {HIT_SIZES.map(({ kind, key, label }) => {
           const value = hitSizes[kind];
@@ -445,6 +567,40 @@ export function Playground() {
             </div>
           );
         })}
+
+        <div>
+          <label>
+            <input
+              type="checkbox"
+              checked={showHitRegions}
+              aria-describedby="hit-regions-note"
+              onChange={(e) => update("hitRegions", String(e.target.checked))}
+            />{" "}
+            Show hit regions
+          </label>
+          <p className="muted" id="hit-regions-note">
+            Colours the gizmo by the target the hit test returns under each point:{" "}
+            {(["face", "edge", "corner"] as const).map((kind, i) => (
+              <span key={kind}>
+                {i > 0 && (i === 2 ? " or " : ", ")}
+                <span
+                  aria-hidden="true"
+                  style={{
+                    display: "inline-block",
+                    width: "0.8em",
+                    height: "0.8em",
+                    borderRadius: 2,
+                    verticalAlign: "-0.1em",
+                    background: HIT_REGION_COLORS[kind],
+                  }}
+                />{" "}
+                {kind}
+              </span>
+            ))}
+            . Redrawn when the view, the radius or a hit size changes. It probes with synthetic mouse moves and reads{" "}
+            <code>gizmo.hovered</code>, then puts the hover back.
+          </p>
+        </div>
 
         <div>
           <label className="control-label" htmlFor="speed">
@@ -524,6 +680,8 @@ export function Playground() {
             <dd>{view ? (view.atTarget ?? "none") : "…"}</dd>
             <dt>heading</dt>
             <dd>{view ? (view.heading ?? "none") : "…"}</dd>
+            <dt>hovered</dt>
+            <dd>{hovered ?? "none"}</dd>
             <dt>last turn</dt>
             <dd>{lastEnd ?? "none"}</dd>
             <dt>roll</dt>

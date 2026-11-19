@@ -60,7 +60,7 @@ export type StageConfig = {
   /** The axis the gizmo's Front faces. Default: the library's default for `up`. */
   front?: Axis;
   projection?: Projection;
-  /** Passes `reversedDepthBuffer: true` to the renderer, as Tau's WebGPU viewport does. Default false. */
+  /** Passes `reversedDepthBuffer: true` to the renderer. Default false. */
   reversedDepth?: boolean;
   controller?: ControllerKind;
   /** Gizmo options; `null` creates no gizmo (the example draws its own). */
@@ -98,7 +98,7 @@ export type StageHandle = {
   toWorld(v: Vec3): Vector3;
   readView(): ViewReading;
   /**
-   * Sets the perspective camera's vertical field of view in degrees the way Tau's viewer does: the camera dollies
+   * Sets the perspective camera's vertical field of view in degrees the way a CAD viewer does: the camera dollies
    * along its view direction so the target plane keeps its height on screen, then the controls and the gizmo sync.
    * From the first call on, the clip planes follow the camera's distance so a far camera at a narrow angle still
    * draws the scene. Does nothing for an orthographic camera.
@@ -319,7 +319,7 @@ export async function createStage(
     },
     setFieldOfView(degrees) {
       if (!(camera instanceof PerspectiveCamera) || camera.fov === degrees) return;
-      // Tau keeps the target plane's vertical span: distance × tan(fov / 2) stays constant.
+      // Keep the target plane's vertical span: distance × tan(fov / 2) stays constant.
       const center = focus().clone();
       const scale = Math.tan(MathUtils.degToRad(camera.fov) / 2) / Math.tan(MathUtils.degToRad(degrees) / 2);
       camera.position.sub(center).multiplyScalar(scale).add(center);
