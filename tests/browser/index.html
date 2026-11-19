@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Viewport gizmo animation regression</title>
+<link rel="icon" href="data:,">
+<style>body{margin:0;font:16px sans-serif;background:#20242b;color:white}canvas{display:block}#status{position:absolute;top:12px;left:12px}</style>
+<div id="status" role="status">Starting renderer</div>
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { ViewportGizmo } from "../../lib/ViewportGizmo.ts";
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+document.body.append(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x20242b);
+const target = new THREE.Vector3(2, -1, 3);
+const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, .1, 100);
+camera.position.set(8, 7, 10);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.copy(target);
+controls.update();
+const mesh = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 2), new THREE.MeshNormalMaterial());
+mesh.position.copy(target);
+scene.add(mesh);
+const gizmo = new ViewportGizmo(camera, renderer, { type: "cube", id: "gizmo", size: 128 });
+gizmo.attachControls(controls);
+gizmo.update();
+const events = { start: 0, change: 0, end: 0 };
+for (const type of Object.keys(events)) gizmo.addEventListener(type, () => {
+  events[type]++;
+  document.querySelector("#status").textContent = `${type}: ${events[type]}`;
+});
+window.fixture = { gizmo, camera, controls, events, target };
+renderer.setAnimationLoop(() => {
+  renderer.render(scene, camera);
+  gizmo.render();
+});
+document.querySelector("#status").textContent = "Renderer ready";
+</script>
+</html>
