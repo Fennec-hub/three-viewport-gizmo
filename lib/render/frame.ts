@@ -152,8 +152,14 @@ export function renderInRect(
       target.scissorTest = true;
       rebindTarget(renderer);
     } else {
-      renderer.setViewport(rect.x, rect.y, rect.width, rect.height);
-      renderer.setScissor(rect.x, rect.y, rect.width, rect.height);
+      // Passed as a Vector4 filled field by field: a fractional coordinate passed as a number to a call V8 does not
+      // inline is boxed, 12 B each, about 24 B a frame for a gizmo at a subpixel offset (perf budget `alloc`).
+      _rect.x = rect.x;
+      _rect.y = rect.y;
+      _rect.z = rect.width;
+      _rect.w = rect.height;
+      renderer.setViewport(_rect);
+      renderer.setScissor(_rect);
     }
     renderer.render(scene, camera);
   } finally {

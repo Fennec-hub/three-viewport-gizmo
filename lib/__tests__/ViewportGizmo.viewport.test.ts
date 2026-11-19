@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { PerspectiveCamera, Scene, Vector3 } from "three";
+import { PerspectiveCamera, Scene, Vector3, Vector4 } from "three";
 import { ViewportGizmo } from "../ViewportGizmo.js";
 import { createGizmo, createStubRenderer } from "./test-utils.js";
 
@@ -35,8 +35,11 @@ describe("viewport (R6: render() measures the rectangle)", () => {
     );
     const setViewport = vi.spyOn(renderer, "setViewport");
     gizmo.render();
-    expect(gizmo.viewport).toEqual({ x: 672, y: setViewport.mock.calls[0]![1], width: 128, height: 128 });
-    return setViewport.mock.calls[0];
+    // The first call draws the gizmo (the last restores the host's); its rectangle comes as a Vector4 (no boxed numbers).
+    const drawn = setViewport.mock.calls[0]![0] as Vector4;
+    expect(drawn).toBeInstanceOf(Vector4);
+    expect(gizmo.viewport).toEqual({ x: 672, y: drawn.y, width: 128, height: 128 });
+    return drawn.toArray();
   }
 
   it("draws at a bottom-origin Y when using legacy WebGL-style renderer", () => {

@@ -8,7 +8,8 @@
  * before, Always→Always from r187), which `placeDepthReset` spells around by revision; CI runs them on the latest three
  * and the peer matrix on the floor.
  */
-import { expect, test, type Page } from "@playwright/test";
+import { chromium, expect, test, type Page } from "@playwright/test";
+import { gpuArgs } from "../../../tests/browser/gpu.mjs";
 
 type Probe = { outsideChanged: number; insideWrong: number; covered: number; restored: boolean };
 type Env = { depthActive: boolean; webgpuBackend: boolean };
@@ -92,34 +93,46 @@ for (const backend of backends) {
     });
   }
 
-  test(`${backend}: a gizmo frame (measure and draw) stays within the library allocation budget`, async ({ page }) => {
+  test(`${backend}: a gizmo frame (measure and draw) stays within the library allocation budget`, async ({ baseURL, viewport }) => {
     test.setTimeout(240_000); // software WebGPU queues every frame's work
-    const { F } = await open(page, { backend, type: "cube" });
-    await F("loop(1500)"); // compiled, and optimised past the interpreter's boxed numbers
-    const cdp = await page.context().newCDPSession(page);
-    await cdp.send("HeapProfiler.enable");
-    await cdp.send("HeapProfiler.startSampling", {
-      samplingInterval: 64,
-      includeObjectsCollectedByMajorGC: true,
-      includeObjectsCollectedByMinorGC: true,
-    });
-    const n = 1000;
-    await F(`loop(${n})`);
-    const { profile } = await cdp.send("HeapProfiler.stopSampling");
-    const byFunction: Record<string, number> = {};
-    type Node = { callFrame: { url: string; functionName: string; lineNumber: number }; selfSize: number; children: Node[] };
-    const walk = (node: Node) => {
-      const { url, functionName, lineNumber } = node.callFrame;
-      if (node.selfSize && url.includes("/lib/") && !url.includes("/__tests__/")) {
-        const key = `${url.slice(url.indexOf("/lib/"))}:${functionName}:${lineNumber + 1}`;
-        byFunction[key] = (byFunction[key] ?? 0) + node.selfSize;
-      }
-      node.children.forEach(walk);
-    };
-    walk(profile.head as Node);
-    const bytesPerFrame = Math.round(Object.values(byFunction).reduce((a, b) => a + b, 0) / n);
-    annotate("alloc", { bytesPerFrame, byFunction });
-    // perf/budget.json `alloc` idle row: at most 64 B per idle frame for the whole library.
-    expect(bytesPerFrame).toBeLessThanOrEqual(64);
+    // The sampler charges each byte to the innermost physical stack frame, so inlining moves bytes across the line this
+    // test draws: three.js code inlined into a library frame counts as the library's (r187's `Animation.start` allocates
+    // a closure context on every WebGPU `render()`, 24 B a frame, charged to `renderInRect` whenever Maglev inlines
+    // `render` into it), and a library function inlined into this page's loop is not counted at all. With inlining off,
+    // every byte is charged to the function that allocates it; the optimising tiers still run, so a double the library
+    // boxes is still counted.
+    const browser = await chromium.launch({ args: [...gpuArgs, "--js-flags=--no-maglev-inlining --no-turbo-inlining"] });
+    try {
+      const page = await (await browser.newContext({ baseURL, viewport })).newPage();
+      const { F } = await open(page, { backend, type: "cube" });
+      await F("loop(1500)"); // compiled, and optimised past the interpreter's boxed numbers
+      const cdp = await page.context().newCDPSession(page);
+      await cdp.send("HeapProfiler.enable");
+      await cdp.send("HeapProfiler.startSampling", {
+        samplingInterval: 64,
+        includeObjectsCollectedByMajorGC: true,
+        includeObjectsCollectedByMinorGC: true,
+      });
+      const n = 1000;
+      await F(`loop(${n})`);
+      const { profile } = await cdp.send("HeapProfiler.stopSampling");
+      const byFunction: Record<string, number> = {};
+      type Node = { callFrame: { url: string; functionName: string; lineNumber: number }; selfSize: number; children: Node[] };
+      const walk = (node: Node) => {
+        const { url, functionName, lineNumber } = node.callFrame;
+        if (node.selfSize && url.includes("/lib/") && !url.includes("/__tests__/")) {
+          const key = `${url.slice(url.indexOf("/lib/"))}:${functionName}:${lineNumber + 1}`;
+          byFunction[key] = (byFunction[key] ?? 0) + node.selfSize;
+        }
+        node.children.forEach(walk);
+      };
+      walk(profile.head as Node);
+      const bytesPerFrame = Math.round(Object.values(byFunction).reduce((a, b) => a + b, 0) / n);
+      annotate("alloc", { bytesPerFrame, byFunction });
+      // perf/budget.json `alloc` idle row: at most 64 B per idle frame for the whole library.
+      expect(bytesPerFrame).toBeLessThanOrEqual(64);
+    } finally {
+      await browser.close();
+    }
   });
 }

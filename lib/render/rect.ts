@@ -43,5 +43,10 @@ export function targetRect(renderer: GizmoRenderer, rect: GizmoViewport, target:
   // ponytail: a canvas with no CSS size (detached, display: none) maps 1:1; such a host sees no gizmo anyway.
   const sx = canvas.clientWidth ? target.width / canvas.clientWidth : 1;
   const sy = canvas.clientHeight ? target.height / canvas.clientHeight : 1;
-  return out.set(rect.x * sx, rect.y * sy, rect.width * sx, rect.height * sy);
+  // Written field by field, as in `renderInRect`: fractional numbers passed to `set` are boxed when it is not inlined.
+  out.x = rect.x * sx;
+  out.y = rect.y * sy;
+  out.z = rect.width * sx;
+  out.w = rect.height * sy;
+  return out;
 }
