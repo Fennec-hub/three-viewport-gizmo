@@ -7,9 +7,9 @@ import type { TargetEntry } from "../orbit/targets";
  * `corner`, which the `edges.hitSize` and `corners.hitSize` options set (`flat = 1 - edges.hitSize`, never past the
  * drawn face; `corner = 1 - corners.hitSize`). The defaults are fitted to the 2.3.0 raycaster (`hitTest.test.ts`):
  * - `cube`: `{ radius: 0, flat: 0.7, corner: 0.65 }`; `flat` is its face tiles' half-size, their default `scale`.
- * - `rounded-cube`: `{ radius: r, flat: 1 - max(r, 0.15), corner: max(1 - r - PRIORITY_DEPTH, (1 - r) / 2) }`, `r`
- *   its `radius` option (0.3). Its drawn pieces are cut by `{ radius: r, flat: 1 - r, corner: 1 - r }`, so they have
- *   square faces whatever the hit sizes.
+ * - `rounded-cube`: `{ radius: r, flat: 1 - min(max(r + 0.1, 0.15), (1 + r) / 2),
+ *   corner: max(1 - r - PRIORITY_DEPTH, (1 - r) / 2) }`, `r` its `radius` option (0.3). Its drawn pieces are cut
+ *   by `{ radius: r, flat: 1 - r, corner: 1 - r }`, so they have square faces whatever the hit sizes.
  */
 export type HitBox = Readonly<{
   type: "box";

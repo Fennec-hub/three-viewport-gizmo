@@ -136,15 +136,17 @@
           }
 
           // The analytic hit test against the drawn pieces, per pixel; rows read bottom-up on WebGL, top-down on WebGPU.
-          // The hit box's corners reach into the faces and edges around them (the corner band); the pieces are drawn
-          // without it, so there the hit names the corner that the drawn face or edge borders.
+          // The hit box's corners reach into the faces and edges around them (the corner band), and its edges into the
+          // faces beside them (the edge band); the pieces are drawn without either, so there the hit names the corner
+          // or edge that the drawn face or edge borders.
           const hitScene = { orientation: root.quaternion, camera, shape: box, targets: table };
-          const borders = (corner, side) =>
-            corner.kind === "corner" &&
-            side.kind !== "corner" &&
-            ["x", "y", "z"].every((a) => Math.abs(side.direction[a]) < 1e-9 || Math.sign(side.direction[a]) === Math.sign(corner.direction[a]));
+          const RANK = { face: 0, edge: 1, corner: 2 };
+          const borders = (wider, side) =>
+            RANK[wider.kind] > RANK[side.kind] &&
+            ["x", "y", "z"].every((a) => Math.abs(side.direction[a]) < 1e-9 || Math.sign(side.direction[a]) === Math.sign(wider.direction[a]));
           let agree = 0;
           let band = 0;
+          let edgeBand = 0;
           let disagree = 0;
           let interior = 0;
           for (let row = 0; row < SIZE; row++) {
@@ -165,11 +167,14 @@
               const y = backend === "webgl" ? ((row + 0.5) / SIZE) * 2 - 1 : 1 - ((row + 0.5) / SIZE) * 2;
               const hit = hitTest(x, y, hitScene);
               if (hit && hit.name === table[id].name) agree++;
-              else if (hit && borders(hit, table[id])) band++;
+              else if (hit && borders(hit, table[id])) {
+                if (hit.kind === "corner") band++;
+                else edgeBand++;
+              }
               else disagree++;
             }
           }
-          views.push({ name, lit, red, redMerged, differ, mask, changed, outside, interior, agree, band, disagree });
+          views.push({ name, lit, red, redMerged, differ, mask, changed, outside, interior, agree, band, edgeBand, disagree });
         }
         const triangles = meshes.reduce((sum, m) => sum + m.geometry.getAttribute("position").count / 3, 0);
         return { backend, triangles, views };

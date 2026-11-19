@@ -208,17 +208,48 @@ describe("hit sizes", () => {
     const before = beta3Box(radius);
     expect(box.radius).toBe(before.radius);
     expect(box.corner).toBeCloseTo(before.corner, 12);
-    // Edges: the drawn strip from radius 0.15 up, as before; widened to 0.15 below it.
-    expect(box.flat).toBeCloseTo(radius >= 0.15 ? before.flat : 0.85, 12);
     expect(roundedCubeBox(radius)).toEqual(box);
+  });
+
+  // Edges reach 0.1 beyond their drawn strip, as corners reach 0.2 beyond their patch: `min(max(r + 0.1, 0.15),
+  // (1 + r) / 2)`. The 0.15 floor acts below radius 0.05 only; the half-face cap from radius 0.8 up.
+  it.each([
+    [0.001, 0.201, 0.15],
+    [0.05, 0.25, 0.15],
+    [0.1, 0.3, 0.2],
+    [0.3, 0.5, 0.4],
+    [0.6, 0.8, 0.7],
+    [0.8, 0.9, 0.9],
+    [0.999, 0.9995, 0.9995],
+  ])("resolves the default hit sizes at radius %s: corners %s, edges %s", (radius, corners, edges) => {
+    const given = sizes({ type: "rounded-cube", radius });
+    expect(given.corners).toBeCloseTo(corners, 12);
+    expect(given.edges).toBeCloseTo(edges, 12);
+    expect(defaultHitSizes("rounded-cube", radius)).toEqual(given);
+    // Never narrower than the drawn strip, and the face keeps its centre.
+    const box = roundedCubeBox(radius, given);
+    expect(box.flat).toBeCloseTo(1 - edges, 12);
+    expect(box.flat).toBeLessThan(roundedCubeDrawnBox(radius).flat);
+    expect(box.flat).toBeGreaterThanOrEqual(roundedCubeDrawnBox(radius).flat / 2 - 1e-12);
+    expect(box.corner).toBeLessThanOrEqual(box.flat + 1e-12);
+  });
+
+  it("restores the drawn-strip-only edge from an explicit `edges.hitSize` of the radius", () => {
+    for (const radius of [0.05, 0.3, 0.6]) {
+      const box = roundedCubeBox(radius, sizes({ type: "rounded-cube", radius, edges: { hitSize: radius } }));
+      expect(box.flat).toBeCloseTo(roundedCubeDrawnBox(radius).flat, 12);
+      expect(box.corner).toBeCloseTo(beta3Box(radius).corner, 12);
+    }
   });
 
   it("resolves the documented defaults for each type", () => {
     expect(sizes({ type: "cube" })).toEqual({ corners: 0.35, edges: 0.3 });
     expect(sizes({ type: "sphere" })).toEqual({ corners: 0.35, edges: 0.3 });
-    expect(sizes({ type: "rounded-cube" })).toEqual({ corners: 0.5, edges: 0.3 });
-    expect(sizes({ type: "rounded-cube", radius: 0.05 })).toEqual({ corners: 0.25, edges: 0.15 });
+    expect(sizes({ type: "rounded-cube" })).toEqual({ corners: 0.5, edges: 0.4 });
+    expect(sizes({ type: "rounded-cube", radius: 0.05 }).corners).toBeCloseTo(0.25, 12);
+    expect(sizes({ type: "rounded-cube", radius: 0.05 }).edges).toBeCloseTo(0.15, 12);
     expect(sizes({ type: "rounded-cube", radius: 0.8 }).corners).toBeCloseTo(0.9, 12);
+    expect(sizes({ type: "rounded-cube", radius: 0.8 }).edges).toBeCloseTo(0.9, 12);
     // A caller's value is kept as given; the hit box clamps it.
     const given = sizes({ type: "rounded-cube", corners: { hitSize: 2 }, edges: { hitSize: 0 } });
     expect(given).toEqual({ corners: 2, edges: 0 });

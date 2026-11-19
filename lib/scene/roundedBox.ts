@@ -29,7 +29,13 @@ const CUBE_FLAT = 0.7;
 /** The plain `cube`'s hit sizes (I1's 2.3.0 fit: corners from 0.65, edges from 0.7). The sphere resolves them too. */
 const CUBE_HIT_SIZES: HitSizes = Object.freeze({ corners: 0.35, edges: 0.3 });
 
-/** The narrowest edge band of the `rounded-cube` by default, however small its `radius`. */
+/** How far the `rounded-cube`'s default edge band reaches beyond its drawn strip (`radius`), in gizmo units. */
+const EDGE_BAND = 0.1;
+
+/**
+ * The narrowest edge band of the `rounded-cube` by default: it widens the default only below `radius` 0.05, where
+ * `radius + EDGE_BAND` falls under 0.15.
+ */
 const MIN_ROUNDED_EDGE = 0.15;
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
@@ -40,7 +46,10 @@ const clamp = (value: number, min: number, max: number) => Math.min(Math.max(val
  * - corners `min(r + PRIORITY_DEPTH, (1 + r) / 2)`: the rounded patch plus 0.2 (2.3.0's corner-over-face priority),
  *   but never past the inner half of a face's flat region. It equals 3.0.0-beta.3's
  *   `corner = max(flat − 0.2, flat / 2)` at every radius; the half-face floor takes over at `r = 0.6`.
- * - edges `max(r, 0.15)`: the drawn strip, widened to 0.15 at a small `radius`.
+ * - edges `min(max(r + 0.1, 0.15), (1 + r) / 2)`: the drawn strip plus a 0.1 band, as the corners have their 0.2,
+ *   so a pointer just inside an edge lands on it as one near a corner lands on the corner. Never under 0.15 (that
+ *   floor acts only below `r = 0.05`) and, like the corners, never past the inner half of a face's flat region (the
+ *   cap takes over at `r = 0.8`), so a face always keeps its centre. At the default `radius` 0.3: 0.4.
  *
  * @param type - The `type` option
  * @param radius - The `radius` option
@@ -48,7 +57,11 @@ const clamp = (value: number, min: number, max: number) => Math.min(Math.max(val
 export function defaultHitSizes(type: "sphere" | "cube" | "rounded-cube", radius: number): HitSizes {
   if (type !== "rounded-cube") return CUBE_HIT_SIZES;
   const r = clamp(radius, RADIUS[0], RADIUS[1]);
-  return { corners: Math.min(r + PRIORITY_DEPTH, (1 + r) / 2), edges: Math.max(r, MIN_ROUNDED_EDGE) };
+  const halfFace = (1 + r) / 2;
+  return {
+    corners: Math.min(r + PRIORITY_DEPTH, halfFace),
+    edges: Math.min(Math.max(r + EDGE_BAND, MIN_ROUNDED_EDGE), halfFace),
+  };
 }
 
 /**

@@ -53,7 +53,7 @@ for (const backend of ["webgl", "webgpu"] as const) {
         expect(await page.evaluate("T.resolved().edges")).toBe(0.6);
         const live = await sweep(page);
         expect({ eye, live }).toEqual({ eye, live: expected });
-        // The band moved: more of the row is edge than under Auto (0.3 at radius 0.3), and something still hovers.
+        // The band moved: more of the row is edge than under Auto (0.4 at radius 0.3), and something still hovers.
         expect(count(live, "E"), `${auto} -> ${live}`).toBeGreaterThan(count(auto, "E"));
         expect(count(live, "F")).toBeGreaterThan(0);
         // Back to Auto restores the default band.

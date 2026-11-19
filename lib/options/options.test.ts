@@ -109,10 +109,11 @@ describe("resolveOptions", () => {
     expect(resolve({ type: "cube" }).corners.hitSize).toBe(0.35);
     expect(resolve({ type: "cube" }).edges.hitSize).toBe(0.3);
     expect(resolve({ type: "rounded-cube" }).corners.hitSize).toBe(0.5);
-    expect(resolve({ type: "rounded-cube" }).edges.hitSize).toBe(0.3);
+    expect(resolve({ type: "rounded-cube" }).edges.hitSize).toBeCloseTo(0.4, 12);
     expect(resolve({ type: "rounded-cube", radius: 0.05 }).corners.hitSize).toBeCloseTo(0.25, 12);
-    expect(resolve({ type: "rounded-cube", radius: 0.05 }).edges.hitSize).toBe(0.15);
+    expect(resolve({ type: "rounded-cube", radius: 0.05 }).edges.hitSize).toBeCloseTo(0.15, 12);
     expect(resolve({ type: "rounded-cube", radius: 0.6 }).corners.hitSize).toBeCloseTo(0.8, 12);
+    expect(resolve({ type: "rounded-cube", radius: 0.6 }).edges.hitSize).toBeCloseTo(0.7, 12);
     expect(resolve({ type: "rounded-cube", radius: 0.6, corners: { hitSize: 0.4 } }).corners.hitSize).toBe(0.4);
   });
 

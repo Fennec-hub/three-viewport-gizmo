@@ -72,6 +72,23 @@ describe("hit sizes", () => {
     }
   );
 
+  it("should give the default rounded cube's edges a band beyond the drawn strip, which `radius` removes", () => {
+    const { gizmo, element } = mountGizmo({
+      cameraPosition: new Vector3(0, 0, 5),
+      gizmoOptions: { type: "rounded-cube", radius: 0.3 },
+    });
+    expect(gizmo.options.edges.hitSize).toBeCloseTo(0.4, 12);
+    const side = scan(gizmo, element, [0, -1]);
+    gizmo.set({ edges: { hitSize: 0.3 } });
+    const strip = scan(gizmo, element, [0, -1]);
+    // Both scans reach the edge; by default the face hands over to it nearer the centre.
+    expect(strip.indexOf("edge")).toBeGreaterThan(0);
+    expect(side.indexOf("edge")).toBeGreaterThan(0);
+    expect(side.indexOf("edge")).toBeLessThan(strip.indexOf("edge"));
+    expect(side.length).toBe(strip.length);
+    gizmo.dispose();
+  });
+
   it("should ignore both on the sphere", () => {
     const { gizmo, element } = mountGizmo({
       cameraPosition: new Vector3(0, 0, 5),

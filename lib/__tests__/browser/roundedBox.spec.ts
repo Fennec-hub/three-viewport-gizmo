@@ -18,15 +18,17 @@ type View = {
   outside: number;
   /**
    * Pixels a pixel away from any piece boundary; those where the analytic hit test names a corner the drawn face or
-   * edge borders (the corner band, which the pieces are drawn without); and those it names otherwise differently.
+   * edge borders (the corner band, which the pieces are drawn without); those where it names an edge the drawn face
+   * borders (the edge band, likewise); and those it names otherwise differently.
    */
   interior: number;
   band: number;
+  edgeBand: number;
   disagree: number;
 };
 
 for (const backend of ["webgpu", "webgl"] as const) {
-  test(`${backend} rounded-cube: no seam at any of the 26 views; hover lights the piece the hit test names, or a corner's patch from its band`, async ({ page }) => {
+  test(`${backend} rounded-cube: no seam at any of the 26 views; hover lights the piece the hit test names, or a corner's or edge's own piece from its band`, async ({ page }) => {
     const errors: string[] = [];
     page.on("console", (message) => (message.type() === "error" || message.type() === "warning") && !message.text().includes("GL Driver Message") && errors.push(message.text()));
     page.on("pageerror", (error) => errors.push(error.message));
@@ -57,6 +59,8 @@ for (const backend of ["webgpu", "webgl"] as const) {
     }
     // The band shows wherever a corner does, next to it.
     expect(result.views.reduce((sum, view) => sum + view.band, 0)).toBeGreaterThan(0);
+    // So does the edge band (0.1 beyond the drawn strip by default), next to an edge.
+    expect(result.views.reduce((sum, view) => sum + view.edgeBand, 0)).toBeGreaterThan(0);
     expect(errors).toEqual([]);
   });
 }

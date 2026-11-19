@@ -402,7 +402,9 @@ export type GizmoOptions = {
      * How far in from the cube's edge a pointer still lands on an edge, in gizmo units (a face's half-width is 1): a
      * point within it on two axes is the edge. Hit test only: the drawn edge and its hover highlight are unchanged.
      * Never narrower than the drawn edge: clamped to `[radius, 1)` on `rounded-cube` and `[0.3, 1)` on `cube` (the gap
-     * between its face tiles). Default `0.3` for `cube`; `max(radius, 0.15)` for `rounded-cube`. Ignored by `sphere`.
+     * between its face tiles). Default `0.3` for `cube`; `min(max(radius + 0.1, 0.15), (1 + radius) / 2)` for
+     * `rounded-cube` (the drawn strip plus 0.1, as the corners have their 0.2, kept off the inner half of each face;
+     * 0.4 at the default `radius`). Ignored by `sphere`.
      */
     hitSize?: number;
     hover?: {
