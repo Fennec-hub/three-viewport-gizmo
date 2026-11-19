@@ -1,0 +1,91 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Hit sizes set live</title>
+    <style>
+      body { margin: 0; }
+      #wrap { position: relative; width: 800px; height: 600px; }
+    </style>
+  </head>
+  <body>
+    <div id="wrap"></div>
+    <script type="module">
+      // Browser cases for `corners.hitSize` and `edges.hitSize` changed by `set()` on a running gizmo, as the docs
+      // playground does it: `?backend=webgpu|webgl&eye=[x,y,z]&initial={"corners":…,"edges":…}` (the hit sizes passed to
+      // the constructor; omitted is Auto). The spec sweeps Chromium's own mouse across the gizmo and reads
+      // `data-hovered` from its element.
+      const q = new URLSearchParams(location.search);
+      const backend = q.get("backend") ?? "webgpu";
+      const THREE = backend === "webgpu" ? await import("three/webgpu") : await import("three");
+      const { OrbitControls } = await import("three/addons/controls/OrbitControls.js");
+      const { ViewportGizmo } = await import("/lib/index.ts");
+
+      const wrap = document.getElementById("wrap");
+      const renderer = backend === "webgpu" ? new THREE.WebGPURenderer() : new THREE.WebGLRenderer();
+      if (renderer.init) await renderer.init();
+      renderer.setSize(800, 600);
+      wrap.appendChild(renderer.domElement);
+      const scene = new THREE.Scene();
+      scene.add(new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial()));
+      const camera = new THREE.PerspectiveCamera(50, 800 / 600, 0.1, 100);
+      camera.position.fromArray(JSON.parse(q.get("eye") ?? "[0, 0, 6]"));
+      camera.lookAt(0, 0, 0);
+      const controls = new OrbitControls(camera, renderer.domElement);
+
+      /** The playground's whole options object (site/app/playground/Playground.tsx), with the given hit sizes. */
+      const options = ({ corners, edges } = {}) => ({
+        type: "rounded-cube",
+        animated: false,
+        speed: 1,
+        controlled: false,
+        poleEntry: "front",
+        limits: undefined,
+        triad: { enabled: false },
+        navigation: { enabled: false },
+        offset: { top: 10, right: 10, bottom: 10, left: 10 },
+        roll: undefined,
+        fieldOfView: undefined,
+        corners: { hitSize: corners },
+        edges: { hitSize: edges },
+      });
+
+      const initial = JSON.parse(q.get("initial") ?? "{}");
+      const gizmo = new ViewportGizmo(camera, renderer, {
+        container: wrap,
+        size: 400,
+        // As the playground's stage passes them: `up` is the host camera's own vector.
+        up: camera.up,
+        frontDirection: new THREE.Vector3(0, 0, 1),
+        ...options(initial),
+      });
+      gizmo.attachControls(controls);
+      const frame = () => {
+        controls.update();
+        renderer.render(scene, camera);
+        gizmo.render();
+      };
+      renderer.setAnimationLoop(frame);
+      const frames = (n) =>
+        new Promise((done) => {
+          const step = () => (--n > 0 ? requestAnimationFrame(step) : done());
+          requestAnimationFrame(step);
+        });
+
+      window.T = {
+        /** `set()` with the playground's whole options object and `extra` over it; then two frames. */
+        set: async (hitSizes, extra = {}) => {
+          gizmo.set({ ...options(hitSizes), ...extra });
+          await frames(2);
+        },
+        /** The backend that draws: WebGPURenderer falls back to WebGL 2 without an adapter. */
+        backend: () => (renderer.backend?.isWebGPUBackend ? "webgpu" : "webgl"),
+        rect: () => gizmo.domElement.getBoundingClientRect().toJSON(),
+        hovered: () => gizmo.domElement.getAttribute("data-hovered") ?? ".",
+        resolved: () => ({ corners: gizmo.options.corners.hitSize, edges: gizmo.options.edges.hitSize }),
+      };
+      await frames(2);
+      window.READY = true;
+    </script>
+  </body>
+</html>
