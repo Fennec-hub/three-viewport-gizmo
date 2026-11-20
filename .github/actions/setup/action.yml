@@ -1,0 +1,21 @@
+name: Setup repository
+description: Install the pinned Node and npm toolchain, then restore locked dependencies.
+inputs:
+  node-version:
+    description: Exact Node version.
+    required: true
+  npm-version:
+    description: Exact npm version compatible with the selected Node lane.
+    required: false
+    default: '12.0.2'
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: npm
+    - shell: bash
+      run: npm install --global npm@${{ inputs.npm-version }}
+    - shell: bash
+      run: npm ci

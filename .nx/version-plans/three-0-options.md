@@ -1,0 +1,5 @@
+---
+three-viewport-gizmo: major
+---
+
+Options are validated and merged. `set(partial)` merges into the current options, so `set({ size: 64 })` keeps a cube a cube, and passing `undefined` returns a key to its default. A key the library does not know throws `ViewportGizmoError` with code `UNKNOWN_OPTION`, a wrong type or out-of-range value `INVALID_OPTION`, and the 2.x `up: 'z'` `REMOVED_OPTION` naming its replacement, `up: new Vector3(0, 0, 1)`. Values are no longer JSON-cloned: a `THREE.Color` or a function is kept as passed. `rounded-cube` changes only defaults and no longer overwrites `edges`, `corners` and per-target `scale` and `opacity` a caller passes. A face alias such as `front` merges over its axis key instead of replacing it, and styles only its own face. `animated` follows `prefers-reduced-motion` when it is not given. New options: `frontDirection`, `roll` (`true`, `false` or `'free'`), `poleEntry`, `oppositeOnRepeat`, `drag`, `limits`, `controlled`, `fieldOfView` (radians, in (0, 100°]), `navigation` and `triad`.

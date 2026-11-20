@@ -1,0 +1,95 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>K7 turns</title>
+    <style>
+      body { margin: 0; }
+      #wrap { position: relative; width: 800px; height: 600px; }
+    </style>
+  </head>
+  <body>
+    <div id="wrap"></div>
+    <script type="module">
+      // Browser cases for the turn API (K7): `?backend=webgpu|webgl&roll=true|false|free`. A real renderer draws a host
+      // scene and the gizmo every frame; turns fly on requestAnimationFrame.
+      const q = new URLSearchParams(location.search);
+      const backend = q.get("backend") ?? "webgpu";
+      const roll = { true: true, false: false, free: "free" }[q.get("roll") ?? "true"];
+      const THREE = backend === "webgpu" ? await import("three/webgpu") : await import("three");
+      const { ViewportGizmo } = await import("/lib/index.ts");
+
+      const wrap = document.getElementById("wrap");
+      const renderer = backend === "webgpu" ? new THREE.WebGPURenderer() : new THREE.WebGLRenderer();
+      if (renderer.init) await renderer.init();
+      renderer.setSize(800, 600);
+      wrap.appendChild(renderer.domElement);
+      const scene = new THREE.Scene();
+      scene.add(new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial()));
+      const camera = new THREE.PerspectiveCamera(50, 800 / 600, 0.1, 100);
+      camera.position.set(3, 2, 4);
+      camera.lookAt(0, 0, 0);
+      // Fast flights: a few frames each, still sampled frame by frame.
+      const gizmo = new ViewportGizmo(camera, renderer, { container: wrap, type: "cube", roll, speed: 8 });
+      renderer.setAnimationLoop(() => {
+        renderer.render(scene, camera);
+        gizmo.render();
+      });
+
+      const back = () => new THREE.Vector3(0, 0, 1).applyQuaternion(camera.quaternion);
+      const right = () => new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+      const labelUp = gizmo.options.up.clone();
+      /** Largest |screen right · label up| over a flight's frames: 0 while upright (I1). */
+      let tilt = 0;
+      gizmo.addEventListener("change", () => (tilt = Math.max(tilt, Math.abs(right().dot(labelUp)))));
+
+      const TURNS = [
+        { toward: "up" },
+        { toward: "right" },
+        { toward: "down" },
+        { toward: "left" },
+        { azimuth: Math.PI / 2 },
+        { polar: -Math.PI / 2 },
+        { roll: Math.PI / 2 },
+      ];
+
+      /** Every turn kind from every one of the 26 views; one row per (view, turn). */
+      const run = async () => {
+        const rows = [];
+        for (const { name } of gizmo.targets) {
+          for (const turn of TURNS) {
+            await gizmo.lookFrom(name, { up: "reset" });
+            tilt = 0;
+            const end = await gizmo.turn(turn);
+            rows.push({
+              view: name,
+              turn: JSON.stringify(turn),
+              status: end.outcome.status,
+              reason: end.outcome.reason ?? null,
+              ended: end.pose.direction.distanceTo(back()) < 1e-9,
+              tilt,
+              at: gizmo.atTarget?.target.name ?? null,
+              atKind: gizmo.atTarget?.target.kind ?? null,
+            });
+          }
+        }
+        return rows;
+      };
+
+      const rect = () => gizmo.domElement.getBoundingClientRect().toJSON();
+      const state = () => ({
+        at: gizmo.atTarget?.target.name ?? null,
+        up: camera.up.toArray(),
+        screenUp: new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion).toArray(),
+        animating: gizmo.animating,
+      });
+      const rolled = async (name) => {
+        await gizmo.lookFrom(name, { up: "reset" });
+        await gizmo.turn({ roll: Math.PI / 2 });
+      };
+
+      window.T = { run, rect, state, rolled };
+      window.READY = true;
+    </script>
+  </body>
+</html>

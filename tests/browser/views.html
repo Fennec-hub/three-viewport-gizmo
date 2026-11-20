@@ -1,0 +1,186 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>H1 views</title>
+    <style>
+      body { margin: 0; }
+      /* Tall enough to scroll: a touch drag on the gizmo must not scroll the page (E1). */
+      body.tall { height: 3000px; }
+      #wrap { position: relative; width: 800px; height: 600px; }
+      /* The host's cursor rules, as the styling guide writes them (E1: the library writes no cursor). */
+      .gate[data-hovered] { cursor: pointer; }
+      .gate[data-dragging] { cursor: grabbing; }
+      .gate[data-disabled] { cursor: not-allowed; }
+    </style>
+  </head>
+  <body>
+    <div id="wrap"></div>
+    <script type="module">
+      // H1 browser cases on the public API only: `?backend=webgl|webgpu&type=sphere|cube|rounded-cube
+      // &controls=none|orbit|trackball|arcball|camera-controls&tall=1`. A real renderer draws a host scene, steps the
+      // host's controls and draws the gizmo every frame.
+      const q = new URLSearchParams(location.search);
+      const backend = q.get("backend") ?? "webgl";
+      const type = q.get("type") ?? "cube";
+      const controlsName = q.get("controls") ?? "none";
+      if (q.get("tall") === "1") document.body.classList.add("tall");
+      const THREE = backend === "webgpu" ? await import("three/webgpu") : await import("three");
+      const { ViewportGizmo } = await import("/lib/index.ts");
+
+      const wrap = document.getElementById("wrap");
+      const renderer = backend === "webgpu" ? new THREE.WebGPURenderer() : new THREE.WebGLRenderer();
+      if (renderer.init) await renderer.init();
+      renderer.setSize(800, 600);
+      wrap.appendChild(renderer.domElement);
+      const scene = new THREE.Scene();
+      scene.add(new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial()));
+      const camera = new THREE.PerspectiveCamera(50, 800 / 600, 0.1, 100);
+      camera.position.set(3, 2, 4);
+      camera.lookAt(0, 0, 0);
+
+      let controls = null;
+      let step = () => {};
+      if (controlsName === "orbit") {
+        const { OrbitControls } = await import("three/addons/controls/OrbitControls.js");
+        controls = new OrbitControls(camera, renderer.domElement);
+        step = () => controls.update();
+      } else if (controlsName === "trackball") {
+        const { TrackballControls } = await import("three/addons/controls/TrackballControls.js");
+        controls = new TrackballControls(camera, renderer.domElement);
+        // No inertia: a drag's momentum would carry on through a later gizmo turn (the gizmo holds input, not update()).
+        controls.staticMoving = true;
+        step = () => controls.update();
+      } else if (controlsName === "arcball") {
+        const { ArcballControls } = await import("three/addons/controls/ArcballControls.js");
+        controls = new ArcballControls(camera, renderer.domElement);
+        controls.setGizmosVisible(false);
+        step = () => controls.update();
+      } else if (controlsName === "camera-controls") {
+        const { default: CameraControls } = await import("camera-controls");
+        const { cameraControls } = await import("/lib/controls/cameraControls.ts");
+        CameraControls.install({ THREE });
+        const raw = new CameraControls(camera, renderer.domElement);
+        const timer = new THREE.Timer();
+        controls = cameraControls(raw);
+        step = () => {
+          timer.update();
+          if (raw.enabled) raw.update(timer.getDelta());
+        };
+      }
+
+      // The sphere draws its edges and corners too, so all 26 targets are on screen.
+      const extra = type === "sphere" ? { edges: { enabled: true }, corners: { enabled: true } } : {};
+      const gizmo = new ViewportGizmo(camera, renderer, { container: wrap, type, speed: 8, className: "gate", ...extra });
+      if (controls) gizmo.attachControls(controls);
+      renderer.setAnimationLoop(() => {
+        step();
+        renderer.render(scene, camera);
+        gizmo.render();
+      });
+
+      const back = () => new THREE.Vector3(0, 0, 1).applyQuaternion(camera.quaternion);
+      const right = () => new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+      const screenUp = () => new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
+      const labelUp = gizmo.options.up.clone();
+      const frames = (n) => new Promise((done) => { const tick = () => (n-- > 0 ? requestAnimationFrame(tick) : done()); tick(); });
+
+      /** Largest |screen right · label up| over a flight's frames: 0 while upright (I1). */
+      let tilt = 0;
+      /** The first frame's step from the pose before a turn, in degrees. */
+      let firstStep = null;
+      let before = null;
+      gizmo.addEventListener("start", () => { before = camera.quaternion.clone(); firstStep = null; });
+      gizmo.addEventListener("change", () => {
+        tilt = Math.max(tilt, Math.abs(right().dot(labelUp)));
+        if (before && firstStep === null) firstStep = THREE.MathUtils.radToDeg(before.angleTo(camera.quaternion));
+      });
+
+      const TURNS = [
+        { toward: "up" },
+        { toward: "right" },
+        { toward: "down" },
+        { toward: "left" },
+        { azimuth: Math.PI / 2 },
+        { polar: -Math.PI / 2 },
+        { roll: Math.PI / 2 },
+      ];
+
+      /** Both turn kinds from every one of the 26 views, then 10 frames of the host's controls; one row per pair. */
+      const turns = async () => {
+        const rows = [];
+        for (const { name } of gizmo.targets) {
+          for (const turn of TURNS) {
+            await gizmo.lookFrom(name, { up: "reset" });
+            tilt = 0;
+            const end = await gizmo.turn(turn);
+            const ended = end.pose.direction.distanceTo(back()) < 1e-9;
+            const at = gizmo.atTarget?.target ?? null;
+            const settled = camera.quaternion.clone();
+            await frames(10);
+            rows.push({
+              view: name,
+              turn: JSON.stringify(turn),
+              status: end.outcome.status,
+              reason: end.outcome.reason ?? null,
+              ended,
+              // The host's controls keep the end pose: no jump back on their next updates.
+              kept: THREE.MathUtils.radToDeg(settled.angleTo(camera.quaternion)),
+              tilt,
+              at: at?.name ?? null,
+              atKind: at?.kind ?? null,
+            });
+          }
+        }
+        return rows;
+      };
+
+      /**
+       * Looks from 2° off a target, so the target sits under the element's centre without the view being at it.
+       * Returns the centre in client pixels.
+       */
+      const aim = async (name, up = "reset") => {
+        const target = gizmo.targets.find((t) => t.name === name);
+        const side = Math.abs(target.direction.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
+        const off = side.cross(target.direction).normalize().multiplyScalar(Math.tan(THREE.MathUtils.degToRad(2)));
+        await gizmo.lookFrom(off.add(target.direction).normalize(), { animated: false, up });
+        await frames(2);
+        const r = gizmo.domElement.getBoundingClientRect();
+        return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+      };
+
+      /** A host roll the gizmo cannot see as its own: the camera's up turned a quarter about the view direction. */
+      const hostRoll = () => {
+        camera.up.copy(screenUp()).applyAxisAngle(back(), Math.PI / 2);
+        camera.lookAt(0, 0, 0);
+        controls?.updateCameraUp?.();
+        gizmo.update();
+      };
+
+      window.T = {
+        turns,
+        aim,
+        hostRoll,
+        names: () => gizmo.targets.map((t) => t.name),
+        hovered: () => gizmo.hovered?.name ?? null,
+        at: () => gizmo.atTarget?.target.name ?? null,
+        animating: () => gizmo.animating,
+        canRoll: () => gizmo.canRoll,
+        firstStep: () => firstStep,
+        lookFrom: (view, options) => gizmo.lookFrom(view, options).then((e) => e.outcome.status),
+        turn: (turn) => gizmo.turn(turn).then((e) => e.outcome.status),
+        frames,
+        setEnabled: (on) => { gizmo.enabled = on; },
+        cursor: () => getComputedStyle(gizmo.domElement).cursor,
+        rect: () => gizmo.domElement.getBoundingClientRect().toJSON(),
+        state: () => ({
+          position: camera.position.toArray(),
+          up: camera.up.toArray(),
+          screenUp: screenUp().toArray(),
+          back: back().toArray(),
+        }),
+      };
+      window.READY = true;
+    </script>
+  </body>
+</html>

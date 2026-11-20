@@ -1,0 +1,6 @@
+/* The gizmo reads its size from these custom properties, falling back to the size option. */
+.responsive-gizmo {
+  --viewport-gizmo-width: auto;
+  --viewport-gizmo-height: 40%;
+  aspect-ratio: 1;
+}

@@ -1,0 +1,5 @@
+/* The library writes only the element's position, size, margin and touch-action. */
+.view-cube[data-hovered] { cursor: pointer; }
+.view-cube[data-dragging] { cursor: grabbing; }
+.view-cube[data-disabled] { opacity: 0.5; }
+.view-cube:focus-visible { outline: 2px solid #3d8be8; outline-offset: 4px; border-radius: 8px; }

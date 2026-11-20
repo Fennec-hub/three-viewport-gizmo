@@ -1,0 +1,298 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>F1 frame contract</title>
+    <style>
+      body { margin: 0; }
+      #wrap { position: relative; width: 800px; height: 600px; }
+      #gizmo { position: absolute; top: 8px; right: 8px; width: 128px; height: 128px; }
+    </style>
+  </head>
+  <body>
+    <div id="wrap"><div id="gizmo"></div></div>
+    <script type="module">
+      // Browser cases for lib/render/frame.ts and rect.ts (F1): `?backend=webgl|webgpu&depth=default|reversed|log&type=cube|sphere`.
+      // The host draws a box, a near wall under the gizmo's rectangle and, after the gizmo, a far red quad (F0's probe).
+      // ponytail: drives lib/render and lib/scene directly until K5 wires renderInRect into the class.
+      import { resolveOptions } from "/lib/options/resolve.ts";
+      import { buildScene } from "/lib/scene/build.ts";
+      import { createInternalCamera, setFieldOfView } from "/lib/render/internalCamera.ts";
+      import { createDepthReset, renderInRect } from "/lib/render/frame.ts";
+      import { measureViewport } from "/lib/render/rect.ts";
+
+      const q = new URLSearchParams(location.search);
+      const backend = q.get("backend") ?? "webgl";
+      const depth = q.get("depth") ?? "default";
+      const type = q.get("type") ?? "cube";
+      const W = 800, H = 600;
+      const THREE = backend === "webgpu" ? await import("three/webgpu") : await import("three");
+
+      const wrap = document.getElementById("wrap");
+      const element = document.getElementById("gizmo");
+      const params = { antialias: true, reversedDepthBuffer: depth === "reversed", logarithmicDepthBuffer: depth === "log" };
+      const renderer = backend === "webgpu" ? new THREE.WebGPURenderer(params) : new THREE.WebGLRenderer(params);
+      renderer.setPixelRatio(1);
+      renderer.setSize(W, H);
+      wrap.prepend(renderer.domElement);
+      if (renderer.init) await renderer.init();
+      // WebGLRenderer drops reversedDepthBuffer silently without EXT_clip_control.
+      const reversed = backend === "webgpu" ? renderer.reversedDepthBuffer : renderer.capabilities.reversedDepthBuffer;
+      const depthActive = depth !== "reversed" || reversed;
+      // ponytail: renderer internals for a test-only program or pipeline count.
+      const programs = () => (backend === "webgl" ? renderer.info.programs.length : renderer._pipelines.caches.size);
+      const draws = () => (backend === "webgl" ? renderer.info.render.calls : renderer.info.render.drawCalls);
+
+      // Host: F0's scene. The wall sits 0.105 from the eye, nearer than any gizmo fragment.
+      const camera = new THREE.PerspectiveCamera(50, W / H, 0.1, 100);
+      camera.position.set(3, 2, 4);
+      camera.lookAt(0, 0, 0);
+      const host = new THREE.Scene().add(camera);
+      host.add(new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial({ color: 0x4488cc })));
+      const k = 0.105 / 0.5;
+      const wall = new THREE.Mesh(new THREE.PlaneGeometry(0.5 * k, 0.4 * k), new THREE.MeshBasicMaterial({ color: 0x33aa55 }));
+      wall.position.set(0.3 * k, 0.25 * k, -0.105);
+      camera.add(wall);
+      const far = new THREE.Scene();
+      const quad = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
+      quad.position.copy(camera.position).multiplyScalar(-1);
+      quad.lookAt(camera.position);
+      far.add(quad);
+      const empty = new THREE.Scene();
+
+      // The gizmo as the class will hold it: its scene with `root` and the reset quad as siblings.
+      const gizmo = buildScene(resolveOptions({ type, size: 128 }, { up: new THREE.Vector3(0, 1, 0) }));
+      const root = new THREE.Object3D().add(gizmo.group);
+      root.quaternion.copy(camera.quaternion).invert();
+      const gCamera = createInternalCamera(type === "sphere");
+      const reset = createDepthReset(gizmo.owned);
+      const gScene = new THREE.Scene().add(root, reset);
+      const rect = { x: 0, y: 0, width: 0, height: 0 };
+      const drawGizmo = () => {
+        measureViewport(renderer, element, rect);
+        renderInRect(renderer, gScene, gCamera, rect, reset);
+      };
+
+      const c2d = document.createElement("canvas").getContext("2d", { willReadFrequently: true });
+      /** Canvas pixels, top row first. */
+      const readFrame = async () => {
+        if (backend === "webgl") {
+          c2d.canvas.width = W;
+          c2d.canvas.height = H;
+          c2d.drawImage(renderer.domElement, 0, 0);
+          return c2d.getImageData(0, 0, W, H).data;
+        }
+        const { device, context } = renderer.backend;
+        const texture = context.getCurrentTexture();
+        const bytesPerRow = Math.ceil((W * 4) / 256) * 256;
+        const buffer = device.createBuffer({ size: bytesPerRow * H, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
+        const encoder = device.createCommandEncoder();
+        encoder.copyTextureToBuffer({ texture }, { buffer, bytesPerRow }, [W, H]);
+        device.queue.submit([encoder.finish()]);
+        await buffer.mapAsync(GPUMapMode.READ);
+        const src = new Uint8Array(buffer.getMappedRange());
+        const out = new Uint8ClampedArray(W * H * 4);
+        const bgra = texture.format.startsWith("bgra");
+        for (let row = 0; row < H; row++)
+          for (let col = 0; col < W; col++) {
+            const i = row * bytesPerRow + col * 4, o = (row * W + col) * 4;
+            out[o] = src[i + (bgra ? 2 : 0)];
+            out[o + 1] = src[i + 1];
+            out[o + 2] = src[i + (bgra ? 0 : 2)];
+            out[o + 3] = src[i + 3];
+          }
+        buffer.unmap();
+        buffer.destroy();
+        return out;
+      };
+
+      // The gizmo's rectangle in top-left canvas pixels.
+      const box = element.getBoundingClientRect(), cbox = renderer.domElement.getBoundingClientRect();
+      const R = { x: box.left - cbox.left, y: box.top - cbox.top, w: box.width, h: box.height };
+      const inside = (x, y, s = 1) => x >= R.x * s && x < (R.x + R.w) * s && y >= R.y * s && y < (R.y + R.h) * s;
+      const same = (a, b, i, tol) =>
+        Math.abs(a[i] - b[i]) <= tol && Math.abs(a[i + 1] - b[i + 1]) <= tol && Math.abs(a[i + 2] - b[i + 2]) <= tol;
+
+      /** Host frame: box and wall, optionally the gizmo, then (farAfter) the far quad, under the host's scissor test. */
+      const frame = async (withGizmo, hostScissor, farAfter = true) => {
+        renderer.setScissorTest(hostScissor);
+        if (hostScissor) renderer.setScissor(0, 0, W, H);
+        renderer.autoClear = true;
+        renderer.render(host, camera);
+        if (withGizmo) drawGizmo();
+        const restored = renderer.getScissorTest() === hostScissor && renderer.autoClear === true;
+        if (farAfter) {
+          renderer.autoClear = false;
+          renderer.render(far, camera);
+          renderer.autoClear = true;
+        }
+        const d = await readFrame();
+        renderer.setScissorTest(false);
+        return { d, restored };
+      };
+      /** The gizmo alone over a clear colour: pixels equal over black and over white are fully covered by it. */
+      const gizmoOver = async (color) => {
+        renderer.setClearColor(color, 1);
+        renderer.autoClear = true;
+        renderer.render(empty, camera);
+        drawGizmo();
+        const d = await readFrame();
+        renderer.setClearColor(0x000000, 0);
+        return d;
+      };
+
+      let mask;
+      const lit = (pixels, i) => pixels[i] > 8 || pixels[i + 1] > 8 || pixels[i + 2] > 8 || pixels[i + 3] > 8;
+
+      window.F = {
+        env: () => ({ backend, depth, depthActive, reversed, type, webgpuBackend: !!renderer.backend?.isWebGPUBackend, rect: R }),
+
+        /**
+         * F0's depth probe on renderInRect. outsideChanged: pixels outside the rectangle that differ from the same frame
+         * without the gizmo (must be 0). insideWrong: pixels the gizmo fully covers that do not show it over the near
+         * wall (must be 0). restored: the host's scissor test and autoClear came back.
+         */
+        async probe(hostScissor) {
+          if (!mask) {
+            const [b, w] = [await gizmoOver(0x000000), await gizmoOver(0xffffff)];
+            mask = [];
+            for (let i = 0; i < b.length; i += 4) {
+              const p = i >> 2;
+              if (inside(p % W, (p / W) | 0) && same(b, w, i, 2)) mask.push(i);
+            }
+            mask.ref = b;
+          }
+          const without = (await frame(false, hostScissor)).d;
+          const { d: withG, restored } = await frame(true, hostScissor);
+          const { d: noFar, restored: restored2 } = await frame(true, hostScissor, false);
+          let outsideChanged = 0, insideWrong = 0;
+          for (let i = 0; i < withG.length; i += 4) {
+            const p = i >> 2;
+            if (!inside(p % W, (p / W) | 0) && !same(withG, without, i, 2)) outsideChanged++;
+          }
+          for (const i of mask) if (!same(noFar, mask.ref, i, 3)) insideWrong++;
+          return { outsideChanged, insideWrong, covered: mask.length, restored: restored && restored2 };
+        },
+
+        /** P12: the host's live viewport, scissor, scissor test and autoClear, set after construction, come back. */
+        restoresLive() {
+          const read = () => ({
+            viewport: renderer.getViewport(new THREE.Vector4()).toArray(),
+            scissor: renderer.getScissor(new THREE.Vector4()).toArray(),
+            scissorTest: renderer.getScissorTest(),
+            autoClear: renderer.autoClear,
+          });
+          const cases = [];
+          for (const [viewport, scissor, scissorTest, autoClear] of [
+            [[10, 20, 300, 200], [30, 40, 100, 50], true, true],
+            [[0, 0, W, H], [5, 6, 7, 8], false, false],
+          ]) {
+            renderer.setViewport(...viewport);
+            renderer.setScissor(...scissor);
+            renderer.setScissorTest(scissorTest);
+            renderer.autoClear = autoClear;
+            const before = read();
+            drawGizmo();
+            cases.push({ before, after: read() });
+          }
+          renderer.setViewport(0, 0, W, H);
+          renderer.setScissor(0, 0, W, H);
+          renderer.setScissorTest(false);
+          renderer.autoClear = true;
+          return cases;
+        },
+
+        /**
+         * The gizmo drawn into a host render target of twice the canvas's size (a DPR 2 target), with no host code
+         * around the call. Returns lit pixels inside and outside the expected rectangle (rect × 2) and whether the
+         * target's viewport, scissor and scissor test came back.
+         */
+        async renderTarget() {
+          const S = 2, w = W * S, h = H * S;
+          const Target = backend === "webgpu" ? THREE.RenderTarget : THREE.WebGLRenderTarget;
+          const target = new Target(w, h, { depthBuffer: true });
+          target.viewport.set(1, 2, 3, 4);
+          target.scissor.set(5, 6, 7, 8);
+          target.scissorTest = false;
+          const saved = [target.viewport.toArray(), target.scissor.toArray(), target.scissorTest];
+          renderer.setRenderTarget(target);
+          renderer.setClearColor(0x000000, 0);
+          target.viewport.set(0, 0, w, h);
+          target.scissor.set(0, 0, w, h);
+          if (backend === "webgl") renderer.setRenderTarget(target); // applies the full-target viewport for the clear
+          renderer.clear();
+          target.viewport.set(1, 2, 3, 4);
+          target.scissor.set(5, 6, 7, 8);
+          if (backend === "webgl") renderer.setRenderTarget(target);
+          drawGizmo();
+          const kept = [target.viewport.toArray(), target.scissor.toArray(), target.scissorTest];
+          renderer.setRenderTarget(null);
+          let pixels;
+          if (backend === "webgl") {
+            pixels = new Uint8Array(w * h * 4);
+            await renderer.readRenderTargetPixelsAsync(target, 0, 0, w, h, pixels);
+          } else pixels = await renderer.readRenderTargetPixelsAsync(target, 0, 0, w, h);
+          let litInside = 0, litOutside = 0;
+          for (let row = 0; row < h; row++)
+            for (let x = 0; x < w; x++) {
+              // WebGL reads rows bottom-up, WebGPU top-down.
+              const y = backend === "webgl" ? h - 1 - row : row;
+              if (!lit(pixels, (row * w + x) * 4)) continue;
+              if (inside(x, y, S)) litInside++;
+              else litOutside++;
+            }
+          target.dispose();
+          return { litInside, litOutside, area: R.w * R.h * S * S, restored: JSON.stringify(kept) === JSON.stringify(saved) };
+        },
+
+        /**
+         * Draws and programs (WebGL) or pipelines (WebGPU) per gizmo draw, without and with the reset quad, after the
+         * host's frame; `gizmoPrograms` counts what the gizmo adds over the host, reset included.
+         */
+        async cost() {
+          renderer.render(host, camera);
+          const hostPrograms = programs();
+          // WebGPU counts draws per animation frame, so the count is reset by hand around each gizmo draw.
+          renderer.info.autoReset = false;
+          const measure = (visible) => {
+            reset.visible = visible;
+            renderer.render(host, camera);
+            renderer.info.reset();
+            drawGizmo();
+            return { draws: draws(), programs: programs() };
+          };
+          const without = measure(false);
+          const withReset = measure(true);
+          renderer.info.autoReset = true;
+          if (backend === "webgpu") await renderer.backend.device.queue.onSubmittedWorkDone();
+          return {
+            without,
+            withReset,
+            addedDraws: withReset.draws - without.draws,
+            addedPrograms: withReset.programs - without.programs,
+            gizmoPrograms: withReset.programs - hostPrograms,
+          };
+        },
+
+        /** `n` gizmo frames (measure and draw), for the allocation sample; the host frame is left out. */
+        async loop(n) {
+          for (let i = 0; i < n; i++) drawGizmo();
+          // Software WebGPU would grind through the queued frames after the page closes and stall the worker's next page.
+          if (backend === "webgpu") await renderer.backend.device.queue.onSubmittedWorkDone();
+          return n;
+        },
+        /** Moves the internal camera's far plane: a field-of-view change (F2) on the cube, a deeper frustum on the sphere. */
+        widen() {
+          if (gCamera.isPerspectiveCamera) setFieldOfView(gCamera, Math.PI / 3);
+          else {
+            gCamera.far = 20;
+            gCamera.updateProjectionMatrix();
+          }
+          mask = undefined;
+          return { far: gCamera.far, z: gCamera.position.z };
+        },
+      };
+      window.READY = true;
+    </script>
+  </body>
+</html>

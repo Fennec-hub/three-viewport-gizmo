@@ -1,0 +1,3 @@
+.viewport-gizmo[data-hovered] { cursor: pointer; }
+.viewport-gizmo { z-index: 1000; }
+.viewport-gizmo { border-radius: 100%; }

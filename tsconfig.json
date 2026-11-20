@@ -20,19 +20,14 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "paths": {
-      "@/*": ["./live/src/*"],
-      "@lib/*": ["./lib/*"],
-      "@docs/*": ["./docs/*"]
+      "@lib/*": ["./lib/*"]
     }
   },
-  "include": [
-    "live/src",
-    "lib/**/*.ts",
-    "docs/**/*.ts",
-    "docs/**/*.vue",
-    "docs/**/*.md"
+  "files": [
+    "lib/__tests__/publicSurface.types.test.ts",
+    "lib/__tests__/ViewportGizmo.events.test.ts",
+    "lib/controls/contract.test.ts"
   ],
-  "vueCompilerOptions": {
-    "vitePressExtensions": [".md"]
-  }
+  "include": ["lib/**/*.ts"],
+  "exclude": ["lib/**/*.test.ts", "lib/__tests__/**"]
 }

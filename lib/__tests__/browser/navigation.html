@@ -1,0 +1,111 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>I4 navigation</title>
+    <style>
+      body { margin: 0; }
+      #wrap { position: relative; width: 800px; height: 600px; }
+    </style>
+  </head>
+  <body>
+    <button id="before">before</button>
+    <div id="wrap"></div>
+    <script type="module">
+      // Browser cases for the navigation buttons (I4): `?backend=webgpu|webgl&type=cube|rounded-cube|sphere&size=&triad=
+      // &roll=true|false|free&reveal=hover|always`. A real renderer draws a host scene and the gizmo every frame.
+      const q = new URLSearchParams(location.search);
+      const backend = q.get("backend") ?? "webgpu";
+      const roll = q.get("roll") === "free" ? "free" : q.get("roll") !== "false";
+      const THREE = backend === "webgpu" ? await import("three/webgpu") : await import("three");
+      const { ViewportGizmo } = await import("/lib/index.ts");
+
+      const wrap = document.getElementById("wrap");
+      const renderer = backend === "webgpu" ? new THREE.WebGPURenderer() : new THREE.WebGLRenderer();
+      if (renderer.init) await renderer.init();
+      renderer.setSize(800, 600);
+      wrap.appendChild(renderer.domElement);
+      const scene = new THREE.Scene();
+      scene.add(new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial()));
+      const camera = new THREE.PerspectiveCamera(50, 800 / 600, 0.1, 100);
+      camera.position.set(3, 2, 4);
+      camera.lookAt(0, 0, 0);
+      const size = Number(q.get("size") ?? 128);
+      const gizmo = new ViewportGizmo(camera, renderer, {
+        container: wrap,
+        type: q.get("type") ?? "cube",
+        size,
+        // Room for the grid outside the cube's box.
+        offset: { top: 40, right: 40 },
+        roll,
+        speed: 30,
+        triad: { enabled: q.get("triad") === "true" },
+        navigation: { enabled: true, reveal: q.get("reveal") ?? "hover" },
+      });
+      renderer.setAnimationLoop(() => {
+        renderer.render(scene, camera);
+        gizmo.render();
+      });
+
+      const ends = [];
+      gizmo.addEventListener("end", (e) => ends.push({ cause: e.cause, status: e.outcome.status }));
+      const screen = (x, y) => new THREE.Vector3(x, y, 0).applyQuaternion(camera.quaternion).toArray();
+      const buttons = () => [...gizmo.domElement.querySelectorAll("[data-navigation]")];
+      const shown = () => buttons().filter((b) => !b.hidden).map((b) => b.dataset.navigation);
+      const state = () => ({
+        at: gizmo.atTarget?.target.name ?? null,
+        sides: gizmo.atTarget?.sides ? Object.fromEntries(Object.entries(gizmo.atTarget.sides).map(([k, t]) => [k, t.name])) : null,
+        shown: shown(),
+        right: screen(1, 0),
+        up: screen(0, 1),
+        focused: document.activeElement?.dataset?.navigation ?? (document.activeElement === gizmo.domElement ? "gizmo" : document.activeElement?.id),
+        last: ends.at(-1) ?? null,
+      });
+      const settled = () =>
+        new Promise((resolve) => {
+          const check = () => (gizmo.animating ? requestAnimationFrame(check) : resolve(state()));
+          requestAnimationFrame(check);
+        });
+      const look = async (name) => {
+        await gizmo.lookFrom(name, { up: "reset", animated: false });
+        return state();
+      };
+      const rect = (name) => (name ? gizmo.domElement.querySelector(`[data-navigation="${name}"]`) : gizmo.domElement).getBoundingClientRect().toJSON();
+      /** The upright direction a target looks with: the label up, or from Front at a pole (the K7 rule). */
+      const target = (n) => gizmo.targets.find((t) => t.name === n);
+
+      /**
+       * At all 26 views and 4 rolls, hovers a 5 x 5 grid over every button's 24 px box with real pointer events through
+       * the gizmo's own hit test: any target under any point is an overlap with the cube.
+       */
+      const overlaps = async () => {
+        const hits = [];
+        for (const { name } of gizmo.targets) {
+          await gizmo.lookFrom(name, { up: "reset", animated: false });
+          for (let r = 0; r < 4; r++) {
+            if (r) await gizmo.turn({ roll: Math.PI / 2, animated: false });
+            for (const b of buttons()) {
+              const box = b.getBoundingClientRect();
+              for (let i = 0; i <= 4; i++) {
+                for (let j = 0; j <= 4; j++) {
+                  const clientX = box.left + (box.width * i) / 4;
+                  const clientY = box.top + (box.height * j) / 4;
+                  b.dispatchEvent(new PointerEvent("pointermove", { bubbles: true, clientX, clientY, pointerType: "mouse", isPrimary: true }));
+                  if (gizmo.hovered) hits.push(`${name} roll ${r} ${b.dataset.navigation} ${gizmo.hovered.name}`);
+                }
+              }
+            }
+          }
+        }
+        gizmo.domElement.dispatchEvent(new PointerEvent("pointerleave", { pointerType: "mouse" }));
+        return { hits, views: gizmo.targets.length };
+      };
+      const restyle = (options) => gizmo.set(options);
+      const chip = (name) => getComputedStyle(gizmo.domElement.querySelector(`[data-navigation="${name}"] span`));
+      const paint = (name) => ({ background: chip(name).backgroundColor, ring: chip(name).boxShadow, color: getComputedStyle(gizmo.domElement.querySelector(`[data-navigation="${name}"]`)).color });
+
+      window.T = { state, settled, look, rect, overlaps, restyle, paint, target, focus: () => gizmo.domElement.focus() };
+      window.READY = true;
+    </script>
+  </body>
+</html>

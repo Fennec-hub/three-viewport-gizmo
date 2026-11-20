@@ -1,0 +1,5 @@
+---
+three-viewport-gizmo: major
+---
+
+The gizmo's draw keeps the host's frame outside its rectangle on both backends. It always scissors its own rectangle, clears nothing, and resets depth inside the rectangle with a colourless quad drawn first, so depth outside the rectangle survives for host draws after the gizmo: before, WebGL cleared the whole depth buffer when the host's scissor test was off, and WebGPU always did. It works with standard, reversed and logarithmic depth. The host's viewport, scissor, scissor test and `autoClear` are read when the gizmo draws and restored afterwards, even if the draw throws, so a viewport the host changed since the last layout pass is no longer reset to a stale one. When the renderer has a render target, the gizmo writes its rectangle to that target's `viewport` and `scissor`, scaled to the target's pixels, and restores them, so hosts no longer set them by hand. The rectangle is measured from the gizmo's element at each draw. The depth reset adds one draw per frame and, on WebGPU only, one pipeline.

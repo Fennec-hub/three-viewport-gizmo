@@ -1,0 +1,103 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>S3 axis lines</title>
+  </head>
+  <body>
+    <script type="module">
+      // Browser cases for lib/scene/axisLines.ts (S3): `?backend=webgpu|webgl`. Renders the lines alone into the
+      // gizmo's 128 px rectangle of a render target as large as the window in device pixels, as the gizmo draws into
+      // a host canvas, and counts the lit pixels across the x line.
+      // ponytail: drives lib/scene directly until K5 wires buildScene into the class.
+      import * as THREE from "three/webgpu";
+      import { resolveOptions } from "/lib/options/resolve.ts";
+      import { buildScene, disposeScene } from "/lib/scene/build.ts";
+      import { updateScene } from "/lib/scene/update.ts";
+      import { createInternalCamera } from "/lib/render/internalCamera.ts";
+
+      const q = new URLSearchParams(location.search);
+      const backend = q.get("backend") ?? "webgpu";
+      const SIZE = 128;
+      const LINE_WIDTH = 6;
+
+      const GL = backend === "webgl" ? await import("three") : null;
+      const renderer = GL ? new GL.WebGLRenderer() : new THREE.WebGPURenderer();
+      if (renderer.init) await renderer.init();
+      // ponytail: renderer internals for a test-only program or pipeline count.
+      const programs = () => (GL ? renderer.info.programs.length : renderer._pipelines.caches.size);
+
+      const resolve = (options) => resolveOptions({ size: SIZE, lineWidth: LINE_WIDTH, ...options }, { up: new THREE.Vector3(0, 1, 0) });
+      const linesOnly = (scene) => {
+        for (const { object } of scene.targets) object.visible = false;
+        scene.parts.background.object.visible = false;
+      };
+
+      const read = async (target, x, y, w, h) => {
+        if (!GL) return renderer.readRenderTargetPixelsAsync(target, x, y, w, h);
+        const buffer = new Uint8Array(w * h * 4);
+        await renderer.readRenderTargetPixelsAsync(target, x, y, w, h, buffer);
+        return buffer;
+      };
+
+      /** Width in device pixels of the x line, drawn in the gizmo's rectangle at the bottom right of a window-sized target. */
+      const measure = async (type) => {
+        const dpr = devicePixelRatio;
+        const width = Math.round(innerWidth * dpr);
+        const height = Math.round(innerHeight * dpr);
+        const s = SIZE * dpr;
+        const target = GL ? new GL.WebGLRenderTarget(width, height) : new THREE.RenderTarget(width, height);
+        // The gizmo's rectangle, as `renderer.setViewport` places it on a host canvas at this pixel ratio.
+        target.viewport.set(width - s - 16 * dpr, 16 * dpr, s, s);
+        target.scissor.copy(target.viewport);
+        target.scissorTest = true;
+        const world = new THREE.Scene();
+        const scene = buildScene(resolve({ type, x: { line: true } }));
+        linesOnly(scene);
+        world.add(scene.group);
+        const camera = createInternalCamera(type === "sphere");
+        renderer.setRenderTarget(target);
+        renderer.setClearColor(0x000000, 0);
+        renderer.clear();
+        renderer.render(world, camera);
+        renderer.setRenderTarget(null);
+        // The column a tenth of the rectangle right of its centre crosses only the x line.
+        const column = await read(target, target.viewport.x + s / 2 + s / 10, target.viewport.y, 1, s);
+        let lit = 0;
+        for (let i = 3; i < column.length; i += 4) if (column[i] > 0) lit++;
+        disposeScene(scene);
+        target.dispose();
+        return { width: lit, expected: LINE_WIDTH * dpr, window: [innerWidth, innerHeight], dpr };
+      };
+
+      /** Programs or pipelines a gizmo scene adds over a host box, and those its lines add on their own. */
+      const count = async (type) => {
+        const target = GL ? new GL.WebGLRenderTarget(SIZE, SIZE) : new THREE.RenderTarget(SIZE, SIZE);
+        const world = new THREE.Scene();
+        world.add(new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial({ color: 0x4488cc })));
+        const camera = createInternalCamera(type === "sphere");
+        const draw = () => {
+          renderer.setRenderTarget(target);
+          renderer.render(world, camera);
+          renderer.setRenderTarget(null);
+        };
+        draw();
+        const host = programs();
+        const off = Object.fromEntries(["x", "y", "z", "nx", "ny", "nz"].map((end) => [end, { line: false }]));
+        const scene = buildScene(resolve({ type, ...off }));
+        world.add(scene.group);
+        draw();
+        const withoutLines = programs();
+        updateScene(scene, resolve({ type, x: { line: true }, nx: { line: true } }));
+        draw();
+        const all = programs();
+        disposeScene(scene);
+        target.dispose();
+        return { gizmoAdded: all - host, linesAdded: all - withoutLines };
+      };
+
+      window.T = { measure, count, backend: () => (renderer.backend?.isWebGPUBackend ? "webgpu" : "webgl") };
+      window.READY = true;
+    </script>
+  </body>
+</html>

@@ -1,213 +1,206 @@
 import {
-  Camera,
-  Clock,
-  Matrix4,
-  Mesh,
-  MeshBasicMaterial,
+  EventDispatcher,
   Object3D,
-  OrthographicCamera,
-  PerspectiveCamera,
   Quaternion,
   Scene,
-  Spherical,
-  Vector2,
   Vector3,
-  Vector4,
+  type OrthographicCamera,
+  type PerspectiveCamera,
+  type Vector3Like,
   type WebGLRenderer,
 } from "three";
-
-import { gizmoDomElement, setDomPlacement } from "./utils/gizmoDomElement";
-import { getDomElement } from "./utils/getDomElement";
-import { updateAxis } from "./utils/updateAxis";
-import { isClick } from "./utils/isClick";
-import { intersectedObjects } from "./utils/intersectedObjects";
-
-import {
-  GizmoOptions,
-  ViewportGizmoEventMap,
-  GizmoAxisOptions,
-  GizmoOptionsFallback,
-  GizmoAxisObject,
-  GizmoViewportArray,
-} from "./types";
-import { GIZMO_EPSILON, GIZMO_TURN_RATE } from "./utils/constants";
-import { updateBackground } from "./utils/updateBackground";
-import type { OrbitControls } from "three/examples/jsm/Addons.js";
-import { optionsFallback } from "./utils/optionsFallback";
-import { clamp } from "three/src/math/MathUtils.js";
-import { axesObjects } from "./utils/axesObjects";
-import { axisHover } from "./utils/axisHover";
 import type { WebGPURenderer } from "three/webgpu";
 
-export type { GizmoOptions, ViewportGizmoEventMap, GizmoAxisOptions };
+import { assertControls, holdControls, readControlsLimits, refreshCameraUp } from "./controls/contract";
+import { ViewportGizmoError } from "./errors";
+import { attachPointer, forwardWheel, type PointerInput } from "./interaction/pointerSession";
+import { hitTest, sphereDiscs, type HitScene } from "./interaction/hitTest";
+import { attachKeyboard, type KeyboardInput } from "./interaction/keyboard";
+import { attachNavigation, navigationAnchor, type Navigation } from "./navigation/navigation";
+import { classifyChange } from "./options/changes";
+import { mergeOptions, resolveOptions, targetEnabled } from "./options/resolve";
+import { orbitFrameAbout, type OrbitFrame } from "./orbit/frame";
+import type { LabelFrame } from "./orbit/labelFrame";
+import { clampPose, hasAzimuthLimits, poseQuaternion, readPose, type OrbitCamera, type OrbitPose } from "./orbit/pose";
+import type { TargetEntry } from "./orbit/targets";
+import { sample, type Flight, type FlightFrame } from "./orbit/transition";
+import { planHome, planTurn, planView, restsOn, snapCardinal, TARGET_TOLERANCE, type TurnContext } from "./orbit/turn";
+import { createGizmoElement, resolveContainer, updateGizmoElement, writeGizmoState, type GizmoElementOptions } from "./render/dom";
+import { createInternalCamera, setFieldOfView } from "./render/internalCamera";
+import { createDepthReset, renderInRect, type DepthReset } from "./render/frame";
+import { measureViewport, type MutableViewport } from "./render/rect";
+import { warmUp } from "./render/warmUp";
+import { buildScene, disposeScene, type GizmoScene, type SceneTarget } from "./scene/build";
+import { cubeBox, roundedCubeBox } from "./scene/roundedBox";
+import { fadeScene, hoverScene, pointerOverScene, updateScene } from "./scene/update";
+import type {
+  GizmoAtTarget,
+  GizmoCause,
+  GizmoControls,
+  GizmoHeading,
+  GizmoLimits,
+  GizmoLookFromOptions,
+  GizmoOptions,
+  GizmoOutcome,
+  GizmoPose,
+  GizmoResolvedOptions,
+  GizmoSide,
+  GizmoTarget,
+  GizmoTurn,
+  GizmoTurnEnd,
+  GizmoView,
+  GizmoViewport,
+  ViewportGizmoEventMap,
+} from "./types";
 
-const _matrix = /*@__PURE__*/ new Matrix4();
-const _spherical = /*@__PURE__*/ new Spherical();
-const _vec2 = /*@__PURE__*/ new Vector2();
-const _vec3 = /*@__PURE__*/ new Vector3();
-const _vec4 = /*@__PURE__*/ new Vector4();
-const _positiveZQuaternion = /*@__PURE__*/ new Quaternion().setFromAxisAngle(new Vector3(0, 0, 1), Math.PI / 2);
-const _negativeZQuaternion = /*@__PURE__*/ new Quaternion().setFromAxisAngle(new Vector3(0, 0, 1), -Math.PI / 2);
+// Composition only: the class holds state, dispatches events and calls the modules. orbit/ plans every turn, drag and
+// at-target test; interaction/ owns the pointer and the hit test; render/ the element, camera and frame; options/
+// resolution and change classes; scene/ the meshes; controls/ the controls contract.
+
+/** A flight in progress: a click, key, navigation button or API turn. */
+type FlightRun = {
+  kind: "flight";
+  cause: GizmoCause;
+  heading: GizmoHeading;
+  flight: Flight;
+  /** Seconds; null until the first frame samples it, so the first frame is the start pose. */
+  started: number | null;
+  resolve: (end: GizmoTurnEnd) => void;
+};
+
+/** A drag in progress. `orbit` holds its frame and start pose; `free` (`roll: 'free'`) its last travel. */
+type DragRun = {
+  kind: "drag";
+  cause: "drag";
+  /** Radians per CSS pixel: half a turn across the element. */
+  rate: number;
+  /** Travel at the previous step, for the incremental `'free'` drag. */
+  dx: number;
+  dy: number;
+  orbit: Readonly<{ frame: OrbitFrame; from: Required<OrbitPose>; limits: GizmoLimits; up: Vector3 }> | null;
+};
+
+/** A press held on the element: where, the rectangle measured then and the target under it. */
+type Press = Readonly<{ rect: DOMRect; pressed: GizmoTarget | null }>;
+
+const REACHED: GizmoOutcome = Object.freeze({ status: "reached" });
+const cancelled = (reason: "cancel" | "pointercancel" | "disabled" | "set" | "dispose"): GizmoOutcome => ({
+  status: "cancelled",
+  reason,
+});
+
+const COS_TARGET_TOLERANCE = Math.cos(TARGET_TOLERANCE);
+const X = new Vector3(1, 0, 0);
+const Y = new Vector3(0, 1, 0);
+const SIDES: readonly GizmoSide[] = ["up", "right", "down", "left"];
+
+const _back = /*@__PURE__*/ new Vector3();
+const _up = /*@__PURE__*/ new Vector3();
+const _quaternion = /*@__PURE__*/ new Quaternion();
+const _turn = /*@__PURE__*/ new Quaternion();
+const _pose: Required<OrbitPose> = { azimuth: 0, polar: 0, roll: 0 };
+const _frame: FlightFrame = { quaternion: new Quaternion(), up: new Vector3() };
+
+const elementOptions = (o: GizmoResolvedOptions): GizmoElementOptions => ({
+  placement: o.placement,
+  size: o.size,
+  offset: o.offset,
+  id: o.id,
+  className: o.className,
+});
 
 /**
- * ViewportGizmo is a 3D camera orientation controller that provides a visual interface
- * for changing the camera's viewing angle. It creates a widget that shows the current
- * camera orientation and allows direct manipulation of the view through clicking or dragging.
- *
- * @fires ViewportGizmo#start - Fired when a view change interaction begins
- * @fires ViewportGizmo#change - Fired during view changes
- * @fires ViewportGizmo#end - Fired when a view change interaction ends
- *
- * @extends Object3D
+ * The azimuth, in the orbit frame about `w`, of the zero azimuth of `OrbitControls` (and camera-controls) whose up is
+ * `w`: they measure from +Z of the space that turns `w` onto +Y, the frame here from the label front (U5).
  */
-export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
-  /** Whether the gizmo is currently active and responding to user input */
-  enabled: boolean = true;
+function controlsAzimuthOffset(w: Readonly<Vector3>, label: LabelFrame): number {
+  const { e1, e2 } = orbitFrameAbout(w, label.front);
+  const zero = new Vector3(0, 0, 1).applyQuaternion(new Quaternion().setFromUnitVectors(w, Y).invert());
+  return Math.atan2(zero.dot(e2), zero.dot(e1));
+}
 
-  /** The camera being controlled by this gizmo */
-  camera: OrthographicCamera | PerspectiveCamera;
+/**
+ * A view-orientation controller: a cube or sphere in a corner of the host's canvas that shows the camera's orientation
+ * and turns it on a click or a drag. It extends `EventDispatcher`, not `Object3D`: its drawable is {@link root}, drawn
+ * by {@link render} with its own camera into its own rectangle.
+ *
+ * Every turn (click, drag, key, navigation button, {@link lookFrom}, {@link turn}) writes the camera through one pose
+ * write: `camera.position` at its current distance from {@link target}, `camera.quaternion` and `camera.up`, then tells
+ * the attached controls the up changed. Each one fires `start`, a `change` per frame and a balanced `end`; `invalidate`
+ * asks for a frame, so a render-on-demand host renders from it alone.
+ */
+export class ViewportGizmo extends EventDispatcher<ViewportGizmoEventMap> {
+  /** The camera it turns. Reassignable (a host swaps perspective and orthographic). */
+  camera: PerspectiveCamera | OrthographicCamera;
 
-  /** The WebGLRenderer rendering the gizmo */
-  renderer: WebGLRenderer | WebGPURenderer;
+  /** The renderer that draws the host scene and the gizmo. */
+  readonly renderer: WebGLRenderer | WebGPURenderer;
 
-  /** The configuration options */
-  options!: GizmoOptions;
+  /** The gizmo's scene object, drawn with its own camera. Never add it to a host scene: `render()` takes it back. */
+  readonly root = new Object3D();
 
-  /** The point around which the camera rotates */
-  target = new Vector3();
+  /** The orbit target. The same vector for life; copied from attached controls, never shared with them (R13). */
+  readonly target = new Vector3();
 
-  /** Whether view changes should be animated */
-  animated: boolean = true;
+  /** Styling guide revision 3: one element for life, state attributes, host CSS owns the look. */
+  readonly domElement: HTMLElement;
 
-  /** The speed of view change animations. Higher values result in faster animations */
-  speed: number = 1;
+  private _options: GizmoResolvedOptions;
+  /** The options as merged from the constructor and every `set()`, before resolution. */
+  private _raw: GizmoOptions;
+  /** The label up's default: `camera.up` at construction (R12). */
+  private readonly _defaultUp: Vector3;
+  private _scene: GizmoScene;
+  private _label: LabelFrame;
+  private _targets: readonly GizmoTarget[] = [];
+  private _byEntry = new Map<TargetEntry, SceneTarget>();
+  private _hit!: HitScene;
+  private _camera: PerspectiveCamera | OrthographicCamera;
+  private readonly _three = new Scene();
+  /** F1's depth-reset quad: a sibling of `root` in the gizmo's scene, owned by the gizmo scene. */
+  private _reset!: DepthReset;
+  private readonly _viewport: MutableViewport = { x: 0, y: 0, width: 0, height: 0 };
+  /** The orbit up `w` (L1, L2): the label up until a roll; mirrored to `camera.up` by every pose write. */
+  private readonly _up = new Vector3();
+  private _enabled = true;
+  private _hovered: GizmoTarget | null = null;
+  private _atTarget: GizmoAtTarget | null = null;
+  private _active: FlightRun | DragRun | null = null;
+  /** A press grabbed the running flight: it is held where it is until the press turns into a click or a drag. */
+  private _grabbed = false;
+  private _press: Press | null = null;
+  /** The mouse or pen over the element, for re-hovering after the view turns under it. Never touch. */
+  private _pointer: { x: number; y: number; rect: DOMRect } | null = null;
+  private _pointerOver = false;
+  private _controls: GizmoControls | null = null;
+  /** Restores the controls' `enabled` after an interaction (scope audit P4). */
+  private _release: (() => void) | null = null;
+  /** Set while the gizmo itself calls `controls.update()`, so their `change` does not come back. */
+  private _syncing = false;
+  /**
+   * The pose the gizmo last wrote, or reported in controlled mode (U4). In controlled mode it stands in for the camera
+   * while a turn runs, so a host that applies the pose late, or not at all, never changes a flight or a drag.
+   */
+  private readonly _written = { quaternion: new Quaternion(), up: new Vector3(), valid: false };
+  /** The camera orientation `update()` last saw; a change asks for a frame. */
+  private readonly _seen = new Quaternion();
+  /** The camera orientation `_sync` last mirrored; NaN after a scene change, so the next sync applies. */
+  private readonly _faded = new Quaternion(NaN, NaN, NaN, NaN);
+  /** The camera orientation the at-target state was last computed for. */
+  private readonly _atSeen = new Quaternion(NaN, NaN, NaN, NaN);
+  private readonly _input: PointerInput;
+  private readonly _stopWheel: () => void;
+  private readonly _keys: KeyboardInput;
+  /** The built-in navigation buttons while `navigation.enabled` (OD2); null adds no node. */
+  private _nav: Navigation | null = null;
+  private _disposed = false;
 
   /**
-   * Indicates whether the gizmo is currently being animated or not,
-   * Useful when interacting with other camera controllers
-   *
-   * @readonly This value is set internally.
-   **/
-  animating = false;
-
-  private _options!: GizmoOptionsFallback;
-  private _intersections!: GizmoAxisObject[];
-  private _background: Mesh<any, MeshBasicMaterial> | null = null;
-  private _viewport: GizmoViewportArray = [0, 0, 0, 0];
-  private _originalViewport: GizmoViewportArray = [0, 0, 0, 0];
-  private _originalScissor: GizmoViewportArray = [0, 0, 0, 0];
-  private _scene: Scene;
-  private _camera!: Camera;
-  private _container!: HTMLElement;
-  private _domElement!: HTMLElement;
-  private _domRect!: DOMRect;
-  private _dragging: boolean = false;
-  private _distance: number = 0;
-  private _clock: Clock = new Clock();
-  private _targetQuaternion = new Quaternion();
-  private _quaternionStart = new Quaternion();
-  private _quaternionEnd = new Quaternion();
-  private _pointerStart = new Vector2();
-  private _focus: GizmoAxisObject | null = null;
-  private _placement!: GizmoOptionsFallback["placement"];
-  private _controls?: OrbitControls;
-  private _controlsListeners?: {
-    start: () => void;
-    end: () => void;
-    change: () => void;
-  };
-
-  /**
-   * Creates a new ViewportGizmo instance.
-   *
-   * @param camera - The camera to be controlled by this gizmo
-   * @param renderer - The WebGL renderer used to render the scene
-   * @param options - {@link GizmoOptions}, Configuration options for the gizmo.
-   * @param options.container - Parent element for the gizmo. Can be an HTMLElement or a CSS selector string
-   * @param options.type - The gizmo configuration type. Either 'sphere' or 'cube', defaults to 'sphere'
-   * @param options.size - Size of the gizmo widget in pixels. Defaults to 128
-   * @param options.placement - Position of the gizmo in the viewport
-   *    Options include:
-   *    - `"top-left"`
-   *    - `"top-center"`
-   *    - `"top-right"`
-   *    - `"center-left"`
-   *    - `"center-center"`
-   *    - `"center-right"`
-   *    - `"bottom-left"`
-   *    - `"bottom-center"`
-   *    - `"bottom-right"`
-   * @param options.offset - Offset of the gizmo from container edges in pixels
-   * @param options.offset.left - Offset from the left edge
-   * @param options.offset.top - Offset from the top edge
-   * @param options.offset.right - Offset from the right edge
-   * @param options.offset.bottom - Offset from the bottom edge
-   * @param options.animated - Whether view changes should be animated. Defaults to true
-   * @param options.speed - Animation speed multiplier. Defaults to 1
-   * @param options.resolution - Texture resolution. Defaults to 64 for sphere, 128 for cube
-   * @param options.lineWidth - Width of the axes lines in pixels
-   * @param options.id - HTML `id` attribute for the gizmo container
-   * @param options.className - HTML `class` attribute for the gizmo container
-   * @param options.font - Font configuration for axis labels
-   * @param options.font.family - Font family for axis labels
-   * @param options.font.weight - Font weight for axis labels
-   * @param options.background - Configuration for the background sphere/cube
-   * @param options.background.enabled - Whether to display the background
-   * @param options.background.color - Color of the background in normal state
-   * @param options.background.opacity - Opacity of the background in normal state
-   * @param options.background.hover.color - Color of the background when hovered
-   * @param options.background.hover.opacity - Opacity of the background when hovered
-   * @param options.corners - Configuration for corner indicators
-   * @param options.corners.enabled - Whether to display corner indicators
-   * @param options.corners.color - Base color of corner indicators
-   * @param options.corners.opacity - Opacity of corner indicators
-   * @param options.corners.scale - Scale multiplier for corner indicators
-   * @param options.corners.radius - Radius of corner indicators
-   * @param options.corners.smoothness - Smoothness of corner indicators
-   * @param options.corners.hover.color - Color of corner indicators when hovered
-   * @param options.corners.hover.opacity - Opacity of corner indicators when hovered
-   * @param options.corners.hover.scale - Scale of corner indicators when hovered
-   * @param options.edges - Configuration for edge indicators
-   * @param options.edges.enabled - Whether to display edge indicators
-   * @param options.edges.color - Base color of edge indicators
-   * @param options.edges.opacity - Opacity of edge indicators
-   * @param options.edges.scale - Scale multiplier for edge indicators
-   * @param options.edges.radius - Radius of edge indicators
-   * @param options.edges.smoothness - Smoothness of edge indicators
-   * @param options.edges.hover.color - Color of edge indicators when hovered
-   * @param options.edges.hover.opacity - Opacity of edge indicators when hovered
-   * @param options.edges.hover.scale - Scale of edge indicators when hovered
-   * @param options.x - Configuration for positive X axis/face
-   * @param options.y - Configuration for positive Y axis/face
-   * @param options.z - Configuration for positive Z axis/face
-   * @param options.nx - Configuration for negative X axis/face
-   * @param options.ny - Configuration for negative Y axis/face
-   * @param options.nz - Configuration for negative Z axis/face
-   *
-   * @remarks Axis-specific configuration can also use alias names for cube mode:
-   * - `right` (same as `x`)
-   * - `left` (same as `nx`)
-   * - `top` (same as `y`)
-   * - `bottom` (same as `ny`)
-   * - `front` (same as `z`)
-   * - `back` (same as `nz`)
-   *
-   * For each axis/face configuration, the following options are available:
-   * @param options.AXIS.enabled - Whether to draw the axis
-   * @param options.AXIS.label - Custom text label for the axis
-   * @param options.AXIS.opacity - Axis opacity
-   * @param options.AXIS.scale - Scale multiplier for indicator size
-   * @param options.AXIS.line - Whether to draw the axis line
-   * @param options.AXIS.color - Axis indicator background color
-   * @param options.AXIS.labelColor - Axis label color
-   * @param options.AXIS.border.size - Border size around the axis indicator
-   * @param options.AXIS.border.color - Border color around the axis indicator
-   * @param options.AXIS.hover.color - Fill color on hover
-   * @param options.AXIS.hover.labelColor - Label text color on hover
-   * @param options.AXIS.hover.opacity - Opacity when hovered
-   * @param options.AXIS.hover.scale - Indicator scale when hovered
-   * @param options.AXIS.hover.border.size - Hover border size
-   * @param options.AXIS.hover.border.color - Hover border color
+   * @param camera - The camera to turn; its `up` at this call is the default label up
+   * @param renderer - The renderer drawing the scene; `WebGLRenderer` or `WebGPURenderer`
+   * @param options - See {@link GizmoOptions}
+   * @throws {ViewportGizmoError} `DOCUMENT_MISSING` without a `document`; `CONTAINER_MISSING`; the option codes of
+   * {@link set}
    */
   constructor(
     camera: PerspectiveCamera | OrthographicCamera,
@@ -215,530 +208,904 @@ export class ViewportGizmo extends Object3D<ViewportGizmoEventMap> {
     options: GizmoOptions = {}
   ) {
     super();
+    if (typeof document === "undefined") {
+      throw new ViewportGizmoError(
+        "DOCUMENT_MISSING",
+        "ViewportGizmo needs a `document` for its element and pointer input. Construct it in the browser's main thread, not in a worker or a server render."
+      );
+    }
 
     this.camera = camera;
     this.renderer = renderer;
-    this._scene = new Scene().add(this);
-    this.set(options);
-  }
+    // R12: the label up defaults to `camera.up`, snapped to its nearest signed axis, so a host camera left rolled or
+    // tilted (a trackball, an interrupted roll) still builds a gizmo; an explicit `up` must be a signed axis.
+    this._defaultUp = camera.up.lengthSq() > 0 ? snapCardinal(camera.up.clone().normalize()) : new Vector3(0, 1, 0);
+    this._raw = mergeOptions({}, options);
+    this._options = resolveOptions(this._raw, this._resolveContext(null));
 
-  /** Gets the current placement of the gizmo relative to its container. */
-  get placement(): GizmoOptionsFallback["placement"] {
-    return this._placement;
-  }
+    const o = this._options;
+    this._scene = buildScene(o);
+    this._label = this._scene.frame;
+    this._up.copy(this._label.up);
+    this._camera = createInternalCamera(o.type === "sphere", o.fieldOfView);
+    this._three.add(this.root);
+    this._adoptReset();
+    this._adoptScene();
 
-  /**
-   * Sets and update the placement of the gizmo relative to its container.
-   *
-   * @param placement - The new placement position
-   */
-  set placement(placement: GizmoOptionsFallback["placement"]) {
-    this._placement = setDomPlacement(this._domElement, placement);
-    this.domUpdate();
-  }
-
-  /**
-   * Regenerates the gizmo with the new options.
-   *
-   * @remarks
-   * - Not recommended for use in real-time rendering or animation loops
-   * - Provides a way to completely rebuild the gizmo with new options
-   * - Can be computationally expensive, so use sparingly
-   */
-  set(options: GizmoOptions = {}) {
-    this.dispose();
-
-    this.options = options;
-    this._options = optionsFallback(options);
-
-    this._camera = this._options.isSphere
-      ? new OrthographicCamera(-1.8, 1.8, 1.8, -1.8, 5, 10)
-      : new PerspectiveCamera(26, 1, 5, 10);
-
-    this._camera.position.set(0, 0, 7);
-
-    const [axes, background, lines] = axesObjects(this._options);
-
-    if (background) this.add(background);
-    if (lines) this.add(lines);
-    this.add(...axes);
-
-    this._background = background;
-    this._intersections = axes;
-
-    const { container, animated, speed } = this._options;
-
-    this.animated = animated;
-    this.speed = speed;
-
-    this._container = container
-      ? getDomElement(container as string)
-      : document.body;
-
-    this._domElement = gizmoDomElement(this._options);
-    this._domElement.onpointerdown = (e) => this._onPointerDown(e);
-    this._domElement.onpointermove = (e) => this._onPointerMove(e);
-    this._domElement.onpointerleave = () => this._onPointerLeave();
-
-    this._container.appendChild(this._domElement);
-
-    if (this._controls) this.attachControls(this._controls);
-
-    this.update();
-
-    return this;
-  }
-
-  /**
-   * Renders the gizmo to the screen.
-   * This method handles viewport and scissor management to ensure the gizmo
-   * renders correctly without affecting the main scene rendering.
-   *
-   * @returns The gizmo instance for method chaining
-   */
-  render() {
-    if (this.animating) this._animate();
-
-    const { renderer, _viewport } = this;
-
-    const _prevScissorTest = renderer.getScissorTest();
-    const _prevAutoClear = renderer.autoClear;
-
-    renderer.autoClear = false;
-    renderer.setViewport(..._viewport);
-    if (_prevScissorTest) renderer.setScissor(..._viewport);
-
-    renderer.clear(false, true, false);
-    renderer.render(this._scene, this._camera);
-
-    renderer.setViewport(...this._originalViewport);
-    if (_prevScissorTest) renderer.setScissor(...this._originalScissor);
-
-    renderer.autoClear = _prevAutoClear;
-
-    return this;
-  }
-
-  /**
-   * Updates the gizmo's DOM-related properties based on its current position
-   * and size in the document.
-   *
-   * @returns The gizmo instance for method chaining
-   */
-  domUpdate() {
-    this._domRect = this._domElement.getBoundingClientRect();
-
-    const renderer = this.renderer;
-    const domRect = this._domRect;
-    const containerRect = renderer.domElement.getBoundingClientRect();
-
-    this._viewport.splice(
-      0,
-      4,
-      domRect.left - containerRect.left,
-      renderer.domElement.clientHeight -
-        (domRect.top - containerRect.top + domRect.height),
-      domRect.width,
-      domRect.height
-    );
-
-    renderer.getViewport(_vec4).toArray(this._originalViewport);
-    if (renderer.getScissorTest())
-      renderer.getScissor(_vec4).toArray(this._originalScissor);
-
-    return this;
-  }
-
-  /**
-   * Updates the gizmo's orientation to match the current camera orientation.
-   *
-   * @returns The gizmo instance for method chaining
-   */
-  cameraUpdate() {
-    this._updateOrientation();
-    return this;
-  }
-
-  /**
-   * Performs a complete update of the gizmo, including both DOM and camera-related updates.
-   *
-   * @param controls - Internal. Set to `false` if the update event comes from the attached controls.
-   *
-   * @returns The gizmo instance for method chaining
-   */
-  update(controls: boolean = true) {
-    if (controls && this._controls) this._controls.update();
-    return this.domUpdate().cameraUpdate();
-  }
-
-  /**
-   * Connects OrbitControls with the gizmo, handling interaction states and updates.
-   * Automatically detaches any previously attached controls.
-   *
-   * @param controls - The scene's {@link https://threejs.org/docs/#examples/en/controls/OrbitControls OrbitControls}
-   */
-  attachControls(controls: OrbitControls) {
-    this.detachControls();
-
-    this.target = controls.target;
-
-    this._controlsListeners = {
-      start: () => (controls.enabled = false),
-      end: () => (controls.enabled = true),
-      change: () => this.update(false),
-    };
-
-    this.addEventListener("start", this._controlsListeners.start);
-    this.addEventListener("end", this._controlsListeners.end);
-    controls.addEventListener("change", this._controlsListeners.change);
-
-    this._controls = controls;
-
-    return this;
-  }
-
-  /** Removes all control event listeners and references. Safe to call multiple times. */
-  detachControls() {
-    if (!this._controlsListeners || !this._controls) return;
-
-    this.target = new Vector3().copy(this._controls.target);
-
-    this.removeEventListener("start", this._controlsListeners.start);
-    this.removeEventListener("end", this._controlsListeners.end);
-
-    this._controls.removeEventListener(
-      "change",
-      this._controlsListeners.change
-    );
-
-    this._controlsListeners = undefined;
-    this._controls = undefined;
-
-    return this;
-  }
-
-  /** Cleans up all resources including geometries, materials, textures, and event listeners. */
-  dispose() {
-    this.detachControls();
-
-    this.children.forEach((child) => {
-      this.remove(child);
-      const mesh = child as Mesh<any, MeshBasicMaterial>;
-      mesh.material?.dispose();
-      mesh.material?.map?.dispose();
-      mesh.geometry?.dispose();
+    this.domElement = createGizmoElement(elementOptions(o));
+    resolveContainer(o.container, renderer.domElement).appendChild(this.domElement);
+    this._input = attachPointer(this.domElement, {
+      press: ({ event, rect }) => this._onPress(event, rect),
+      drag: (dx, dy) => this._onDrag(dx, dy),
+      dragEnd: () => this._onDragEnd(),
+      click: (_, double) => this._onClick(double),
+      cancel: () => this._onCancel(),
+      hover: (event, rect) => this._onHover(event, rect),
     });
+    this._stopWheel = forwardWheel(this.domElement, renderer.domElement);
+    this._keys = attachKeyboard(this.domElement, this, {
+      aim: () => {
+        if (this._active?.kind !== "flight") return this._current();
+        sample(this._active.flight, Infinity, _frame);
+        return _frame.quaternion;
+      },
+      orientation: () => this._current(),
+      lookFrom: (view) => this._lookFrom("key", view),
+      turn: (turn) => this._turn("key", turn),
+    });
+    this._navigate();
 
-    this._domElement?.remove();
+    this._seen.copy(camera.quaternion);
+    this._sync();
+    this._refreshAtTarget(true);
+    this._writeState();
+    measureViewport(renderer, this.domElement, this._viewport);
+  }
+
+  // --- Read-only state -------------------------------------------------------------------------------------------
+
+  /** The options as resolved. Changed only through {@link set}. */
+  get options(): GizmoResolvedOptions {
+    return this._options;
+  }
+
+  /** All 26 targets in the label frame, built for every type; a hidden target stays in the list. */
+  get targets(): readonly GizmoTarget[] {
+    return this._targets;
+  }
+
+  /** Display-only when false (U10, `data-disabled`). Setting it false ends hover, any press and any turn. */
+  get enabled(): boolean {
+    return this._enabled;
+  }
+
+  set enabled(value: boolean) {
+    if (value === this._enabled) return;
+    this._enabled = value;
+    if (!value) {
+      this._input.release();
+      this._press = null;
+      if (this._active) this._finish(cancelled("disabled"));
+      this._unholdIfIdle();
+      this._pointer = null;
+      this._setPointerOver(false);
+      this._setHover(null);
+    }
+    this._writeState();
+    this._invalidate();
+  }
+
+  /** The orbit up: the label up until the view is rolled (L4). */
+  get up(): Readonly<Vector3> {
+    return this._up;
+  }
+
+  /** Whether roll commands work: the resolved `roll` is not `false` (L4). */
+  get canRoll(): boolean {
+    return this._options.roll !== false;
+  }
+
+  /** The target under the mouse or pen, or null. */
+  get hovered(): GizmoTarget | null {
+    return this._hovered;
+  }
+
+  /** Whether a drag on the gizmo is turning the view. */
+  get dragging(): boolean {
+    return this._active?.kind === "drag";
+  }
+
+  /** Whether a flight is running. */
+  get animating(): boolean {
+    return this._active?.kind === "flight";
+  }
+
+  /** Where the current flight is going; null when none runs. */
+  get heading(): GizmoHeading | null {
+    return this._active?.kind === "flight" ? this._active.heading : null;
+  }
+
+  /** The target the view rests on; null while dragging or animating (roll rulings 2 and B). */
+  get atTarget(): GizmoAtTarget | null {
+    return this._atTarget;
+  }
+
+  /** The gizmo's rectangle as {@link render} last measured it. */
+  get viewport(): GizmoViewport {
+    return this._viewport;
+  }
+
+  // --- Commands ---------------------------------------------------------------------------------------------------
+
+  /**
+   * Merges `options` into the current options (R8). Cheap changes update in place; structural ones rebuild `root`'s
+   * children and cancel a turn in progress (`cancelled`, reason `set`). Nothing changes when it throws.
+   *
+   * @param options - A partial; an explicit `undefined` returns a key to its default
+   * @throws {ViewportGizmoError} `UNKNOWN_OPTION`, `INVALID_OPTION`, `REMOVED_OPTION`, `INVALID_FRAME`,
+   * `ROLL_UNSUPPORTED`, `DISPOSED`
+   */
+  set(options: GizmoOptions): void {
+    this._assertLive();
+    const merged = mergeOptions(this._raw, options);
+    const next = resolveOptions(merged, this._resolveContext(this._controls));
+    this._raw = merged;
+    this._apply(next);
   }
 
   /**
-   * Updates the gizmo's orientation either based on the camera or internal state.
+   * Turns to a view: a target name, `home` (Top Front Right, upright in the label frame) or a direction from the target
+   * toward the camera. A named face or edge entered at a pole follows `poleEntry`.
    *
-   * @private
-   * @param fromCamera - Whether to update based on camera orientation (true) or internal state (false)
+   * @returns Resolves with the `end` payload; rejects only for a caller mistake (`UNKNOWN_VIEW`, `DISPOSED`)
    */
-  private _updateOrientation(fromCamera: boolean = true) {
-    if (fromCamera) {
-      this.quaternion.copy(this.camera.quaternion).invert();
-      this.updateMatrixWorld();
+  lookFrom(view: GizmoView, options: GizmoLookFromOptions = {}): Promise<GizmoTurnEnd> {
+    return this._lookFrom("api", view, options);
+  }
+
+  private _lookFrom(cause: GizmoCause, view: GizmoView, options: GizmoLookFromOptions = {}): Promise<GizmoTurnEnd> {
+    try {
+      this._assertLive();
+      if (typeof options !== "object" || options === null) {
+        throw new ViewportGizmoError(
+          "REMOVED_OPTION",
+          "`lookFrom(view, animate)` is the 2.x form. Pass `lookFrom(view, { animated })`."
+        );
+      }
+      const direction = view === "home" ? null : this._directionOf(view);
+      const context = this._context(options.animated);
+      const flight = direction
+        ? planView(context, direction, { reset: options.up === "reset" })
+        : planHome(context);
+      return this._fly(cause, flight);
+    } catch (error) {
+      return Promise.reject(error);
+    }
+  }
+
+  /**
+   * A relative turn: toward the face on a side of the screen, or by angles in the orbit frame (U9, L6, ruling B). A
+   * roll while {@link canRoll} is false resolves `unavailable` with reason `roll-off`, and fires no event.
+   *
+   * @returns Resolves with the `end` payload; rejects only for a caller mistake (`INVALID_TURN`, `DISPOSED`)
+   */
+  turn(turn: GizmoTurn): Promise<GizmoTurnEnd> {
+    return this._turn("api", turn);
+  }
+
+  private _turn(cause: GizmoCause, turn: GizmoTurn): Promise<GizmoTurnEnd> {
+    try {
+      this._assertLive();
+      assertTurn(turn);
+      const flight = planTurn(this._context(turn.animated), turn);
+      if (!flight) {
+        return Promise.resolve({
+          cause,
+          pose: this._pose(),
+          outcome: { status: "unavailable", reason: "roll-off" },
+        });
+      }
+      return this._fly(cause, flight);
+    } catch (error) {
+      return Promise.reject(error);
+    }
+  }
+
+  /** Stops the flight or drag where it is: `end` with `cancelled`, reason `cancel`. */
+  cancel(): void {
+    this._assertLive();
+    if (this._active?.kind === "drag" || this._grabbed) {
+      this._input.release();
+      this._press = null;
+    }
+    if (this._active) this._finish(cancelled("cancel"));
+    this._unholdIfIdle();
+  }
+
+  /**
+   * Connects controls (R13): their `target` is copied in on attach and on each `change`, they are disabled while the
+   * gizmo turns the view and restored to their previous `enabled` after, and told after every `camera.up` write.
+   *
+   * @throws {ViewportGizmoError} `INVALID_OPTION` for controls without the contract's members; `ROLL_UNSUPPORTED` for
+   * `roll: true` with controls that cannot take a new up
+   */
+  attachControls(controls: GizmoControls): void {
+    this._assertLive();
+    assertControls(controls);
+    const next = resolveOptions(this._raw, this._resolveContext(controls));
+    this.detachControls();
+    this._controls = controls;
+    this.target.copy(controls.target);
+    controls.addEventListener("change", this._onControlsChange);
+    if (this._active || this._press) this._hold();
+    this._apply(next);
+  }
+
+  /** Disconnects the controls and restores their previous `enabled` (R13). Safe to call with none attached. */
+  detachControls(): void {
+    this._assertLive();
+    const controls = this._controls;
+    if (!controls) return;
+    this._release?.();
+    this._release = null;
+    controls.removeEventListener("change", this._onControlsChange);
+    this._controls = null;
+    this._apply(resolveOptions(this._raw, this._resolveContext(null)));
+  }
+
+  /**
+   * Syncs from the camera: the gizmo's orientation, the at-target state and hover under a still pointer; asks for a
+   * frame when the camera turned. Steps no controls, so it is safe inside a controls `change` (R6, T #22).
+   */
+  update(): void {
+    this._assertLive();
+    const turned = !this._seen.equals(this.camera.quaternion);
+    if (turned) this._seen.copy(this.camera.quaternion);
+    this._sync();
+    if (!this._active) this._refreshAtTarget(false);
+    this._rehover();
+    if (turned) this._invalidate();
+  }
+
+  /** Advances the flight and draws into the gizmo's rectangle over the host's frame (R6). */
+  render(): void {
+    this._assertLive();
+    const active = this._active;
+    if (active?.kind === "flight" && !this._grabbed) this._step(active);
+    this._sync();
+    // ponytail: a host that parented `root` loses it here; without this its gizmo would draw nothing (probe P3).
+    if (this.root.parent !== this._three) this._three.add(this.root);
+    measureViewport(this.renderer, this.domElement, this._viewport);
+    this._nav?.place();
+    renderInRect(this.renderer, this._three, this._camera, this._viewport, this._reset);
+  }
+
+  /** Compiles the gizmo's own scene and camera for the renderer's current render target (P6). */
+  compile(): Promise<void> {
+    try {
+      this._assertLive();
+    } catch (error) {
+      return Promise.reject(error);
+    }
+    if (this.root.parent !== this._three) this._three.add(this.root);
+    return warmUp(this.renderer, this._three, this._camera);
+  }
+
+  /**
+   * Ends a turn or drag in progress (`cancelled`, reason `dispose`) while the controls still hear it, detaches them,
+   * removes the element and its listeners, and frees exactly what the gizmo created. Later calls throw `DISPOSED`.
+   */
+  dispose(): void {
+    if (this._disposed) return;
+    this._input.release();
+    this._press = null;
+    if (this._active) this._finish(cancelled("dispose"));
+    this.detachControls();
+    this._input.detach();
+    this._stopWheel();
+    this._keys.detach();
+    this._nav?.detach();
+    this._reset.removeFromParent();
+    disposeScene(this._scene);
+    this._three.remove(this.root);
+    this.domElement.remove();
+    this._disposed = true;
+  }
+
+  // --- Pointer ----------------------------------------------------------------------------------------------------
+
+  private _onPress(event: PointerEvent, rect: DOMRect): boolean {
+    if (!this._enabled) return false;
+    const pressed = this._hitAt(event.clientX, event.clientY, rect);
+    // A press grabs a running flight (R5): it holds where it is until the press turns out a click or a drag.
+    if (this._active?.kind === "flight") this._grabbed = true;
+    this._press = { rect, pressed };
+    if (event.pointerType !== "touch") this._pointer = { x: event.clientX, y: event.clientY, rect };
+    // The host's controls sit out the whole press, so a second finger on the canvas cannot turn the view meanwhile.
+    this._hold();
+    this.dispatchEvent({ type: "press", pressed });
+    return true;
+  }
+
+  private _onDrag(dx: number, dy: number): void {
+    const press = this._press;
+    if (!press || !this._options.drag) return;
+    let run = this._active?.kind === "drag" ? this._active : null;
+
+    if (!run) {
+      if (this._grabbed) this._finish({ status: "interrupted", by: "drag" }, true);
+      this._setHover(null);
+      const w = this._gestureUp();
+      let orbit: DragRun["orbit"] = null;
+      if (this._options.roll !== "free") {
+        const frame = orbitFrameAbout(w, this._label.front);
+        orbit = { frame, from: readPose(this._view(), frame, this.target), limits: this._limits(w), up: w.clone() };
+      }
+      run = { kind: "drag", cause: "drag", rate: Math.PI / press.rect.width, dx: 0, dy: 0, orbit };
+      this._active = run;
+      this._begin("drag", null);
     }
 
-    updateAxis(this._options, this._intersections, this.camera);
+    const { rate, orbit } = run;
+    if (orbit) {
+      // Orbit about the gesture's up from where the drag started; a roll residual the start had stays (no snap).
+      _pose.azimuth = orbit.from.azimuth - dx * rate;
+      _pose.polar = orbit.from.polar - dy * rate;
+      _pose.roll = Math.abs(orbit.from.roll) < 1e-6 ? 0 : orbit.from.roll;
+      poseQuaternion(clampPose(_pose, orbit.limits), orbit.frame, _quaternion);
+      this._write(_quaternion, _pose.roll ? _up.set(0, 1, 0).applyQuaternion(_quaternion) : orbit.up);
+    } else {
+      // `roll: 'free'` (free orbit): a trackball turn by this step's travel about the screen's axes; the
+      // orbit up follows the screen up.
+      _quaternion
+        .copy(this._current())
+        .multiply(_turn.setFromAxisAngle(Y, -(dx - run.dx) * rate))
+        .multiply(_turn.setFromAxisAngle(X, -(dy - run.dy) * rate));
+      run.dx = dx;
+      run.dy = dy;
+      this._write(_quaternion, _up.set(0, 1, 0).applyQuaternion(_quaternion));
+      this._up.copy(_up);
+    }
+
+    this.dispatchEvent({ type: "change", cause: "drag", heading: null, pose: this._pose() });
+    this._invalidate();
   }
 
-  /**
-   * Handles the animation of camera position and orientation changes.
-   *
-   * @private
-   */
-  private _animate() {
-    const { position, quaternion } = this.camera;
+  private _onDragEnd(): void {
+    this._press = null;
+    if (this._active?.kind === "drag") this._finish(REACHED);
+    else if (this._grabbed) this._finish({ status: "interrupted", by: "drag" });
+    this._unholdIfIdle();
+  }
 
-    position.set(0, 0, 1);
+  private _onClick(double: boolean): void {
+    const press = this._press;
+    this._press = null;
+    if (!press) return;
+    const grabbed = this._grabbed && this._active?.kind === "flight" ? this._active : null;
+    const o = this._options;
+    let flight: Flight | null = null;
 
-    if (!this.animated) {
-      position
-        .applyQuaternion(this._quaternionEnd)
-        .multiplyScalar(this._distance)
-        .add(this.target);
+    if (double && (o.roll !== false || grabbed)) {
+      // Roll ruling 3: a double-click returns to upright on the view the first click turned to, never to the opposite
+      // and never back. With roll off there is no up to reset: the second click keeps the first one's turn.
+      const direction =
+        grabbed?.heading.pose.direction ?? this._atTarget?.target.direction ?? this._pose().direction;
+      flight = planView(this._context(undefined), direction, { reset: o.roll !== false });
+    } else if (press.pressed && targetEnabled(o, press.pressed)) {
+      flight = planView(this._context(undefined), press.pressed.direction, {
+        oppositeOnRepeat: o.oppositeOnRepeat && !double,
+      });
+    }
 
-      quaternion.copy(this._targetQuaternion);
+    if (flight) void this._fly("click", flight);
+    else if (grabbed) this._finish({ status: "interrupted", by: "click" });
+    this._unholdIfIdle();
+  }
 
-      this._updateOrientation();
+  private _onCancel(): void {
+    this._press = null;
+    if (this._active?.kind === "drag" || this._grabbed) this._finish(cancelled("pointercancel"));
+    this._unholdIfIdle();
+  }
 
-      this.animating = false;
-      this.dispatchEvent({ type: "change" });
-      this.dispatchEvent({ type: "end" });
+  private _onHover(event: PointerEvent | null, rect: DOMRect): void {
+    if (!this._enabled) return;
+    if (!event) {
+      this._pointer = null;
+      this._setPointerOver(false);
+      this._setHover(null);
       return;
     }
+    this._pointer = { x: event.clientX, y: event.clientY, rect };
+    this._setPointerOver(true);
+    this._setHover(this._hitAt(event.clientX, event.clientY, rect));
+  }
 
-    if (this._controls) this._controls.enabled = false;
+  private readonly _onControlsChange = (): void => {
+    if (this._syncing || !this._controls) return;
+    this.target.copy(this._controls.target);
+    this.update();
+  };
 
-    const delta = this._clock.getDelta();
+  // --- Turns --------------------------------------------------------------------------------------------------------
 
-    const step = delta * GIZMO_TURN_RATE * this.speed;
-
-    this._quaternionStart.rotateTowards(this._quaternionEnd, step);
-
-    position
-      .applyQuaternion(this._quaternionStart)
-      .multiplyScalar(this._distance)
-      .add(this.target);
-
-    quaternion.rotateTowards(this._targetQuaternion, step);
-
-    this._updateOrientation();
-    // FIXME - Need fix?
-    requestAnimationFrame(() => this.dispatchEvent({ type: "change" }));
-
-    if (this._quaternionStart.angleTo(this._quaternionEnd) < GIZMO_EPSILON) {
-      if (this._controls) {
-        // Normalize the camera position to a vector of magnitude 1.
-        const normalizedCameraPosition = this.camera.position.clone().sub(this.target).normalize();
-        // After concluding the animation, we need to manually set the camera position to
-        // prevent the camera from rotating around the Z-axis for Z-up and X-up systems.
-        // These explicit checks are necessary due to the JavaScript quirk of having both +0.0 and -0.0.
-        if (Object3D.DEFAULT_UP.z === 1 && Math.abs(normalizedCameraPosition.z) > 0.99) {
-          // With Z-up, the Y vector is -0.0 which causes the camera to rotate around the Z-axis by 90 degrees.
-          // We need to manually set the position vector with Y vector of a true negative epsilon to prevent this.
-          this.camera.position.set(0, -GIZMO_EPSILON, this.camera.position.z);
-        } else if (Object3D.DEFAULT_UP.x === 1 && Math.abs(normalizedCameraPosition.x) > 0.99) {
-          // With X-up, the Y vector is +0.0 which causes the camera to rotate around the X-axis by 90 degrees.
-          // We need to manually set the position vector with X vector of a true positive epsilon to prevent this.
-          this.camera.position.set(this.camera.position.x, GIZMO_EPSILON, 0);
-        }
-        this._controls.update();
-        this._controls.enabled = true;
-      }
-
-      this.animating = false;
-      this.dispatchEvent({ type: "end" });
+  /** Starts a flight, ending one in progress as `interrupted` by `cause`. A turn that takes no time ends in the call. */
+  private _fly(cause: GizmoCause, flight: Flight): Promise<GizmoTurnEnd> {
+    const heading = this._headingOf(flight);
+    if (this._active?.kind === "drag") {
+      this._input.release();
+      this._press = null;
     }
+    if (this._active) this._finish({ status: "interrupted", by: cause }, true);
+
+    let resolve!: (end: GizmoTurnEnd) => void;
+    const promise = new Promise<GizmoTurnEnd>((r) => (resolve = r));
+    const run: FlightRun = { kind: "flight", cause, heading, flight, started: null, resolve };
+    this._active = run;
+    this._begin(cause, heading);
+    if (flight.duration === 0) this._step(run);
+    else this._invalidate();
+    return promise;
+  }
+
+  /** One frame of the flight at `performance.now()`; ends it on its last frame. */
+  private _step(run: FlightRun): void {
+    const now = performance.now() / 1000;
+    run.started ??= now;
+    const finished = sample(run.flight, now - run.started, _frame);
+    this._write(_frame.quaternion, _frame.up);
+    this.dispatchEvent({ type: "change", cause: run.cause, heading: run.heading, pose: this._pose() });
+    if (!finished) {
+      this._invalidate();
+      return;
+    }
+    this._up.copy(run.flight.up);
+    this._finish(REACHED);
+  }
+
+  /** Disables the attached controls, once, until {@link _unholdIfIdle} or the end of the turn. */
+  private _hold(): void {
+    if (this._controls && !this._release) this._release = holdControls(this._controls);
+  }
+
+  /** Gives the controls their `enabled` back when no press is held and no turn runs. */
+  private _unholdIfIdle(): void {
+    if (this._press || this._active || !this._release) return;
+    this._release();
+    this._release = null;
+  }
+
+  private _begin(cause: GizmoCause, heading: GizmoHeading | null): void {
+    this._hold();
+    this._setAtTarget(null);
+    this._writeState();
+    this.dispatchEvent({ type: "start", cause, heading });
   }
 
   /**
-   * Sets the camera orientation to look at the target from a specific axis.
-   *
-   * @private
-   * @param position - The axis point position
+   * Ends the turn or drag in progress with `outcome`. Unless another takes over at once (`handover`), the controls
+   * sync from the camera and get their `enabled` back, and the at-target state is recomputed.
    */
-  private _setOrientation(position: Vector3) {
-    const camera = this.camera;
-    const focusPoint = this.target;
+  private _finish(outcome: GizmoOutcome, handover = false): void {
+    const run = this._active;
+    if (!run) return;
+    const pose = this._pose();
+    this._active = null;
+    // A handover continues from the reported pose; at rest the camera is the truth again.
+    if (!handover) this._written.valid = false;
+    this._grabbed = false;
 
-    _vec3.copy(position).multiplyScalar(this._distance);
-
-    _matrix.setPosition(_vec3).lookAt(_vec3, this.position, this.up);
-    this._targetQuaternion.setFromRotationMatrix(_matrix);
-
-    _vec3.add(focusPoint);
-
-    _matrix.lookAt(_vec3, focusPoint, this.up);
-    this._quaternionEnd.setFromRotationMatrix(_matrix);
-
-    _matrix
-      .setPosition(camera.position)
-      .lookAt(camera.position, focusPoint, this.up);
-    this._quaternionStart.setFromRotationMatrix(_matrix);
-
-    // For Z-up and X-up systems, when rotating to the top or bottom, we need to apply
-    // a final rotational twist to correctly align the gizmo's "Top" or "Bottom" face.
-    if (Object3D.DEFAULT_UP.z === 1 && Math.abs(position.z) > 0.99) {
-      const zSign = Math.sign(position.z);
-      this._targetQuaternion.multiply(zSign === 1 ? _negativeZQuaternion : _positiveZQuaternion);
-      this._quaternionEnd.multiply(zSign === 1 ? _negativeZQuaternion : _positiveZQuaternion);
-    } else if (Object3D.DEFAULT_UP.x === 1 && Math.abs(position.x) > 0.99) {
-      const xSign = Math.sign(position.x);
-      this._targetQuaternion.multiply(xSign === 1 ? _negativeZQuaternion : _positiveZQuaternion);
-      this._quaternionEnd.multiply(xSign === 1 ? _negativeZQuaternion : _positiveZQuaternion);
+    const controls = this._controls;
+    // Controlled mode wrote no camera, so the controls have nothing to sync from: the host syncs them (U4).
+    if (!handover && controls && !this._options.controlled) {
+      // camera-controls keeps its own pose: hand it the one the gizmo wrote before it is enabled again.
+      this._syncing = true;
+      try {
+        controls.update();
+      } finally {
+        this._syncing = false;
+      }
+      if (!this._press) {
+        this._release?.();
+        this._release = null;
+      }
     }
+    if (!handover && controls && this._options.controlled && !this._press) {
+      this._release?.();
+      this._release = null;
+    }
+    if (!handover) this._refreshAtTarget(true);
+    this._writeState();
 
-    this.animating = true;
-    this._clock.start();
-    this.dispatchEvent({ type: "start" });
+    const end: GizmoTurnEnd = { cause: run.cause, pose, outcome };
+    this.dispatchEvent({ type: "end", ...end });
+    this._keys.ended(end);
+    if (run.kind === "flight") run.resolve(end);
+    if (!handover) this._invalidate();
   }
 
   /**
-   * Handles the pointer down event for starting drag operations.
-   *
-   * @private
-   * @param e - The pointer event
+   * The one pose write (I7): orientation, position at the camera's current distance from the target, and `camera.up`
+   * (L2); the controls hear about an up change.
    */
-  private _onPointerDown(e: PointerEvent) {
-    if (!this.enabled) return;
+  private _write(quaternion: Readonly<Quaternion>, up: Readonly<Vector3>): void {
+    this._written.quaternion.copy(quaternion);
+    this._written.up.copy(up);
+    this._written.valid = true;
+    if (this._options.controlled) return; // U4: the pose goes out in `change`; the host writes the camera
+    const { camera, target } = this;
+    const distance = camera.position.distanceTo(target);
+    camera.quaternion.copy(quaternion);
+    camera.position.copy(target).addScaledVector(_back.set(0, 0, 1).applyQuaternion(quaternion), distance);
+    if (!camera.up.equals(up)) {
+      camera.up.copy(up);
+      if (this._controls) refreshCameraUp(this._controls);
+    }
+    this._seen.copy(quaternion);
+    this._sync();
+    this._rehover();
+  }
 
-    const drag = (e: PointerEvent) => {
-      if (!this._dragging) {
-        if (isClick(e, this._pointerStart)) return;
-        this._dragging = true;
-      }
+  /** What a plan starts from (O2). With `roll` on, the orbit up is read from `camera.up` at the gesture's start (L2). */
+  private _context(animated: boolean | undefined): TurnContext {
+    const o = this._options;
+    const w = this._gestureUp();
+    return {
+      camera: this._view(),
+      target: this.target,
+      up: w,
+      label: this._label,
+      roll: o.roll,
+      poleEntry: o.poleEntry,
+      limits: this._limits(roll(o) ? snapCardinal(w, this._label.up) : this._label.up),
+      speed: (animated ?? o.animated) ? o.speed : Infinity,
+    };
+  }
 
-      const pointerAngle = _vec2
-        .set(e.clientX, e.clientY)
-        .sub(this._pointerStart)
-        .multiplyScalar((1 / this._domRect.width) * Math.PI);
+  private _gestureUp(): Vector3 {
+    const up = this._reported() ? this._written.up : this.camera.up;
+    if (roll(this._options) && up.lengthSq() > 0) this._up.copy(up).normalize();
+    else if (!roll(this._options)) this._up.copy(this._label.up);
+    return this._up;
+  }
 
-      const direction = this.coordinateConversion(
-        _vec3.subVectors(this.camera.position, this.target)
+  /**
+   * The limits in the orbit frame about `w`: the `limits` option, narrowed by the attached controls' polar limits, and
+   * the controls' azimuth limits turned into this frame when the option sets none (U5).
+   *
+   * ponytail: the controls' azimuth zero is taken about `w`, which is exact while their up is `w` (roll off, or after
+   * the up refresh); a frame about another up gets a turned window.
+   */
+  private _limits(w: Readonly<Vector3>): GizmoLimits {
+    const own = this._options.limits;
+    if (!this._controls) return own;
+    const theirs = readControlsLimits(this._controls);
+    const offset = hasAzimuthLimits(theirs) ? controlsAzimuthOffset(w, this._label) : 0;
+    const azimuth = hasAzimuthLimits(own)
+      ? own
+      : hasAzimuthLimits(theirs)
+        ? { minAzimuthAngle: theirs.minAzimuthAngle! + offset, maxAzimuthAngle: theirs.maxAzimuthAngle! + offset }
+        : own;
+    return {
+      minPolarAngle: Math.max(own.minPolarAngle, theirs.minPolarAngle ?? 0),
+      maxPolarAngle: Math.min(own.maxPolarAngle, theirs.maxPolarAngle ?? Math.PI),
+      minAzimuthAngle: azimuth.minAzimuthAngle,
+      maxAzimuthAngle: azimuth.maxAzimuthAngle,
+    };
+  }
+
+  /** Where `flight` ends: its pose, and the target it rests on there. */
+  private _headingOf(flight: Flight): GizmoHeading {
+    sample(flight, Infinity, _frame);
+    const quaternion = _frame.quaternion;
+    const direction = new Vector3(0, 0, 1).applyQuaternion(quaternion);
+    return { target: this._restingTarget(quaternion, direction), pose: { direction, up: _frame.up.clone() } };
+  }
+
+  private _directionOf(view: GizmoView): Vector3 {
+    if (typeof view === "string") {
+      const target = this._targets.find((candidate) => candidate.name === view);
+      if (target) return target.direction.clone();
+      throw new ViewportGizmoError(
+        "UNKNOWN_VIEW",
+        `\`${view}\` is not a view. Pass \`home\`, a target name such as \`top-front-right\`, or a direction vector.`
       );
-
-      const spherical = _spherical.setFromVector3(direction);
-
-      spherical.theta = initialTheta - pointerAngle.x;
-      spherical.phi = clamp(
-        initialPhi - pointerAngle.y,
-        GIZMO_EPSILON,
-        Math.PI - GIZMO_EPSILON
+    }
+    const { x, y, z } = (view ?? {}) as Partial<Vector3Like>;
+    const direction = new Vector3(x, y, z);
+    if (![x, y, z].every(Number.isFinite) || direction.lengthSq() === 0) {
+      throw new ViewportGizmoError(
+        "UNKNOWN_VIEW",
+        "`lookFrom` needs a non-zero direction with finite x, y and z, a target name or `home`."
       );
+    }
+    return direction.normalize();
+  }
 
-      this.coordinateConversion(
-        this.camera.position.setFromSpherical(spherical),
-        true
-      ).add(this.target);
+  // --- State --------------------------------------------------------------------------------------------------------
 
-      this.camera.lookAt(this.target);
+  /** The target the view with orientation `quaternion` rests on, if any; `direction` is its line of sight. */
+  private _restingTarget(quaternion: Readonly<Quaternion>, direction: Readonly<Vector3>): GizmoTarget | null {
+    for (const target of this._targets) {
+      if (direction.dot(target.direction) < COS_TARGET_TOLERANCE) continue;
+      return restsOn(quaternion, target.direction) ? target : null;
+    }
+    return null;
+  }
 
-      this.quaternion.copy(this.camera.quaternion).invert();
+  /**
+   * Observes the pose: recomputes the at-target state and the accessible name when the camera turned since the last
+   * time, or always when `force`. Every pose the gizmo did not turn to itself (a host's controls, a host-applied or
+   * persisted pose, controlled mode, `set()`) reaches the name here, through {@link _setAtTarget}.
+   */
+  private _refreshAtTarget(force: boolean): void {
+    const { quaternion } = this.camera;
+    if (!force && this._atSeen.equals(quaternion)) return;
+    this._atSeen.copy(quaternion);
+    const target = this._restingTarget(quaternion, _back.set(0, 0, 1).applyQuaternion(quaternion));
+    if (!target) return this._setAtTarget(null);
+    let sides: Record<GizmoSide, GizmoTarget> | null = null;
+    if (target.kind === "face") {
+      const right = new Vector3(1, 0, 0).applyQuaternion(quaternion);
+      const up = new Vector3(0, 1, 0).applyQuaternion(quaternion);
+      const face = (side: Vector3) => {
+        const direction = snapCardinal(side);
+        return this._targets.find((t) => t.kind === "face" && t.direction.distanceTo(direction) < 1e-6)!;
+      };
+      sides = { up: face(up), right: face(right), down: face(up.negate()), left: face(right.negate()) };
+    }
+    this._setAtTarget({ target, sides });
+  }
 
-      this._updateOrientation(false);
-      this.dispatchEvent({ type: "change" });
+  /**
+   * Sets the at-target state and names the view. The name is derived on every call, not only when the target changes:
+   * off a target it names the nearest one, and at a target it carries the roll, so a turn that keeps the target (none
+   * to none, or a roll at an edge) still renames it. It is rewritten only when it changed.
+   */
+  private _setAtTarget(next: GizmoAtTarget | null): void {
+    const key = (at: GizmoAtTarget | null) =>
+      at ? [at.target.name, ...SIDES.map((side) => at.sides?.[side].name)].join() : "";
+    const changed = key(next) !== key(this._atTarget);
+    // Kept even when unchanged: after `set()` the same view is a new target object with the new options' label.
+    this._atTarget = next;
+    this._keys.name(next?.target ?? null);
+    if (!changed) return;
+    this._nav?.refresh();
+    this.dispatchEvent({ type: "attargetchange", atTarget: next });
+  }
+
+  private _hitAt(clientX: number, clientY: number, rect: DOMRect): GizmoTarget | null {
+    this._sync();
+    const x = ((clientX - rect.left) / rect.width) * 2 - 1;
+    const y = 1 - ((clientY - rect.top) / rect.height) * 2;
+    const entry = hitTest(x, y, this._hit);
+    return entry ? this._byEntry.get(entry)!.target : null;
+  }
+
+  /** Re-hovers under a still mouse after the view turned (G0 rule). */
+  private _rehover(): void {
+    const pointer = this._pointer;
+    if (!pointer || this._press || this._active?.kind === "drag") return;
+    this._setHover(this._hitAt(pointer.x, pointer.y, pointer.rect));
+  }
+
+  private _setHover(target: GizmoTarget | null): void {
+    if ((this._hovered?.name ?? null) === (target?.name ?? null)) return;
+    this._hovered = target;
+    hoverScene(this._scene, target?.name ?? null);
+    this._writeState();
+    this.dispatchEvent({ type: "hoverchange", hovered: target });
+    this._invalidate();
+  }
+
+  private _setPointerOver(over: boolean): void {
+    if (over === this._pointerOver) return;
+    this._pointerOver = over;
+    pointerOverScene(this._scene, over);
+    this._invalidate();
+  }
+
+  private _writeState(): void {
+    writeGizmoState(this.domElement, {
+      hovered: this._hovered?.kind ?? null,
+      dragging: this._active?.kind === "drag",
+      disabled: !this._enabled,
+    });
+    this._keys.refresh();
+    this._nav?.refresh();
+  }
+
+  /** Adds or removes the navigation buttons to match `navigation.enabled`, and restyles them from the options. */
+  private _navigate(): void {
+    const on = this._options.navigation.enabled;
+    if (on && !this._nav) {
+      this._nav = attachNavigation(this.domElement, this, {
+        lookFrom: (view) => this._lookFrom("navigation", view),
+        turn: (turn) => this._turn("navigation", turn),
+        // The measured height once rendered (CSS may resize the element), else the size option.
+        anchor: () => navigationAnchor(this._camera, this._scene.group.scale.x, this._viewport.height || this._options.size),
+      });
+    } else if (!on && this._nav) {
+      this._nav.detach();
+      this._nav = null;
+    }
+    this._nav?.restyle();
+  }
+
+  /** Turns the gizmo to mirror the camera, and the sphere's depth fade when the camera turned. Allocates nothing. */
+  private _sync(): void {
+    const { quaternion } = this.camera;
+    if (this._faded.equals(quaternion)) return;
+    this._faded.copy(quaternion);
+    this.root.quaternion.copy(quaternion).invert();
+    fadeScene(this._scene, quaternion);
+  }
+
+  /** Whether the reported pose stands in for the camera: controlled mode, during a turn or a handover (U4). */
+  private _reported(): boolean {
+    return this._options.controlled && this._written.valid;
+  }
+
+  /** The orientation a turn continues from. */
+  private _current(): Readonly<Quaternion> {
+    return this._reported() ? this._written.quaternion : this.camera.quaternion;
+  }
+
+  /** The camera as a plan reads it: the reported pose at the camera's distance in controlled mode. */
+  private _view(): OrbitCamera {
+    if (!this._reported()) return this.camera;
+    const distance = this.camera.position.distanceTo(this.target);
+    const quaternion = this._written.quaternion.clone();
+    return { quaternion, position: _back.set(0, 0, 1).applyQuaternion(quaternion).multiplyScalar(distance).add(this.target).clone() };
+  }
+
+  private _pose(): GizmoPose {
+    return {
+      direction: new Vector3(0, 0, 1).applyQuaternion(this._current()),
+      up: (this._reported() ? this._written.up : this.camera.up).clone(),
+    };
+  }
+
+  private _invalidate(): void {
+    this.dispatchEvent({ type: "invalidate" });
+  }
+
+  // --- Options and scene --------------------------------------------------------------------------------------------
+
+  private _resolveContext(controls: GizmoControls | null) {
+    return { up: this._defaultUp, controls };
+  }
+
+  /** Applies resolved options by their change class (N1): in place when cheap, a rebuild when structural. */
+  private _apply(next: GizmoResolvedOptions): void {
+    const previous = this._options;
+    const change = classifyChange(previous, next);
+    this._options = next;
+    if (!change) return;
+
+    if (change === "structural") {
+      if (this._active) this._finish(cancelled("set"));
+      this._input.release();
+      this._press = null;
+      this._setHover(null);
+      this._reset.removeFromParent();
+      disposeScene(this._scene);
+      this._scene = buildScene(next);
+      this._adoptReset();
+      this._camera = createInternalCamera(next.type === "sphere", next.fieldOfView);
+      const label = this._scene.frame;
+      if (!label.up.equals(this._label.up) || !label.front.equals(this._label.front)) this._up.copy(label.up);
+      this._label = label;
+      this._pointerOver = false;
+    } else {
+      updateScene(this._scene, next);
+      setFieldOfView(this._camera, next.fieldOfView);
+    }
+    this._adoptScene();
+    this._faded.set(NaN, NaN, NaN, NaN);
+    // Every change rebuilds the target list (labels come from the options), so the at-target state and the name are
+    // derived again even when the camera did not turn.
+    this._atSeen.set(NaN, NaN, NaN, NaN);
+
+    updateGizmoElement(this.domElement, elementOptions(next), elementOptions(previous));
+    if (next.container !== previous.container) {
+      resolveContainer(next.container, this.renderer.domElement).appendChild(this.domElement);
+    }
+    this._navigate();
+    this._sync();
+    // Mid-turn the at-target state is null and is not observed until the turn ends, so name the view from the rebuilt
+    // targets here; otherwise observe the pose as usual.
+    if (this._active) this._keys.name(null);
+    else this._refreshAtTarget(false);
+    this._rehover();
+    this._writeState();
+    this._invalidate();
+  }
+
+  /** Creates the depth reset for the current scene, freed with it, and puts it beside `root` (F1). */
+  private _adoptReset(): void {
+    this._reset = createDepthReset(this._scene.owned);
+    this._three.add(this._reset);
+  }
+
+  /** Puts the scene under `root` and builds what reads it: the target list, the hit scene and the redraw signal. */
+  private _adoptScene(): void {
+    const scene = this._scene;
+    const o = this._options;
+    if (scene.group.parent !== this.root) this.root.add(scene.group);
+    this._targets = scene.targets.map((t) => t.target);
+    this._byEntry = new Map(scene.targets.map((t) => [t.entry, t]));
+    // S2/S6: a late web font redraws the labels and the triad's letters in place; the host needs a frame.
+    scene.labels.onRedraw = () => {
+      scene.parts.triad.update(scene.options, scene.pointerOver);
+      this._invalidate();
     };
 
-    const endDrag = () => {
-      document.removeEventListener("pointermove", drag, false);
-      document.removeEventListener("pointerup", endDrag, false);
-
-      if (!this._dragging) return this._handleClick(e);
-
-      if (this._focus) {
-        axisHover(this._focus, false);
-        this._focus = null;
-      }
-
-      this._dragging = false;
-      this.dispatchEvent({ type: "end" });
+    const entries = scene.targets.map((t) => t.entry);
+    const shape =
+      o.type === "sphere"
+        ? sphereDiscs(entries, (entry) => {
+            const { end } = this._byEntry.get(entry)!;
+            return (end ? o[end] : entry.kind === "edge" ? o.edges : o.corners).scale / 2;
+          })
+        : // The hit box only: `corners.hitSize` and `edges.hitSize` change it without rebuilding a mesh.
+          o.type === "cube"
+          ? cubeBox({ corners: o.corners.hitSize, edges: o.edges.hitSize })
+          : roundedCubeBox(o.radius, { corners: o.corners.hitSize, edges: o.edges.hitSize });
+    const group = scene.group;
+    this._hit = {
+      orientation: this.root.quaternion,
+      camera: this._camera,
+      shape,
+      targets: entries,
+      enabled: (entry) => targetEnabled(this._options, entry),
+      get scale() {
+        return group.scale.x;
+      },
     };
-
-    if (this.animating) return;
-
-    e.preventDefault();
-    this._pointerStart.set(e.clientX, e.clientY);
-
-    const direction = this.coordinateConversion(
-      _vec3.subVectors(this.camera.position, this.target)
-    );
-
-    const initialSpherical = _spherical.setFromVector3(direction);
-    const initialTheta = initialSpherical.theta;
-    const initialPhi = initialSpherical.phi;
-    this._distance = initialSpherical.radius;
-
-    document.addEventListener("pointermove", drag, false);
-    document.addEventListener("pointerup", endDrag, false);
-
-    this.dispatchEvent({ type: "start" });
   }
 
-  /**
-   * Converts the input-coordinates from the standard Y-axis up to what is set in Object3D.DEFAULT_UP.
-   *
-   * @private
-   * @param target      - The target Vector3 to be converted
-   * @param isSpherical - Whether or not the coordinates are for a sphere
-   * @returns The converted coordinates
-   */
-  private coordinateConversion(target: Vector3, isSpherical = false) {
-    const { x, y, z } = target;
-
-    const defaultUp = Object3D.DEFAULT_UP;
-
-    if (defaultUp.x === 1)
-      return isSpherical ? target.set(y, z, x) : target.set(z, x, y);
-
-    if (defaultUp.z === 1)
-      return isSpherical ? target.set(z, x, y) : target.set(y, z, x);
-
-    return target;
-  }
-
-  /**
-   * Handles pointer move events for hover effects and drag operations.
-   *
-   * @private
-   * @param e - The pointer event
-   */
-  private _onPointerMove(e: PointerEvent) {
-    if (!this.enabled || this._dragging) return;
-
-    if (this._background) updateBackground(this._background, true);
-
-    this._handleHover(e);
-  }
-
-  /**
-   * Handles pointer leave events to reset hover states.
-   *
-   * @private
-   */
-  private _onPointerLeave() {
-    if (!this.enabled || this._dragging) return;
-
-    if (this._background) updateBackground(this._background, false);
-    if (this._focus) axisHover(this._focus, false);
-
-    this._domElement.style.cursor = "";
-  }
-
-  /**
-   * Handles click events for axis selection.
-   *
-   * @private
-   * @param e - The pointer event
-   */
-  private _handleClick(e: PointerEvent) {
-    const intersection = intersectedObjects(
-      e,
-      this._domRect,
-      this._camera,
-      this._intersections
-    );
-
-    if (this._focus) {
-      axisHover(this._focus, false);
-      this._focus = null;
+  private _assertLive(): void {
+    if (this._disposed) {
+      throw new ViewportGizmoError("DISPOSED", "This ViewportGizmo was disposed. Construct a new one.");
     }
-
-    if (!intersection) return;
-
-    this._setOrientation(intersection.object.position);
-
-    this.dispatchEvent({ type: "change" });
   }
+}
 
-  /**
-   * Handles hover effects for interactive elements.
-   *
-   * @private
-   * @param e - The pointer event
-   */
-  private _handleHover(e: PointerEvent) {
-    const intersection = intersectedObjects(
-      e,
-      this._domRect,
-      this._camera,
-      this._intersections
+/** Whether the orbit up follows `camera.up`: `roll` on or `'free'`. */
+const roll = (o: GizmoResolvedOptions) => o.roll !== false;
+
+/** Checks a `turn` request from JavaScript. */
+function assertTurn(turn: GizmoTurn): void {
+  const t = (turn ?? {}) as Partial<Record<"toward" | "azimuth" | "polar" | "roll", unknown>>;
+  const angles = (["azimuth", "polar", "roll"] as const).filter((key) => t[key] !== undefined);
+  const ok =
+    typeof turn === "object" &&
+    turn !== null &&
+    (t.toward !== undefined
+      ? SIDES.includes(t.toward as GizmoSide) && angles.length === 0
+      : angles.length > 0 && angles.every((key) => typeof t[key] === "number" && Number.isFinite(t[key])));
+  if (!ok) {
+    throw new ViewportGizmoError(
+      "INVALID_TURN",
+      "`turn` takes `{ toward: 'up' | 'right' | 'down' | 'left' }` or finite radians in `azimuth`, `polar` or `roll`, not both."
     );
-
-    const object = intersection?.object || null;
-
-    if (this._focus === object) return;
-
-    this._domElement.style.cursor = object ? "pointer" : "";
-
-    if (this._focus) axisHover(this._focus, false);
-
-    if ((this._focus = object)) axisHover(object, true);
-    else updateAxis(this._options, this._intersections, this.camera);
   }
+}
+
+/** 2.x members a JavaScript caller may still reach: each throws `REMOVED_MEMBER` naming its 3.0 replacement (R6). */
+const REMOVED_MEMBERS: Readonly<Record<string, string>> = {
+  domUpdate: "`domUpdate()` is gone: `render()` measures the gizmo's rectangle itself.",
+  cameraUpdate: "`cameraUpdate()` is gone: call `update()` after moving the camera without attached controls.",
+  placement: "`placement` is an option now: call `set({ placement })` and read `options.placement`.",
+  animated: "`animated` is an option now: call `set({ animated })` and read `options.animated`.",
+  speed: "`speed` is an option now: call `set({ speed })` and read `options.speed`.",
+};
+
+for (const [name, message] of Object.entries(REMOVED_MEMBERS)) {
+  const removed = () => {
+    throw new ViewportGizmoError("REMOVED_MEMBER", message);
+  };
+  Object.defineProperty(ViewportGizmo.prototype, name, { get: removed, set: removed, configurable: true });
 }

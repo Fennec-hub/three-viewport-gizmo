@@ -1,64 +1,48 @@
-# Sample workflow for building and deploying a VitePress site to GitHub Pages
-#
-name: Deploy VitePress site to Pages
+# Builds the Next.js docs site (static export in site/out) and deploys it to GitHub Pages.
+name: Deploy docs site to Pages
 
 on:
-  # Runs on pushes targeting the `main` branch. Change this to `master` if you're
-  # using the `master` branch as the default branch.
   push:
     branches: [main]
-
-  # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
-# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
-# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
+# One deployment at a time; never cancel a production deployment in progress.
 concurrency:
   group: pages
   cancel-in-progress: false
 
 jobs:
-  # Build job
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          fetch-depth: 0 # Not needed if lastUpdated is not enabled
-      # - uses: pnpm/action-setup@v3 # Uncomment this block if you're using pnpm
-      #   with:
-      #     version: 9 # Not needed if you've set "packageManager" in package.json
-      # - uses: oven-sh/setup-bun@v1 # Uncomment this if you're using Bun
-      - name: Setup Node
-        uses: actions/setup-node@v4
+          persist-credentials: false
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup
         with:
-          node-version: 20
-          cache: npm # or pnpm / yarn
+          node-version: '26.7.0'
       - name: Setup Pages
         uses: actions/configure-pages@v4
-      - name: Install dependencies
-        run: npm ci # or pnpm install / yarn install / bun install
-      - name: Build with VitePress
-        run: npm run docs:build # or pnpm docs:build / yarn docs:build / bun run docs:build
+      - name: Build the site
+        run: npm run docs:build
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: docs/.vitepress/dist
+          path: site/out
 
-  # Deployment job
   deploy:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     name: Deploy
     steps:
       - name: Deploy to GitHub Pages

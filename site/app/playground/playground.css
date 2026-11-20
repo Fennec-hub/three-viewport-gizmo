@@ -1,0 +1,42 @@
+/*
+ * Keeps the viewport in view while the controls scroll: the controls column is far taller than the screen, so without
+ * this, reaching a lower control leaves the gizmo above the fold and its effect unseen. `--playground-top` is the
+ * sticky site header's measured height (set by the playground).
+ */
+.playground-stage-column {
+  position: sticky;
+  top: calc(var(--playground-top, 3rem) + 0.75rem);
+  align-self: start;
+}
+
+@media (max-width: 860px) {
+  /* One column: only the viewport sticks, so the buttons and controls scroll beneath it. */
+  .playground-stage-column {
+    display: contents;
+  }
+
+  .playground .playground-stage-column > .stage {
+    position: sticky;
+    top: var(--playground-top, 3rem);
+    z-index: 1;
+    height: 40vh;
+    min-height: 240px;
+  }
+
+  /* A control scrolled into view by focus or Tab lands below the sticky viewport, not under it. */
+  .playground .controls * {
+    scroll-margin-top: calc(var(--playground-top, 3rem) + max(40vh, 240px) + 0.5rem);
+  }
+}
+
+@media (min-width: 861px) {
+  /* Short screens: shrink the viewport so the whole sticky column, buttons included, still fits. */
+  .playground .playground-stage-column > .stage {
+    height: min(70vh, 640px, calc(100vh - var(--playground-top, 3rem) - 9rem));
+    min-height: 280px;
+  }
+
+  .playground .controls * {
+    scroll-margin-top: calc(var(--playground-top, 3rem) + 0.5rem);
+  }
+}
