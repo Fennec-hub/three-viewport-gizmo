@@ -109,39 +109,61 @@ export function bindingFor(event: KeyboardEvent): KeyBinding | undefined {
   return face ? { offered: always, run: (_, a) => a.lookFrom(face) } : undefined;
 }
 
+/** What the accessible name says: the target it names, and at a target the roll in quarter turns; -1 off a target. */
+type Named = { target: GizmoTarget; quarters: number };
+
+const ROLLED = ["", ", rolled 90° clockwise", ", rolled 180°", ", rolled 90° counter-clockwise"] as const;
+const _back = new Vector3();
+const _upright = new Vector3();
+const _screenUp = new Vector3();
+const _cross = new Vector3();
+
+/** The target named `name`; every label frame has all six faces. */
+function byName(targets: readonly GizmoTarget[], name: GizmoFaceName): GizmoTarget {
+  for (const target of targets) if (target.name === name) return target;
+  throw new Error(`No ${name} target`);
+}
+
 /**
- * The accessible name: the view and the roll. At a target, its label and, when rolled from its upright (`up: 'reset'`)
- * pose, ", rolled 90° clockwise", ", rolled 180°" or ", rolled 90° counter-clockwise"; off a target, "Near " and the
- * nearest target's label.
+ * The accessible name's parts, a pure function of the targets, the at-target state and the orientation, written into
+ * `out`. At a target, the target and its roll from its upright (`up: 'reset'`) pose in quarter turns; off a target,
+ * the nearest target and -1 ("Near "). Allocates nothing, so the gizmo derives it on every observed turn and spells
+ * the name ({@link spell}) only when a part changes.
  *
  * @param at - The target the view rests on, or null
  * @param orientation - The camera's orientation
  */
-export function accessibleName(
-  targets: readonly GizmoTarget[],
-  at: GizmoTarget | null,
-  orientation: Readonly<Quaternion>
-): string {
-  const back = new Vector3(0, 0, 1).applyQuaternion(orientation);
-  if (!at) return `Near ${nearest(targets, back).label}`;
-  const named = (name: string) => targets.find((t) => t.name === name)!.direction;
-  const top = named("top");
+function nameOf(targets: readonly GizmoTarget[], at: GizmoTarget | null, orientation: Readonly<Quaternion>, out: Named): Named {
+  if (!at) {
+    out.target = nearest(targets, _back.set(0, 0, 1).applyQuaternion(orientation));
+    out.quarters = -1;
+    return out;
+  }
+  const top = byName(targets, "top").direction;
   const d = at.direction;
   // Upright: the label up on screen; at a pole, entered from Front (the Front face below Top, above Bottom).
-  const upright =
-    Math.abs(d.dot(top)) < 0.99
-      ? top.clone().addScaledVector(d, -d.dot(top)).normalize()
-      : named("front").clone().multiplyScalar(d.dot(top) > 0 ? -1 : 1);
-  const screenUp = new Vector3(0, 1, 0).applyQuaternion(orientation);
-  const angle = Math.atan2(new Vector3().crossVectors(upright, screenUp).dot(d), upright.dot(screenUp));
-  const quarters = ((Math.round(angle / QUARTER) % 4) + 4) % 4;
-  return at.label + ["", ", rolled 90° clockwise", ", rolled 180°", ", rolled 90° counter-clockwise"][quarters];
+  if (Math.abs(d.dot(top)) < 0.99) _upright.copy(top).addScaledVector(d, -d.dot(top)).normalize();
+  else _upright.copy(byName(targets, "front").direction).multiplyScalar(d.dot(top) > 0 ? -1 : 1);
+  _screenUp.set(0, 1, 0).applyQuaternion(orientation);
+  const angle = Math.atan2(_cross.crossVectors(_upright, _screenUp).dot(d), _upright.dot(_screenUp));
+  out.target = at;
+  out.quarters = ((Math.round(angle / QUARTER) % 4) + 4) % 4;
+  return out;
 }
+
+/** The accessible name: the label, then ", rolled 90° clockwise", ", rolled 180°" or ", rolled 90° counter-clockwise" at a target; "Near " and the label off one. */
+const spell = ({ target, quarters }: Readonly<Named>) =>
+  quarters < 0 ? `Near ${target.label}` : target.label + ROLLED[quarters];
 
 /** Keyboard operation on the gizmo's element. */
 export type KeyboardInput = {
-  /** Rewrites `tabindex`, `aria-disabled`, `aria-roledescription` and `aria-label` from the host's state. */
-  refresh(at: GizmoTarget | null): void;
+  /** Rewrites `tabindex`, `aria-disabled` and `aria-roledescription` from the host's state. */
+  refresh(): void;
+  /**
+   * Names the view: derives the accessible name from `at` and the orientation now, and rewrites `aria-label` only
+   * when the name changed. Allocates nothing when it did not. The gizmo calls it wherever it observes the pose.
+   */
+  name(at: GizmoTarget | null): void;
   /** After each `end`, once the name is written: announces a reached key or navigation turn. */
   ended(end: GizmoTurnEnd): void;
   /** Removes the listeners and the status child; the attributes stay with the element. */
@@ -185,13 +207,23 @@ export function attachKeyboard(element: HTMLElement, gizmo: KeyboardGizmo, actio
   element.addEventListener("keydown", keydown);
   element.addEventListener("mousedown", mousedown);
 
+  // The name written last, by its parts: a new target object (a rebuilt target list) or roll rewrites it.
+  const written: { target: GizmoTarget | null; quarters: number } = { target: null, quarters: Number.NaN };
+  const derived: Named = { target: gizmo.targets[0], quarters: -1 };
+
   return {
-    refresh(at) {
+    refresh() {
       element.tabIndex = gizmo.enabled ? 0 : -1;
       if (gizmo.enabled) element.removeAttribute("aria-disabled");
       else element.setAttribute("aria-disabled", "true");
       element.setAttribute("aria-roledescription", gizmo.options.type === "sphere" ? "view sphere" : "view cube");
-      element.setAttribute("aria-label", accessibleName(gizmo.targets, at, actions.orientation()));
+    },
+    name(at) {
+      const named = nameOf(gizmo.targets, at, actions.orientation(), derived);
+      if (named.target === written.target && named.quarters === written.quarters) return;
+      written.target = named.target;
+      written.quarters = named.quarters;
+      element.setAttribute("aria-label", spell(named));
     },
     ended({ cause, outcome }) {
       if ((cause !== "key" && cause !== "navigation") || outcome.status !== "reached") return;

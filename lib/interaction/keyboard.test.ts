@@ -301,3 +301,103 @@ describe("key map (K2)", () => {
     expect(name(gizmo)).toBe(`Near ${target(gizmo, "front").label}`);
   });
 });
+
+/** The host moves the camera itself (a persisted pose, its own controls, controlled mode) and tells the gizmo. */
+const hostLooksFrom = (gizmo: ViewportGizmo, direction: Vector3, up = axis(0, 1, 0)) => {
+  const { camera } = gizmo;
+  camera.up.copy(up);
+  camera.position.copy(direction).normalize().multiplyScalar(5);
+  camera.lookAt(0, 0, 0);
+  gizmo.update();
+};
+
+describe("the name follows the pose the gizmo observes (F3)", () => {
+  // The default Tau view sits off every target, near Top Front Right; a saved pose near another target is adopted
+  // later, through `update()`, before or after the first render. The at-target state stays null throughout.
+  for (const controlled of [false, true]) {
+    it(`${controlled ? "controlled" : "uncontrolled"}: a pose adopted off a target, before the first render, renames the view`, () => {
+      // Tau's default view: off every target, nearest Top Front Right.
+      const gizmo = createGizmo({
+        cameraPosition: axis(1, 1.1, 0.9).multiplyScalar(5),
+        gizmoOptions: { type: "cube", roll: true, animated: false, controlled },
+      });
+      expect(gizmo.atTarget).toBeNull();
+      expect(name(gizmo)).toBe(`Near ${target(gizmo, "top-front-right").label}`);
+      hostLooksFrom(gizmo, axis(0.1, 0.05, 1));
+      expect(gizmo.atTarget).toBeNull();
+      expect(name(gizmo)).toBe(`Near ${target(gizmo, "front").label}`);
+      hostLooksFrom(gizmo, axis(-1, 0.1, -0.08));
+      expect(name(gizmo)).toBe(`Near ${target(gizmo, "left").label}`);
+      gizmo.dispose();
+    });
+  }
+
+  it("a pose the camera already holds at construction is named for it (adopted before attach)", () => {
+    const gizmo = createGizmo({
+      cameraPosition: axis(-1, 0.1, -0.08).multiplyScalar(5),
+      gizmoOptions: { type: "cube", controlled: true },
+    });
+    expect(name(gizmo)).toBe(`Near ${target(gizmo, "left").label}`);
+    gizmo.dispose();
+  });
+
+  it("a host roll at an edge renames the view though it rests on the same target", () => {
+    const gizmo = make();
+    const edge = target(gizmo, "front-right");
+    hostLooksFrom(gizmo, edge.direction.clone(), axis(0, 1, 0));
+    expect(at(gizmo)).toBe("front-right");
+    expect(name(gizmo)).toBe(edge.label);
+    hostLooksFrom(gizmo, edge.direction.clone(), axis(0, -1, 0));
+    expect(at(gizmo)).toBe("front-right");
+    expect(name(gizmo)).toBe(`${edge.label}, rolled 180°`);
+    gizmo.dispose();
+  });
+
+  it("a host turn that changes no name writes no name: the label is rebuilt only when it changes", () => {
+    const gizmo = make();
+    hostLooksFrom(gizmo, axis(0.1, 0.05, 1));
+    const element = gizmo.domElement;
+    const writes = vi.spyOn(element, "setAttribute");
+    for (let i = 1; i <= 30; i++) hostLooksFrom(gizmo, axis(0.1 + i * 0.002, 0.05, 1));
+    expect(writes.mock.calls.filter(([attribute]) => attribute === "aria-label")).toEqual([]);
+    expect(name(gizmo)).toBe(`Near ${target(gizmo, "front").label}`);
+    gizmo.dispose();
+  });
+
+  it("an unturned camera renames nothing on update()", () => {
+    const gizmo = make();
+    const writes = vi.spyOn(gizmo.domElement, "setAttribute");
+    for (let i = 0; i < 10; i++) gizmo.update();
+    expect(writes).not.toHaveBeenCalled();
+    gizmo.dispose();
+  });
+
+  it("set() that relabels the faces renames the view without a turn", () => {
+    const gizmo = make();
+    void gizmo.lookFrom("front");
+    const changes = vi.fn();
+    gizmo.addEventListener("attargetchange", changes);
+    gizmo.set({ front: { label: "Face A" } });
+    expect(name(gizmo)).toBe("Face A");
+    // The at-target state reads the rebuilt target list; the view did not change, so no at-target change is sent.
+    expect(gizmo.atTarget?.target).toBe(target(gizmo, "front"));
+    expect(gizmo.atTarget?.target.label).toBe("Face A");
+    expect(changes).not.toHaveBeenCalled();
+    gizmo.dispose();
+  });
+
+  it("set() that relabels the nearest face during a turn renames the view before the turn ends", () => {
+    // Animated, so the turn is still in flight: the camera has not moved before the first frame, and the name
+    // written at the start of the turn is "Near" the face it starts from.
+    const gizmo = createGizmo({
+      cameraPosition: axis(0.1, 0.05, 1).multiplyScalar(5),
+      gizmoOptions: { type: "cube", animated: true },
+    });
+    void gizmo.lookFrom("top");
+    expect(gizmo.atTarget).toBeNull();
+    expect(name(gizmo)).toBe(`Near ${target(gizmo, "front").label}`);
+    gizmo.set({ front: { label: "Face A" } });
+    expect(name(gizmo)).toBe("Near Face A");
+    gizmo.dispose();
+  });
+});

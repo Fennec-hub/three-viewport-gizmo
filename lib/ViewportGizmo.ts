@@ -834,7 +834,11 @@ export class ViewportGizmo extends EventDispatcher<ViewportGizmoEventMap> {
     return null;
   }
 
-  /** Recomputes the at-target state when the camera turned since the last time, or always when `force`. */
+  /**
+   * Observes the pose: recomputes the at-target state and the accessible name when the camera turned since the last
+   * time, or always when `force`. Every pose the gizmo did not turn to itself (a host's controls, a host-applied or
+   * persisted pose, controlled mode, `set()`) reaches the name here, through {@link _setAtTarget}.
+   */
   private _refreshAtTarget(force: boolean): void {
     const { quaternion } = this.camera;
     if (!force && this._atSeen.equals(quaternion)) return;
@@ -854,12 +858,19 @@ export class ViewportGizmo extends EventDispatcher<ViewportGizmoEventMap> {
     this._setAtTarget({ target, sides });
   }
 
+  /**
+   * Sets the at-target state and names the view. The name is derived on every call, not only when the target changes:
+   * off a target it names the nearest one, and at a target it carries the roll, so a turn that keeps the target (none
+   * to none, or a roll at an edge) still renames it. It is rewritten only when it changed.
+   */
   private _setAtTarget(next: GizmoAtTarget | null): void {
     const key = (at: GizmoAtTarget | null) =>
       at ? [at.target.name, ...SIDES.map((side) => at.sides?.[side].name)].join() : "";
-    if (key(next) === key(this._atTarget)) return;
+    const changed = key(next) !== key(this._atTarget);
+    // Kept even when unchanged: after `set()` the same view is a new target object with the new options' label.
     this._atTarget = next;
-    this._keys.refresh(next?.target ?? null);
+    this._keys.name(next?.target ?? null);
+    if (!changed) return;
     this._nav?.refresh();
     this.dispatchEvent({ type: "attargetchange", atTarget: next });
   }
@@ -901,7 +912,7 @@ export class ViewportGizmo extends EventDispatcher<ViewportGizmoEventMap> {
       dragging: this._active?.kind === "drag",
       disabled: !this._enabled,
     });
-    this._keys.refresh(this._atTarget?.target ?? null);
+    this._keys.refresh();
     this._nav?.refresh();
   }
 
@@ -987,13 +998,15 @@ export class ViewportGizmo extends EventDispatcher<ViewportGizmoEventMap> {
       if (!label.up.equals(this._label.up) || !label.front.equals(this._label.front)) this._up.copy(label.up);
       this._label = label;
       this._pointerOver = false;
-      this._atSeen.set(NaN, NaN, NaN, NaN);
     } else {
       updateScene(this._scene, next);
       setFieldOfView(this._camera, next.fieldOfView);
     }
     this._adoptScene();
     this._faded.set(NaN, NaN, NaN, NaN);
+    // Every change rebuilds the target list (labels come from the options), so the at-target state and the name are
+    // derived again even when the camera did not turn.
+    this._atSeen.set(NaN, NaN, NaN, NaN);
 
     updateGizmoElement(this.domElement, elementOptions(next), elementOptions(previous));
     if (next.container !== previous.container) {
@@ -1001,7 +1014,10 @@ export class ViewportGizmo extends EventDispatcher<ViewportGizmoEventMap> {
     }
     this._navigate();
     this._sync();
-    if (!this._active) this._refreshAtTarget(false);
+    // Mid-turn the at-target state is null and is not observed until the turn ends, so name the view from the rebuilt
+    // targets here; otherwise observe the pose as usual.
+    if (this._active) this._keys.name(null);
+    else this._refreshAtTarget(false);
     this._rehover();
     this._writeState();
     this._invalidate();
